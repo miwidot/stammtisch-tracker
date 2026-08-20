@@ -115,7 +115,6 @@
               :aria-label="$t('common.account')"
             >
               <ProfileSharingCard />
-              <DiscordLinkCard />
               <AccountDeletionCard />
               <div v-if="isAdmin" class="flex justify-center pt-4">
                 <NuxtLink
@@ -148,26 +147,6 @@
               <DataManagementCard view="backup" :session="dataManagementSession" />
               <DebugStateCard />
             </section>
-            <section
-              v-if="visitedTabs.api"
-              v-show="activeTab === 'api'"
-              id="api"
-              class="scroll-mt-24 space-y-4"
-              role="tabpanel"
-              :aria-label="$t('common.api')"
-            >
-              <ApiTokensCard />
-            </section>
-            <section
-              v-if="visitedTabs['streamer-tools']"
-              v-show="activeTab === 'streamer-tools'"
-              id="streamer-tools"
-              class="scroll-mt-24 space-y-4"
-              role="tabpanel"
-              :aria-label="$t('common.streamer_tools')"
-            >
-              <StreamerToolsPanel />
-            </section>
           </div>
         </div>
       </div>
@@ -176,10 +155,8 @@
 </template>
 <script setup lang="ts">
   import AccountDeletionCard from '@/features/settings/AccountDeletionCard.vue';
-  import ApiTokensCard from '@/features/settings/ApiTokensCard.vue';
   import DataManagementCard from '@/features/settings/DataManagementCard.vue';
   import DebugStateCard from '@/features/settings/DebugStateCard.vue';
-  import DiscordLinkCard from '@/features/settings/DiscordLinkCard.vue';
   import DisplayNameCard from '@/features/settings/DisplayNameCard.vue';
   import ExperienceCard from '@/features/settings/ExperienceCard.vue';
   import GeneralPreferencesCard from '@/features/settings/GeneralPreferencesCard.vue';
@@ -191,7 +168,6 @@
   import SkillsCard from '@/features/settings/SkillsCard.vue';
   import TaskDisplayCard from '@/features/settings/TaskDisplayCard.vue';
   import { useDataManagementSession } from '@/features/settings/useDataManagementSession';
-  import StreamerToolsPanel from '@/features/streamer-tools/StreamerToolsPanel.vue';
   import { useSystemStore, useSystemStoreWithSupabase } from '@/stores/useSystemStore';
   import { useTarkovStore } from '@/stores/useTarkov';
   import { GAME_MODES } from '@/utils/constants';
@@ -206,14 +182,7 @@
   const systemStore = useSystemStore();
   const tarkovStore = useTarkovStore();
   type SettingsTabId =
-    | 'progression'
-    | 'prestige'
-    | 'preferences'
-    | 'account'
-    | 'imports'
-    | 'backup-restore'
-    | 'api'
-    | 'streamer-tools';
+    'progression' | 'prestige' | 'preferences' | 'account' | 'imports' | 'backup-restore';
   const settingsTabIds = [
     'progression',
     'prestige',
@@ -221,8 +190,6 @@
     'imports',
     'backup-restore',
     'account',
-    'api',
-    'streamer-tools',
   ] as const;
   const settingsRouteTabs: Partial<Record<string, SettingsTabId>> = {
     '/progression': 'progression',
@@ -237,8 +204,6 @@
     account: '#account',
     imports: '#imports',
     'backup-restore': '#backup-restore',
-    api: '#api',
-    'streamer-tools': '#streamer-tools',
   };
   const nestedTabHashes: Record<string, SettingsTabId> = {
     '#skills': 'progression',
@@ -274,8 +239,6 @@
     account: 'account',
     imports: 'imports',
     'backup-restore': 'backup_restore',
-    api: 'api',
-    'streamer-tools': 'streamer_tools',
   };
   const dataManagementSession = useDataManagementSession();
   const isSettingsTabId = (value: unknown): value is SettingsTabId => {
@@ -325,8 +288,6 @@
     imports: t('settings.tabs.imports'),
     'backup-restore': t('common.backup_restore'),
     account: t('common.account'),
-    api: t('common.api'),
-    'streamer-tools': t('common.streamer_tools'),
   }));
   const settingsTabIcons: Record<SettingsTabId, string> = {
     progression: 'i-mdi-account-cog-outline',
@@ -335,8 +296,6 @@
     imports: 'i-mdi-database-import-outline',
     'backup-restore': 'i-mdi-backup-restore',
     account: 'i-mdi-account-circle-outline',
-    api: 'i-mdi-api',
-    'streamer-tools': 'i-heroicons-video-camera',
   };
   const settingsTabItems = computed(() =>
     settingsTabIds
@@ -352,7 +311,6 @@
     ['app', ['preferences']],
     ['data', ['imports', 'backup-restore']],
     ['account', ['account']],
-    ['tools_integrations', ['api', 'streamer-tools']],
   ] as const;
   const settingsTabGroups = computed(() =>
     settingsTabGroupDefinitions.map(([group, values]) => ({
@@ -369,8 +327,6 @@
     account: false,
     imports: false,
     'backup-restore': false,
-    api: false,
-    'streamer-tools': false,
   });
   const isAdmin = computed(() => hasInitiallyLoaded.value && systemStore.isAdmin);
   const mobileTabsUi: TabsProps['ui'] = {

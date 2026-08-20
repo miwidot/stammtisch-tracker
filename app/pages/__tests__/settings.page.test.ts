@@ -93,7 +93,6 @@ vi.mock('vue-i18n', async (importOriginal) => ({
 }));
 const defaultGlobalStubs = {
   AccountDeletionCard: { template: '<div data-testid="account-deletion-card" />' },
-  ApiTokensCard: { template: '<div data-testid="api-tokens-card" />' },
   DataManagementCard: {
     props: ['session', 'view'],
     template:
@@ -287,14 +286,23 @@ describe('settings page', () => {
       expect(wrapper.find('[data-testid="data-management-card-backup"]').exists()).toBe(true);
       expect(wrapper.find('#progression').exists()).toBe(false);
     });
-    it('opens the api tab from the route hash', async () => {
+    it('falls back to the progression tab for the removed api deep link', async () => {
       configureMockState({ routeHash: '#api' });
       const wrapper = await mountSuspended(SettingsPage, {
         global: globalConfig,
       });
       await vi.dynamicImportSettled();
-      expect(wrapper.find('[data-testid="api-tokens-card"]').exists()).toBe(true);
-      expect(wrapper.find('#progression').exists()).toBe(false);
+      expect(wrapper.find('#progression').exists()).toBe(true);
+      expect(wrapper.find('#api').exists()).toBe(false);
+    });
+    it('falls back to the progression tab for the removed streamer-tools deep link', async () => {
+      configureMockState({ routeHash: '#streamer-tools' });
+      const wrapper = await mountSuspended(SettingsPage, {
+        global: globalConfig,
+      });
+      await vi.dynamicImportSettled();
+      expect(wrapper.find('#progression').exists()).toBe(true);
+      expect(wrapper.find('#streamer-tools').exists()).toBe(false);
     });
     it('renders streamer mode on the preferences tab', async () => {
       configureMockState({ routeHash: '#preferences' });
@@ -356,7 +364,7 @@ describe('settings page', () => {
       expect(wrapper.text()).toContain('settings.tab_groups.app');
       expect(wrapper.text()).toContain('settings.tab_groups.data');
       expect(wrapper.text()).toContain('settings.tab_groups.account');
-      expect(wrapper.text()).toContain('settings.tab_groups.tools_integrations');
+      expect(wrapper.text()).not.toContain('settings.tab_groups.tools_integrations');
       expect(wrapper.findAll('[data-testid="tabs"] button').map((button) => button.text())).toEqual(
         [
           'settings.tabs.progression',
@@ -365,8 +373,6 @@ describe('settings page', () => {
           'settings.tabs.imports',
           'common.backup_restore',
           'common.account',
-          'common.api',
-          'common.streamer_tools',
         ]
       );
     });
@@ -384,8 +390,6 @@ describe('settings page', () => {
           'settings.tabs.imports',
           'common.backup_restore',
           'common.account',
-          'common.api',
-          'common.streamer_tools',
         ]
       );
     });
@@ -523,16 +527,6 @@ describe('settings page', () => {
       await wrapper.get('[data-testid="tab-backup-restore"]').trigger('click');
       expect(mockFns.routerReplace).toHaveBeenCalledWith({
         hash: '#backup-restore',
-        query: {},
-      });
-    });
-    it('updates the route hash when selecting the api tab', async () => {
-      const wrapper = await mountSuspended(SettingsPage, {
-        global: globalConfig,
-      });
-      await wrapper.get('[data-testid="tab-api"]').trigger('click');
-      expect(mockFns.routerReplace).toHaveBeenCalledWith({
-        hash: '#api',
         query: {},
       });
     });
