@@ -34,7 +34,7 @@ id = "6034d8d7b7534946bf04110c33ac3b88"
 
 [vars]
 NODE_ENV = "production"
-APP_URL = "https://tarkovtracker.org"
+APP_URL = "https://trackerdev.tarkov-stammtisch.de"
 GA_MEASUREMENT_ID = "G-T1EESKHZPE"
 CLARITY_PROJECT_ID = "qw2qze9js7"
 # Browser log forwarding is intentionally opt-in; configure an external sink or

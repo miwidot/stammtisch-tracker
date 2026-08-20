@@ -323,7 +323,7 @@
   const traderHighlightTimeout = ref<ReturnType<typeof setTimeout> | null>(null);
   // Page metadata
   useSeoMeta({
-    title: 'Quest-Tracker | Tarkov Stammtisch',
+    title: 'Quest-Tracker',
     description:
       'Der deutsche Quest-Tracker der Tarkov-Stammtisch-Community - verfolge deinen Fortschritt bei Aufgaben, Hideout-Ausbau und benötigten Gegenständen.',
     ogTitle: 'Quest-Tracker | Tarkov Stammtisch',
