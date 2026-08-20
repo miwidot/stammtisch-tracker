@@ -15,9 +15,6 @@ function extractHandoffToken(hash: string): string | null {
     return null;
   }
 }
-function removeTokenFromUrl(): void {
-  window.history.replaceState(null, '', window.location.pathname + window.location.search);
-}
 export default defineNuxtPlugin({
   name: 'tracker-handoff',
   dependsOn: ['supabase'],
@@ -27,8 +24,33 @@ export default defineNuxtPlugin({
     const rawHash = window.location.hash;
     if (!rawHash.includes(HANDOFF_TOKEN_KEY)) return;
     const token = extractHandoffToken(rawHash);
+    // Nuxt's own router plugin re-applies the ORIGINAL initial route (fragment included) via its
+    // `app:created` hook whenever nothing has updated `router.currentRoute.value` in the meantime.
+    // A plain `history.replaceState` edits only the address bar, so that stomp always wins the
+    // race. Clearing the fragment through the router (when available) keeps its internal state in
+    // sync and survives that replay; the raw history edit stays as a synchronous fallback.
+    const clearHandoffFragment = (): void => {
+      const router = nuxtApp.$router;
+      if (router?.currentRoute.value.hash) {
+        const current = router.currentRoute.value;
+        router.replace({ hash: '', path: current.path, query: current.query }).catch((error) => {
+          logger.warn('[TrackerHandoff] Failed to clear handoff fragment via router', error);
+        });
+      }
+      if (window.location.hash) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
+    };
+    const cleanup = (): void => {
+      clearHandoffFragment();
+      // Registered after Nuxt's own `app:created` hookOnce (added during router plugin setup,
+      // which always resolves before this post-enforce plugin runs), so it fires last and wins.
+      if (typeof nuxtApp.hook === 'function') {
+        nuxtApp.hook('app:created', clearHandoffFragment);
+      }
+    };
     if (!token) {
-      removeTokenFromUrl();
+      cleanup();
       return;
     }
     try {
@@ -43,7 +65,7 @@ export default defineNuxtPlugin({
     } catch (error) {
       logger.warn('[TrackerHandoff] Failed to redeem handoff token', error);
     } finally {
-      removeTokenFromUrl();
+      cleanup();
     }
   },
 });

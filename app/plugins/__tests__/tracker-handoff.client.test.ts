@@ -130,4 +130,92 @@ describe('tracker-handoff plugin', () => {
     expect(verifyOtp).not.toHaveBeenCalled();
     expect(window.location.hash).toBe('');
   });
+  // Reproduces the real-browser defect: Nuxt's own router plugin registers an `app:created`
+  // hook (during router plugin setup, which always resolves before this post-enforce plugin
+  // runs) that re-applies the ORIGINAL initial route -- fragment included -- via router.replace()
+  // whenever nothing has updated `router.currentRoute.value` since. The old test only asserted
+  // that `history.replaceState` was called during `setup()`, which stayed green even though a
+  // plain history edit never touches router state and gets stomped by that later replay. These
+  // tests assert the real end state -- window.location.hash and router.currentRoute.value.hash --
+  // AFTER the full `app:created` hook cycle runs, in both registration order (matching production)
+  // and simulating Nuxt's hook running first.
+  describe('surviving Nuxt router’s app:created replay', () => {
+    const buildFakeRouter = (initialHash: string) => {
+      const router = {
+        currentRoute: {
+          value: { hash: initialHash, path: '/dashboard', query: {} as Record<string, string> },
+        },
+        replace: vi.fn(
+          async (to: { hash: string; path: string; query: Record<string, string> }) => {
+            router.currentRoute.value = { hash: to.hash, path: to.path, query: to.query };
+            window.history.replaceState(null, '', `${to.path}${to.hash}`);
+          }
+        ),
+      };
+      return router;
+    };
+    const buildHookRegistry = () => {
+      const listeners: Array<() => void | Promise<void>> = [];
+      return {
+        fire: async () => {
+          for (const listener of listeners) await listener();
+        },
+        hook: vi.fn((_event: string, fn: () => void | Promise<void>) => {
+          listeners.push(fn);
+        }),
+      };
+    };
+    it('wins the race against a successful-redemption replay', async () => {
+      const initialHash = '#tracker_token=abc123';
+      setHash(initialHash);
+      const router = buildFakeRouter(initialHash);
+      const registry = buildHookRegistry();
+      // Simulates Nuxt's router plugin registering its own app:created hookOnce before our
+      // post-enforce plugin runs -- it unconditionally replays the original, fragment-bearing route.
+      registry.hook('app:created', () => {
+        void router.replace({ hash: initialHash, path: '/dashboard', query: {} });
+      });
+      const verifyOtp = vi.fn().mockResolvedValue({ data: {}, error: null });
+      const ready = vi.fn().mockResolvedValue(undefined);
+      const nuxtApp = {
+        $router: router,
+        $supabase: { client: { auth: { verifyOtp } }, ready },
+        hook: registry.hook,
+      };
+      const plugin = (await import('@/plugins/tracker-handoff.client')).default;
+      await plugin.setup?.(nuxtApp as unknown as Parameters<NonNullable<typeof plugin.setup>>[0]);
+      await registry.fire();
+      expect(window.location.hash).toBe('');
+      expect(router.currentRoute.value.hash).toBe('');
+    });
+    it('wins the race against a failed-redemption replay and never logs the token', async () => {
+      const initialHash = '#tracker_token=super-secret-token';
+      setHash(initialHash);
+      const router = buildFakeRouter(initialHash);
+      const registry = buildHookRegistry();
+      registry.hook('app:created', () => {
+        void router.replace({ hash: initialHash, path: '/dashboard', query: {} });
+      });
+      const verifyOtp = vi.fn().mockResolvedValue({
+        data: {},
+        error: { message: 'Token has expired or is invalid' },
+      });
+      const ready = vi.fn().mockResolvedValue(undefined);
+      const nuxtApp = {
+        $router: router,
+        $supabase: { client: { auth: { verifyOtp } }, ready },
+        hook: registry.hook,
+      };
+      const plugin = (await import('@/plugins/tracker-handoff.client')).default;
+      await plugin.setup?.(nuxtApp as unknown as Parameters<NonNullable<typeof plugin.setup>>[0]);
+      await registry.fire();
+      expect(window.location.hash).toBe('');
+      expect(router.currentRoute.value.hash).toBe('');
+      const allLoggedArgs = JSON.stringify([
+        ...loggerMock.warn.mock.calls,
+        ...loggerMock.error.mock.calls,
+      ]);
+      expect(allLoggedArgs).not.toContain('super-secret-token');
+    });
+  });
 });
