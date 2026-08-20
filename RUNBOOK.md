@@ -18,26 +18,29 @@ Der eigene Quest-Tracker von Tarkov Stammtisch ist durch den BSG-Umbau des Quest
 
 ## 2. Repos
 
-| Repo | Zweck | Sichtbarkeit |
-|---|---|---|
-| `miwidot/stammtisch-tracker` | unser Arbeits-Fork (dieses Repo) | **privat** |
-| `MiwiDots/TarkovTrackerNuxt` | nur für PRs zurück an Upstream | öffentlich |
-| `tarkovtracker-org/TarkovTracker` | Upstream | öffentlich |
+| Repo                              | Zweck                            | Sichtbarkeit |
+| --------------------------------- | -------------------------------- | ------------ |
+| `miwidot/stammtisch-tracker`      | unser Arbeits-Fork (dieses Repo) | **privat**   |
+| `MiwiDots/TarkovTrackerNuxt`      | nur für PRs zurück an Upstream   | öffentlich   |
+| `tarkovtracker-org/TarkovTracker` | Upstream                         | öffentlich   |
 
 **Warum zwei:** Ein privates Repo kann kein GitHub-Fork eines öffentlichen sein und keine PRs upstream stellen. Der öffentliche Fork existierte bereits und wird ausschliesslich für Rückgaben benutzt.
 
 ### Remotes in diesem Repo
+
 ```bash
 origin    git@github.com:miwidot/stammtisch-tracker.git
 upstream  https://github.com/tarkovtracker-org/TarkovTracker.git
 ```
 
 ### Upstream nachziehen
+
 ```bash
 git fetch upstream
 git merge upstream/main          # danach FORK.md-Rauchtest durchgehen!
 git push origin main
 ```
+
 Erster Durchlauf (2026-08-20): 28 Commits, 1111 Zeilen, **null Konflikte**.
 
 ---
@@ -59,17 +62,18 @@ Internet -> Cloudflare -> nginx (stammdev)
 
 ### Verzeichnisse auf stammdev
 
-| Pfad | Inhalt |
-|---|---|
-| `~/tracker-build-proto/TarkovTracker` | Clone dieses Forks (origin = unser Repo) |
-| `~/tracker-build-proto/proto.env` | Build-/Laufzeit-Envs |
-| `~/tracker-build-proto/start-proto.sh` | Startskript (sourced `proto.env`) |
-| `~/tracker-build-proto/app.log` | Laufzeit-Log |
-| `~/supabase-proto/supabase-src/docker` | Supabase-Stack (Compose-Projekt `supaproto`) |
-| `~/supabase-proto/*.mjs` | Testskripte (`e2e2.mjs` = Login-E2E, `rt4/rt5/rt6.mjs` = Realtime) |
-| `*.orig` neben Compose/Envoy-Dateien | Originale vor unseren Kürzungen |
+| Pfad                                   | Inhalt                                                             |
+| -------------------------------------- | ------------------------------------------------------------------ |
+| `~/tracker-build-proto/TarkovTracker`  | Clone dieses Forks (origin = unser Repo)                           |
+| `~/tracker-build-proto/proto.env`      | Build-/Laufzeit-Envs                                               |
+| `~/tracker-build-proto/start-proto.sh` | Startskript (sourced `proto.env`)                                  |
+| `~/tracker-build-proto/app.log`        | Laufzeit-Log                                                       |
+| `~/supabase-proto/supabase-src/docker` | Supabase-Stack (Compose-Projekt `supaproto`)                       |
+| `~/supabase-proto/*.mjs`               | Testskripte (`e2e2.mjs` = Login-E2E, `rt4/rt5/rt6.mjs` = Realtime) |
+| `*.orig` neben Compose/Envoy-Dateien   | Originale vor unseren Kürzungen                                    |
 
 ### App steuern
+
 ```bash
 # Status
 ssh stammdev "ss -tlnp | grep 3101; tail -5 ~/tracker-build-proto/app.log"
@@ -77,13 +81,25 @@ ssh stammdev "ss -tlnp | grep 3101; tail -5 ~/tracker-build-proto/app.log"
 # Neu bauen (nach git pull)
 ssh stammdev "cd ~/tracker-build-proto/TarkovTracker && source ~/tracker-build-proto/proto.env && npx nuxt build"
 
-# Neu starten
-ssh stammdev "pkill -f 'tracker-build-proto/TarkovTracker/.output/server/index.mjs'"
+# Neu starten — WICHTIG: PID über den Port ermitteln, nicht per Pfad-Muster
+ssh stammdev "ss -tlnp | grep 3101"          # PID ablesen
+ssh stammdev "kill <PID>; sleep 3"
 ssh stammdev "cd ~/tracker-build-proto && setsid nohup ./start-proto.sh > app.log 2>&1 < /dev/null &"
 ```
+
 ⚠️ **Port 3101 ist fix** — der nginx-Upstream zeigt fest dorthin.
 
+⚠️ **`pkill -f 'tracker-build-proto/...'` funktioniert NICHT.** Der Prozess läuft mit _relativer_ Kommandozeile (`node .output/server/index.mjs`), das Muster trifft ihn nicht. Symptom, wenn man es trotzdem so macht: der alte Prozess läuft weiter und hält Port 3101, der neue kann nicht binden und stirbt still. Die Seite antwortet dann mit **200**, liefert aber das HTML des _alten_ Builds — dessen JS-Dateien nach dem Rebuild nicht mehr existieren. Im Browser: **komplett leere Seite**, im `app.log` ein Schwall `ENOENT ... .output/public/_nuxt/<hash>.js`, und der Entry-Chunk liefert über Cloudflare **520**.
+
+Schnelltest, ob genau das vorliegt:
+
+```bash
+curl -s https://trackerdev.tarkov-stammtisch.de/ | grep -oE 'src="/_nuxt/[A-Za-z0-9_-]+\.js"' | head -1
+# den gefundenen Pfad abrufen — 200 = gesund, 520/500 = alter Prozess serviert altes HTML
+```
+
 ### Supabase steuern
+
 ```bash
 ssh stammdev "cd ~/supabase-proto/supabase-src/docker && docker compose -p supaproto ps"
 ssh stammdev "cd ~/supabase-proto/supabase-src/docker && docker compose -p supaproto logs -f auth"
@@ -94,7 +110,9 @@ ssh stammdev "cd ~/supabase-proto/supabase-src/docker && docker compose -p supap
 ```
 
 ### Deploy-Key
+
 Der Clone auf stammdev zieht aus dem **privaten** Repo über einen dedizierten, **read-only** Deploy-Key:
+
 - Key: `~/.ssh/id_tracker_fork` · SSH-Host-Alias: `github-tracker`
 - Remote-URL: `git@github-tracker:miwidot/stammtisch-tracker.git`
 
@@ -105,19 +123,20 @@ Der Clone auf stammdev zieht aus dem **privaten** Repo über einen dedizierten, 
 ## 4. Supabase-Minimalstack
 
 **6 Container** statt der 11 des Standard-Setups:
+
 ```
 db · api-gw (envoy) · auth · rest · realtime · functions
 ```
 
 **Entfernt und warum:**
 
-| Weg | Grund |
-|---|---|
-| `studio` | Admin-UI mit `service_role`-Rechten, nur Basic-Auth-geschützt — und die Basic-Auth sitzt am Gateway, nicht am Studio. Owner-Vorgabe. |
-| `meta` | existiert nur für Studio |
-| `storage` + `imgproxy` | `git grep "storage.from("` = 0 Treffer, Avatare kommen aus OAuth-Metadaten |
-| `supavisor` | kein Dienst verbindet darüber, die App hat gar keinen Postgres-Treiber. Nebeneffekt: Host-Ports 5432/6543 verschwinden. |
-| `analytics` + `vector` | seit einiger Zeit ohnehin nicht mehr im Default-Compose (liegen im Logs-Overlay) |
+| Weg                    | Grund                                                                                                                                |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `studio`               | Admin-UI mit `service_role`-Rechten, nur Basic-Auth-geschützt — und die Basic-Auth sitzt am Gateway, nicht am Studio. Owner-Vorgabe. |
+| `meta`                 | existiert nur für Studio                                                                                                             |
+| `storage` + `imgproxy` | `git grep "storage.from("` = 0 Treffer, Avatare kommen aus OAuth-Metadaten                                                           |
+| `supavisor`            | kein Dienst verbindet darüber, die App hat gar keinen Postgres-Treiber. Nebeneffekt: Host-Ports 5432/6543 verschwinden.              |
+| `analytics` + `vector` | seit einiger Zeit ohnehin nicht mehr im Default-Compose (liegen im Logs-Overlay)                                                     |
 
 ⚠️ **Beim Neuaufbau zwingend:** `depends_on: studio` aus dem Service `api-gw` entfernen. Sonst startet der Stack nicht (Kette `studio -> api-gw -> functions`). Ausserdem Cluster/Routen `studio`/`meta`/`storage` aus `volumes/api/envoy/cds.yaml` und `lds.template.yaml` streichen.
 
@@ -126,11 +145,14 @@ db · api-gw (envoy) · auth · rest · realtime · functions
 ⚠️ **Ports binden per Default auf 0.0.0.0.** Explizit `127.0.0.1:` davorsetzen (`API_GW_HTTP_PORT=127.0.0.1:8200`).
 
 ### Migrationen
+
 112 Stück, angewendet per `psql` im db-Container. **Eine Sonderbehandlung nötig:**
 `20260804043344_add_seasonal_team_index_concurrently.sql` beginnt mit `-- supabase:disable-transaction` — eine Direktive, die nur die Supabase-CLI versteht. Mit `psql --single-transaction` bricht sie:
+
 ```
 ERROR: CREATE INDEX CONCURRENTLY cannot run inside a transaction block
 ```
+
 → Diese eine Datei ohne `--single-transaction` fahren.
 
 **Reihenfolge:** Stack hoch → `auth` healthy abwarten (sonst existiert `auth.users` nicht) → migrieren → Functions deployen → App bauen.
@@ -138,13 +160,16 @@ ERROR: CREATE INDEX CONCURRENTLY cannot run inside a transaction block
 `pg_cron`, `hypopg`, `index_advisor` sind im Image enthalten und vorgeladen — keine Zusatzarbeit.
 
 ### Fehlende Publication-Einträge (eigene Migration nötig)
+
 Upstream registriert nur 4 der 6 abonnierten Tabellen für Live-Updates. **`teams` und `user_system` fehlen:**
+
 ```sql
 ALTER PUBLICATION supabase_realtime ADD TABLE public.teams;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.user_system;
 ```
 
 ### Edge Functions
+
 Kein Sync-Mechanismus. Dateien nach `volumes/functions/<name>/` kopieren, **zentrale** `deno.jsonc`-Importmap pflegen (per-Function-`deno.json` ignoriert der Router), dann `docker compose restart functions`.
 Nötig sind 6: `team-create`, `team-join`, `team-leave`, `team-kick`, `account-delete`, `token-create`.
 
@@ -152,19 +177,20 @@ Nötig sind 6: `team-create`, `team-join`, `team-leave`, `team-kick`, `account-d
 
 ## 5. Konfiguration — die Fallstricke, die still zuschlagen
 
-| Env | Ohne sie passiert | 
-|---|---|
-| `NODE_ENV=production` | Client fällt in den **Offline-Stub**, Supabase im Frontend komplett tot |
-| `APP_URL` + `API_ALLOWED_HOSTS` | **403 auf allen `/api/*`** — Default fällt auf `tarkovtracker.org` zurück |
-| `SUPABASE_URL` (Build-Zeit!) | CSP wird beim Bauen erzeugt → Browser blockt REST **und** WebSocket |
-| `API_TRUST_PROXY=true` | jede Client-IP ist die von nginx → IP-Rate-Limits wertlos |
-| `CI=true` | Production-Build wirft wegen fehlender Stripe-Keys |
-| `SUPABASE_ALLOWED_ORIGINS` | wird vom Standard-Compose **nicht** an `functions` durchgereicht; CORS hängt sonst allein am Gateway |
-| `OVERLAY_URL` | **muss HTTPS sein** (seit 1.73.2), sonst **stiller** Fallback auf Upstream |
+| Env                             | Ohne sie passiert                                                                                    |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `NODE_ENV=production`           | Client fällt in den **Offline-Stub**, Supabase im Frontend komplett tot                              |
+| `APP_URL` + `API_ALLOWED_HOSTS` | **403 auf allen `/api/*`** — Default fällt auf `tarkovtracker.org` zurück                            |
+| `SUPABASE_URL` (Build-Zeit!)    | CSP wird beim Bauen erzeugt → Browser blockt REST **und** WebSocket                                  |
+| `API_TRUST_PROXY=true`          | jede Client-IP ist die von nginx → IP-Rate-Limits wertlos                                            |
+| `CI=true`                       | Production-Build wirft wegen fehlender Stripe-Keys                                                   |
+| `SUPABASE_ALLOWED_ORIGINS`      | wird vom Standard-Compose **nicht** an `functions` durchgereicht; CORS hängt sonst allein am Gateway |
+| `OVERLAY_URL`                   | **muss HTTPS sein** (seit 1.73.2), sonst **stiller** Fallback auf Upstream                           |
 
 **Merksatz:** Diese App ist eine SPA mit `ssr: false`. Sehr viel wird **beim Bauen** eingebacken, nicht zur Laufzeit gelesen. Adressänderung = Neubau, nicht Neustart.
 
 ### nginx
+
 ⚠️ **Kein separater Port-80-Block mit blindem `return 301 https://`** — hinter Cloudflare ergibt das eine Redirect-Schleife (`ERR_TOO_MANY_REDIRECTS`), weil CF die Origin-Verbindung über HTTP aufbaut. Stattdessen ein server-Block für 80+443 mit bedingtem Redirect über `$http_cf_visitor` / `$http_x_forwarded_proto` (Muster aus `devstamm.conf`).
 
 Zertifikat: `/etc/nginx/ssl/cf.pem` — dasselbe wie die anderen Subdomains, ohne Hostnamen-Einträge, wird von Cloudflare nicht geprüft. **Kein certbot nötig.**
@@ -184,6 +210,7 @@ Discord/Twitch sind im selbstgehosteten GoTrue **absichtlich nicht konfiguriert*
 **Warum es nicht anders geht:** Deren Schema hat Fremdschlüssel direkt auf `auth.users` und 19 Tabellen mit Row Level Security auf `auth.uid()`. Eine „fremd ausgestellte" Session ohne echten `auth.users`-Eintrag ist wertlos — jeder Schreibzugriff verletzt den Fremdschlüssel. Selbstsignierte JWTs und Third-Party-Auth scheiden damit aus.
 
 **Der Weg, der funktioniert** (praktisch verifiziert, ohne SMTP):
+
 1. `auth.admin.createUser()` — serverseitig, service_role, gegen `127.0.0.1:8200`
 2. `auth.admin.generateLink({ type: 'magiclink' })` → `hashed_token`, **kein Mailversand**
 3. Client: `auth.verifyOtp({ token_hash, type: 'magiclink' })` → echte Session mit Access- und Refresh-Token
@@ -191,6 +218,7 @@ Discord/Twitch sind im selbstgehosteten GoTrue **absichtlich nicht konfiguriert*
 Danach feuert der Trigger `on_auth_user_created`, die Fremdschlüssel halten, `auth.uid()` stimmt, Refresh funktioniert.
 
 **Auflagen:**
+
 - Der `hashed_token` ist ein Account-Takeover-Primitive: einmalig, kurze TTL, an unsere Session gebunden, nie in URLs die geloggt werden
 - `service_role`-Key ausschliesslich serverseitig
 - Rate-Limit `token_verifications` hochsetzen (Default 30 / 5 min **pro IP** — alle User kommen über dieselbe Proxy-IP)
@@ -210,6 +238,7 @@ OVERLAY_URL -> unsere Overlay-JSON (HTTPS!)
 ```
 
 Struktur:
+
 ```json
 {
   "$meta": { "version": "stammtisch-1" },
@@ -221,9 +250,11 @@ Struktur:
 ⚠️ **Nur HTTPS**, max. 3 Weiterleitungen, Ziele ebenfalls HTTPS (seit 1.73.2).
 
 **UI-Strings** (nicht Quest-Inhalte) gehen **nicht** in `app/locales/de.json` — die ist Crowdin-verwaltet und überschreibt uns bei jedem Merge. Stattdessen eine eigene Datei über die Locale-Registrierung in `nuxt.config.ts`:
+
 ```ts
-files: code === 'de' ? ['de.json', 'de.overrides.json'] : [`${code}.json`]
+files: code === 'de' ? ['de.json', 'de.overrides.json'] : [`${code}.json`];
 ```
+
 Der Weg über `app/i18n.config.ts` **funktioniert nicht** (getestet: neue Schlüssel überleben, bei Kollision gewinnt `de.json`).
 
 Deren `de.json` ist zu ~30 % unübersetzt (563 von 1886 Schlüsseln identisch mit Englisch).
@@ -232,14 +263,14 @@ Deren `de.json` ist zu ~30 % unübersetzt (563 von 1886 Schlüsseln identisch mi
 
 ## 8. Bekannte offene Punkte
 
-| Punkt | Stand |
-|---|---|
+| Punkt                                                    | Stand                                                                                                                                                                                                                                                                       |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`teams`-Realtime liefert an User-Tokens keine Events** | Isoliert bewiesen: `service_role` 3/3, User-Token (sogar der Owner) 0/3. Die Policy ruft `private.can_access_team()`; PostgREST liest die Zeile problemlos, Realtimes eigene RLS-Auswertung verwirft sie still. Betrifft Team-Metadaten, **nicht** den eigenen Fortschritt. |
-| **Realtime-Subscribe-Race (~2 s)** | `SUBSCRIBED` kommt bevor Realtime an Postgres hängt. Mutationen im Fenster gehen verloren → Client muss nach `SUBSCRIBED` **aktiv nachladen**. |
-| `proxy_cache` für `/api/tarkov/*` | noch nicht eingerichtet, siehe §5 |
-| Produktions-Host | stammlive ist zu knapp (nur 1,7 GB wirklich frei, 4 GB Swap belegt, mysqld hält 9,8 GB). stammdev hat reichlich. Ggf. an #1000 koppeln. |
-| Registrierung sperren | in Arbeit — offen ob `admin.createUser` dann noch geht |
-| Login-Brücke zu unserem System | noch nicht gebaut |
+| **Realtime-Subscribe-Race (~2 s)**                       | `SUBSCRIBED` kommt bevor Realtime an Postgres hängt. Mutationen im Fenster gehen verloren → Client muss nach `SUBSCRIBED` **aktiv nachladen**.                                                                                                                              |
+| `proxy_cache` für `/api/tarkov/*`                        | noch nicht eingerichtet, siehe §5                                                                                                                                                                                                                                           |
+| Produktions-Host                                         | stammlive ist zu knapp (nur 1,7 GB wirklich frei, 4 GB Swap belegt, mysqld hält 9,8 GB). stammdev hat reichlich. Ggf. an #1000 koppeln.                                                                                                                                     |
+| Registrierung sperren                                    | in Arbeit — offen ob `admin.createUser` dann noch geht                                                                                                                                                                                                                      |
+| Login-Brücke zu unserem System                           | noch nicht gebaut                                                                                                                                                                                                                                                           |
 
 ---
 
@@ -256,13 +287,14 @@ Wir leben von deren Arbeit. Was allgemein nützlich ist, geht als PR zurück —
 
 ## 10. Wenn etwas kaputt ist
 
-| Symptom | Erste Vermutung |
-|---|---|
-| `ERR_TOO_MANY_REDIRECTS` | nginx-Redirect nicht Cloudflare-bewusst (§5) |
-| `502 Bad Gateway` | App-Prozess tot oder auf falschem Port (muss 3101 sein) |
-| Seite lädt, aber keine Daten | CSP enthält die falsche Supabase-Adresse → Neubau nötig, nicht Neustart |
-| 403 auf allen `/api/*` | `APP_URL`/`API_ALLOWED_HOSTS` stimmt nicht |
-| Login geht nicht, alles sieht ok aus | `NODE_ENV` ist nicht `production` → Offline-Stub |
-| Quests plötzlich englisch | Overlay still verworfen: `$meta.version` fehlt, oder URL ist `http:` |
-| `Repository not found` beim Pull | Deploy-Key (§3) |
-| Migration bricht bei `CREATE INDEX CONCURRENTLY` | die `disable-transaction`-Datei (§4) |
+| Symptom                                          | Erste Vermutung                                                                                        |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `ERR_TOO_MANY_REDIRECTS`                         | nginx-Redirect nicht Cloudflare-bewusst (§5)                                                           |
+| `502 Bad Gateway`                                | App-Prozess tot oder auf falschem Port (muss 3101 sein)                                                |
+| Seite lädt, aber keine Daten                     | CSP enthält die falsche Supabase-Adresse → Neubau nötig, nicht Neustart                                |
+| 403 auf allen `/api/*`                           | `APP_URL`/`API_ALLOWED_HOSTS` stimmt nicht                                                             |
+| Login geht nicht, alles sieht ok aus             | `NODE_ENV` ist nicht `production` → Offline-Stub                                                       |
+| Quests plötzlich englisch                        | Overlay still verworfen: `$meta.version` fehlt, oder URL ist `http:`                                   |
+| **Komplett leere Seite trotz HTTP 200**          | alter Prozess lebt noch, serviert HTML des alten Builds → PID über `ss -tlnp \| grep 3101` killen (§3) |
+| `Repository not found` beim Pull                 | Deploy-Key (§3)                                                                                        |
+| Migration bricht bei `CREATE INDEX CONCURRENTLY` | die `disable-transaction`-Datei (§4)                                                                   |
