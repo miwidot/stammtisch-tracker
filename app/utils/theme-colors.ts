@@ -30,20 +30,20 @@ export const THEME_COLORS = {
   // Status colors
   // CSS var: --color-error-*
   error: {
-    500: 'hsl(350 100% 62%)',
+    500: 'hsl(0 46.3% 44.5%)',
   },
   // CSS var: --color-warning-*
   warning: {
-    500: 'hsl(38 92% 50%)',
+    500: 'hsl(43.9 62.8% 44.3%)',
   },
   // CSS var: --color-success-*
   success: {
-    500: 'hsl(160 84% 39%)',
+    500: 'hsl(75.9 35.6% 35.3%)',
   },
   // CSS var: --color-info-*
   info: {
-    400: 'hsl(198 100% 60%)',
-    500: 'hsl(198 100% 50%)',
+    400: 'hsl(198.1 17.6% 48%)',
+    500: 'hsl(200 21.1% 44.7%)',
   },
   // Accent colors (not in theme, but used for map markers)
   sky: {
@@ -53,9 +53,9 @@ export const THEME_COLORS = {
   // Surface colors
   // CSS var: --color-surface-*
   surface: {
-    900: 'hsl(220 23% 8%)',
-    800: 'hsl(220 24% 11%)',
-    700: 'hsl(220 23% 15%)',
+    900: 'hsl(80 9.7% 6.1%)',
+    800: 'hsl(80 12% 9.8%)',
+    700: 'hsl(82.5 11.1% 14.1%)',
   },
   // Neutral colors
   neutral: {
