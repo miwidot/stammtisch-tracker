@@ -115,9 +115,9 @@ const uiConfig = {
       // Content panel - must be above overlay with proper centering
       content:
         'fixed inset-0 z-[61] flex items-center justify-center p-4 overflow-y-auto pointer-events-none',
-      // Actual modal content wrapper
+      // Actual modal content wrapper - beveled corners + corner brackets for the tactical HUD look
       wrapper:
-        'relative w-full max-w-md bg-surface-800 border border-surface-700 rounded-lg shadow-xl pointer-events-auto',
+        'relative w-full max-w-md bg-surface-800 border border-surface-700 rounded-none clip-corners corner-decoration shadow-xl pointer-events-auto',
     },
   },
   // Badge configuration for custom colors
