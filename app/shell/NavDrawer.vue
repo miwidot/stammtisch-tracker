@@ -40,7 +40,7 @@
           </div>
           <NuxtImg
             v-else
-            src="/img/logos/tarkovtrackerlogo-light.webp"
+            src="/img/logos/stammtisch-logo.png"
             :alt="t('navigation_drawer.brand_name')"
             class="h-auto w-full"
             fetchpriority="high"

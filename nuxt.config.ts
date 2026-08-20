@@ -283,21 +283,21 @@ export default defineNuxtConfig({
     baseURL: '/',
     buildAssetsDir: '/_nuxt/',
     head: {
-      titleTemplate: '%s | Tarkov Tracker',
+      titleTemplate: '%s | Tarkov Stammtisch',
       title: 'Escape from Tarkov Quest, Hideout, and Item Tracker',
       style: [
         {
           textContent: [
             `:root{--shell-w:${SHELL_DRAWER_EXPANDED_WIDTH}}`,
-            'body{background:var(--color-surface-950,hsl(0 0% 4%))}',
+            'body{background:var(--color-surface-950,hsl(220 23% 5%))}',
             '#__nuxt:empty::before{',
             'content:"";',
             'display:block;',
             'position:fixed;',
             'inset:0;',
             'width:var(--shell-w);',
-            'background:var(--color-surface-900,hsl(0 0% 9%));',
-            'border-right:1px solid var(--color-surface-700,hsl(0 0% 25%));',
+            'background:var(--color-surface-900,hsl(220 23% 8%));',
+            'border-right:1px solid var(--color-surface-700,hsl(220 23% 15%));',
             'z-index:50',
             '}',
             '#__nuxt:empty::after{',
@@ -308,8 +308,8 @@ export default defineNuxtConfig({
             'left:var(--shell-w);',
             'right:0;',
             'height:44px;',
-            'background:var(--color-surface-900,hsl(0 0% 9%));',
-            'border-bottom:1px solid var(--color-surface-700,hsl(0 0% 25%));',
+            'background:var(--color-surface-900,hsl(220 23% 8%));',
+            'border-bottom:1px solid var(--color-surface-700,hsl(220 23% 15%));',
             'z-index:40',
             '}',
             `@media(width < ${SHELL_DESKTOP_BREAKPOINT_PX}px){`,
@@ -448,7 +448,11 @@ export default defineNuxtConfig({
     defaultLocale: 'de',
     restructureDir: 'app',
     langDir: 'locales',
-    locales: SUPPORTED_LOCALES.map((code) => ({ code, file: `${code}.json` })),
+    locales: SUPPORTED_LOCALES.map((code) =>
+      code === 'de'
+        ? { code, files: ['de.json', 'de.overrides.json'] }
+        : { code, file: `${code}.json` }
+    ),
     vueI18n: 'i18n.config.ts',
   },
   hooks: {
