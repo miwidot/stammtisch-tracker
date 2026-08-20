@@ -25,17 +25,27 @@ describe('useSafeLocale', () => {
   it('keeps anonymous scoped locale during bootstrap', async () => {
     localStorage.setItem(
       STORAGE_KEYS.preferences,
+      serializeUserScopedStorage({ localeOverride: 'de' }, null)
+    );
+    localStorage.setItem('sb-test-auth-token', 'token');
+    const { resetI18nReady, useSafeLocale } = await import('@/composables/i18nHelpers');
+    resetI18nReady();
+    expect(useSafeLocale().value).toBe('de');
+  });
+  it('falls back to browser locale when a stored override is no longer supported', async () => {
+    localStorage.setItem(
+      STORAGE_KEYS.preferences,
       serializeUserScopedStorage({ localeOverride: 'fr' }, null)
     );
     localStorage.setItem('sb-test-auth-token', 'token');
     const { resetI18nReady, useSafeLocale } = await import('@/composables/i18nHelpers');
     resetI18nReady();
-    expect(useSafeLocale().value).toBe('fr');
+    expect(useSafeLocale().value).toBe('en');
   });
-  it('falls back to english when browser locale is not supported by the UI', async () => {
+  it('falls back to the app default when browser locale is not supported by the UI', async () => {
     vi.stubGlobal('navigator', { ...window.navigator, language: 'ja-JP' });
     const { resetI18nReady, useSafeLocale } = await import('@/composables/i18nHelpers');
     resetI18nReady();
-    expect(useSafeLocale().value).toBe('en');
+    expect(useSafeLocale().value).toBe('de');
   });
 });

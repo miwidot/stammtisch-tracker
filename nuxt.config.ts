@@ -442,7 +442,7 @@ export default defineNuxtConfig({
       escapeHtml: true,
     },
     strategy: 'no_prefix',
-    defaultLocale: 'en',
+    defaultLocale: 'de',
     restructureDir: 'app',
     langDir: 'locales',
     locales: SUPPORTED_LOCALES.map((code) => ({ code, file: `${code}.json` })),
