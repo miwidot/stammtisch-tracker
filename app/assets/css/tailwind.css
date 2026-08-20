@@ -701,6 +701,13 @@ body::after {
   .bg-military-background {
     background-color: var(--color-surface-950);
   }
+  /* The layout wrapper spans the whole viewport and would hide the tactical
+     stack painted on body::before/::after. Only that top-level wrapper goes
+     transparent — nested users of the utility (e.g. the sticky header on the
+     kappa page, which relies on the /95 opacity variant) keep their solid fill. */
+  #__nuxt > .bg-military-background {
+    background-color: transparent;
+  }
   /* Panel: shell-level containers */
   .panel {
     background-color: var(--color-surface-900);
