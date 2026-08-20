@@ -325,10 +325,10 @@
   useSeoMeta({
     title: 'Quest-Tracker | Tarkov Stammtisch',
     description:
-      'Der deutsche Quest-Tracker der Tarkov-Stammtisch-Community - verfolge deinen Fortschritt bei Aufgaben, Hideout-Ausbau und benoetigten Gegenstaenden.',
+      'Der deutsche Quest-Tracker der Tarkov-Stammtisch-Community - verfolge deinen Fortschritt bei Aufgaben, Hideout-Ausbau und benötigten Gegenständen.',
     ogTitle: 'Quest-Tracker | Tarkov Stammtisch',
     ogDescription:
-      'Der deutsche Quest-Tracker der Tarkov-Stammtisch-Community - verfolge deinen Fortschritt bei Aufgaben, Hideout-Ausbau und benoetigten Gegenstaenden.',
+      'Der deutsche Quest-Tracker der Tarkov-Stammtisch-Community - verfolge deinen Fortschritt bei Aufgaben, Hideout-Ausbau und benötigten Gegenständen.',
     robots: 'index, follow',
   });
   // Dashboard statistics composable

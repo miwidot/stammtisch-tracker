@@ -106,7 +106,7 @@ const webApplicationSchema = {
   applicationCategory: 'GameApplication',
   operatingSystem: 'Web',
   description:
-    'Der deutsche Quest-Tracker der Tarkov-Stammtisch-Community: Fortschritt bei Aufgaben, Hideout-Ausbau und benoetigten Gegenstaenden verfolgen.',
+    'Der deutsche Quest-Tracker der Tarkov-Stammtisch-Community: Fortschritt bei Aufgaben, Hideout-Ausbau und benötigten Gegenständen verfolgen.',
   offers: {
     '@type': 'Offer',
     price: '0',
@@ -355,12 +355,12 @@ export default defineNuxtConfig({
         {
           name: 'description',
           content:
-            'Verfolge deinen Fortschritt bei Escape from Tarkov Aufgaben, Storyline, Hideout-Ausbau und benoetigten Gegenstaenden. Plane Raids, teile deinen Fortschritt mit deinem Team und bleib startklar fuer Wipes.',
+            'Verfolge deinen Fortschritt bei Escape from Tarkov Aufgaben, Storyline, Hideout-Ausbau und benötigten Gegenständen. Plane Raids, teile deinen Fortschritt mit deinem Team und bleib startklar für Wipes.',
         },
         {
           name: 'keywords',
           content:
-            'tarkov quest-tracker, escape from tarkov aufgaben, eft hideout tracker, eft benoetigte gegenstaende, tarkov stammtisch',
+            'tarkov quest-tracker, escape from tarkov aufgaben, eft hideout tracker, eft benötigte gegenstände, tarkov stammtisch',
         },
         { name: 'theme-color', content: '#c8a882' },
         // OpenGraph tags
@@ -370,7 +370,7 @@ export default defineNuxtConfig({
         {
           property: 'og:description',
           content:
-            'Der deutsche Quest-Tracker der Tarkov-Stammtisch-Community - verfolge deinen Fortschritt bei Aufgaben, Hideout-Ausbau und benoetigten Gegenstaenden.',
+            'Der deutsche Quest-Tracker der Tarkov-Stammtisch-Community - verfolge deinen Fortschritt bei Aufgaben, Hideout-Ausbau und benötigten Gegenständen.',
         },
         {
           property: 'og:image',
@@ -387,7 +387,7 @@ export default defineNuxtConfig({
         {
           name: 'twitter:description',
           content:
-            'Der deutsche Quest-Tracker der Tarkov-Stammtisch-Community - verfolge deinen Fortschritt bei Aufgaben, Hideout-Ausbau und benoetigten Gegenstaenden.',
+            'Der deutsche Quest-Tracker der Tarkov-Stammtisch-Community - verfolge deinen Fortschritt bei Aufgaben, Hideout-Ausbau und benötigten Gegenständen.',
         },
         {
           name: 'twitter:image',
