@@ -1,3 +1,33 @@
+## [1.73.2](https://github.com/tarkovtracker-org/TarkovTracker/compare/v1.73.1...v1.73.2) (2026-08-20)
+
+
+### Bug Fixes
+
+* **api:** reject non-HTTPS overlay redirect targets ([4c2b82d](https://github.com/tarkovtracker-org/TarkovTracker/commit/4c2b82ddc01e2543b0659341fffe3ab4b4431d4c))
+* **api:** reject redirects on the streamer kappa overlay fetch ([8b6c05e](https://github.com/tarkovtracker-org/TarkovTracker/commit/8b6c05e5351c0947e5c4d94466b26e25b13b91eb))
+* **api:** release overlay redirect bodies before the next hop ([82122aa](https://github.com/tarkovtracker-org/TarkovTracker/commit/82122aaf6889a16228775a9411194194a5ceab04))
+* **api:** require HTTPS for overlay data ([de77ab6](https://github.com/tarkovtracker-org/TarkovTracker/commit/de77ab6f2d56f3753334482fc4a66c674bef8ae3))
+
+## [1.73.1](https://github.com/tarkovtracker-org/TarkovTracker/compare/v1.73.0...v1.73.1) (2026-08-20)
+
+
+### Bug Fixes
+
+* **hideout:** handle EFT 1.1 currency requirements ([#754](https://github.com/tarkovtracker-org/TarkovTracker/issues/754)) ([cfcd82b](https://github.com/tarkovtracker-org/TarkovTracker/commit/cfcd82bf79207eb0e14abb8053249b2995ec0895))
+
+# [1.73.0](https://github.com/tarkovtracker-org/TarkovTracker/compare/v1.72.2...v1.73.0) (2026-08-19)
+
+
+### Bug Fixes
+
+* **maps:** resolve SonarCloud findings in marks hash and colour test ([aaaac5e](https://github.com/tarkovtracker-org/TarkovTracker/commit/aaaac5e2d702f9dd71c639d7ae9c1780fe49b453))
+* **maps:** sync objective chip prefs and harden legacy palette migration ([a8a7a0c](https://github.com/tarkovtracker-org/TarkovTracker/commit/a8a7a0c6195fbcc736e481d56d029058be273286))
+
+
+### Features
+
+* **maps:** add pinned marker colour and objective legend chips ([5e77b72](https://github.com/tarkovtracker-org/TarkovTracker/commit/5e77b72b5c8ab1b6483760cc526a05af4475b6df))
+
 ## [1.72.2](https://github.com/tarkovtracker-org/TarkovTracker/compare/v1.72.1...v1.72.2) (2026-08-16)
 
 
