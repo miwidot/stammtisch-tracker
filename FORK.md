@@ -1,0 +1,142 @@
+# Fork-Abweichungen — Tarkov Stammtisch
+
+Dieses Repo ist ein **privater Fork** von [tarkovtracker-org/TarkovTracker](https://github.com/tarkovtracker-org/TarkovTracker) (GPL-3.0).
+
+**Leitgedanke:** So nah wie möglich am Upstream bleiben. Der ganze Sinn des Forks ist, den Quest-Sync und die Pflege des Upstream-Teams geschenkt zu bekommen. Jede Zeile, die wir in deren Dateien ändern, bezahlen wir bei **jedem** Merge erneut.
+
+Referenz-Analyse: [Epic #1293](https://github.com/miwidot/tarkov-stammtisch/issues/1293)
+
+---
+
+## Die drei Kategorien — nach Wiederanwendungskosten
+
+| Kategorie | Kosten pro Upstream-Merge | Regel |
+|---|---|---|
+| **A — Konfiguration** (unsere eigenen Dateien) | **null** | Erste Wahl. Upstream fasst diese Dateien nie an, Konflikt unmöglich. |
+| **B — Additiv** (neue Dateien von uns) | **null** | Zweite Wahl. Eigene Seiten, Komponenten, Endpunkte. |
+| **C — Eingriff** (Änderung in Upstream-Dateien) | **hoch** | Letzte Wahl. Jeder Eintrag hier braucht eine Begründung, warum A und B nicht gingen. |
+
+**Vor jedem neuen Eintrag in C: prüfen, ob es nicht doch als A oder B geht.**
+
+---
+
+## Kategorie A — Konfiguration (kostet beim Merge nichts)
+
+Liegt ausserhalb des Upstream-Codes. Kein Merge-Konflikt möglich.
+
+### Supabase (`docker/.env`, `docker-compose.yml` — unsere Kopie)
+
+| Abweichung | Grund | Prüfung |
+|---|---|---|
+| Discord/Twitch/Google/GitHub **nicht** als GoTrue-Provider konfigurieren | Login läuft ausschliesslich über unser Hauptsystem. Zwei Anmeldewege = doppelte Kontenverwaltung + Weg an unserem System vorbei. | Login-Seite zeigt „unsupported provider" |
+| Registrierung sperren (`enable_signup`) | Nur unser System darf User anlegen | Direkte E-Mail-Registrierung schlägt fehl |
+| `studio`, `meta`, `storage`, `imgproxy`, `supavisor` entfernt | Angriffsfläche + RAM. **Nicht offiziell unterstützt** → bei jedem Supabase-Update Compose-Diff prüfen | `docker compose ps` zeigt 6 Container |
+| `depends_on: studio` aus `api-gw` entfernt | sonst startet der Stack nicht | siehe oben |
+| Envoy-Cluster/Routen `studio`/`meta`/`storage` entfernt | Catch-all `/` würde sonst auf Studio zeigen | `/pg/`, `/storage/v1/` → 404 |
+| `analytics`/`vector` nicht zuladen | ist ohnehin nicht Default (`COMPOSE_FILE=docker-compose.yml`) | — |
+| `FUNCTIONS_VERIFY_JWT=false` | alle Functions authentifizieren selbst (upstream-konform) | — |
+| `SUPABASE_ALLOWED_ORIGINS` an den `functions`-Container durchreichen | **wird vom Standard-Compose NICHT durchgereicht** — sonst hängt CORS allein am Gateway | Preflight liefert unsere Origin |
+| Rate-Limit `token_verifications` hochsetzen | Default 30/5min **pro IP** — alle User kommen über dieselbe Proxy-IP | Login unter Last |
+
+### App-Umgebung (`proto.env` / Deploy-Env)
+
+| Abweichung | Grund | Prüfung |
+|---|---|---|
+| `NITRO_PRESET=node-server` | kein Cloudflare | Build läuft |
+| `NODE_ENV=production` | **zwingend** — sonst Offline-Stub, Supabase im Frontend tot | HTML enthält `NODE_ENV:"production"` |
+| `CI=true` | umgeht den harten Stripe-Env-Guard | Build ohne Stripe-Keys |
+| `SUPABASE_URL` = unsere Domain | wird zur **Build-Zeit** in die CSP eingebacken | `connect-src` enthält unsere Domain + `wss://` |
+| `APP_URL` + `API_ALLOWED_HOSTS` | Host-Allowlist. Falsch = **403 auf allen `/api/*`** | fremder Host-Header → 403 |
+| `API_TRUST_PROXY=true` | nginx + Cloudflare davor, sonst ist jede Client-IP die von nginx | — |
+| `OVERLAY_URL` → unser Overlay-Fork | deutsche Quest-Inhalte | bekannter Quest-Name auf Deutsch |
+
+### Infrastruktur (ausserhalb dieses Repos)
+
+- nginx-vhost: Same-Origin-Setup, 4 Supabase-Pfade + App auf **einem** Host
+- Gesperrt: `/auth/v1/admin`, `/storage/v1/`, `/pg/`, `/graphql/v1`, `/mcp`, Dotfiles
+- **`proxy_cache` für `/api/tarkov/*` — PFLICHT**, nicht Optimierung: ohne Cloudflare-Edge geht sonst jeder Request bis zur Quelle (es gibt keine DB-Kopie der Quest-Daten)
+- Cloudflare-bewusster HTTPS-Redirect (ein server-Block, sonst Redirect-Schleife)
+- Alle Upstream-Ports auf `127.0.0.1`
+
+---
+
+## Kategorie B — Additiv (kostet beim Merge nichts)
+
+Neue Dateien. Routen sind dateibasiert, Komponenten werden automatisch eingebunden.
+
+| Geplant | Ort | Hinweis |
+|---|---|---|
+| Keys-Übersicht | `app/pages/keys.vue`, `app/features/stammtisch-keys/` | baut auf vorhandenem `app/utils/taskRequiredKeys.ts` auf |
+| Kappa-Pfad-Erweiterung | eigene Seite + Composable | `app/features/kappa/useKappaOverview.ts` existiert bereits |
+| SSO-Session-Übernahme | eigenes Nuxt-Plugin | **erst nach `await $supabase.ready()`** — vorher ist der Client ein Stub |
+| DE-Übersetzungs-Overrides | `app/locales/de.overrides.json` | Datei selbst ist additiv; die Registrierung ist Kategorie C |
+
+⚠️ **Eigenes Namenspräfix verwenden** (`Stammtisch*`) — die Auto-Einbindung läuft ohne Pfad-Präfix, gleichnamige Komponenten kollidieren.
+
+---
+
+## Kategorie C — Eingriffe in Upstream-Dateien (kostet bei jedem Merge)
+
+**Diese Liste kurz halten.** Zahlen = Commits in 66 Tagen (Volatilität, Juni–August 2026).
+
+| Datei | Vol. | Was | Warum nicht A oder B |
+|---|---|---|---|
+| `nuxt.config.ts` | **21** | Locale-Registrierung `files: ['de.json','de.overrides.json']` | Override via `i18n.config.ts` **funktioniert nicht** (getestet: `de.json` gewinnt bei Kollision). Kein anderer Weg gefunden. |
+| `nuxt.config.ts` | **21** | Branding, Meta, `site.url`, `/supporter`-Redirect | **TODO prüfen**: möglichst per `useSeoMeta` in einer NEUEN Datei statt hier |
+| `app/pages/login.vue` | 1 | Anbieter-Knöpfe → Weiterleitung auf unser Login | Auth ist der eine unvermeidbare Eingriff |
+| `app/plugins/supabase.client.ts` | 1 | ggf. Session-Übernahme | erst prüfen, ob ein eigenes Plugin reicht (→ wäre B) |
+| `app/shell/AppBar.vue` | **7** | Supporter-Badge + CTA raus, Links ersetzen | **Minimal-Patch, NICHT Vollübernahme** — die Datei hat ~450 Zeilen fremde Funktionalität |
+| `app/shell/NavDrawer.vue` | 6 | Logo, Marke | Vollübernahme vertretbar (~50 Zeilen Logik) |
+| `app/shell/AppFooter.vue` | 2 | Logo, Supporter-Link | Vollübernahme vertretbar |
+| `app/features/drawer/DrawerLinks.vue` | 2 | eigene Menüpunkte | einzige zentrale Nav-Liste |
+| `app/app.config.ts` | **0** | Farb-Mapping | konfliktfrei |
+| `app/assets/css/tailwind.css` | 5 | Farbwerte im `@theme static` | reiner Werte-Patch |
+| `app/utils/theme-colors.ts` | 1 | JS-Farbkonstanten | muss mit tailwind.css synchron bleiben (Upstream-Kommentar) |
+| `public/img/logos/*`, Favicons | 0 | Assets ersetzen | — |
+
+**NICHT anfassen:** `app/locales/en.json` (37 Commits) und `app/locales/de.json` (12, Crowdin-verwaltet — unsere Formulierungen würden überschrieben).
+
+### Eigene Migration (additiv zum Upstream-Schema)
+
+| Was | Warum |
+|---|---|
+| `ALTER PUBLICATION supabase_realtime ADD TABLE public.teams` und `public.user_system` | fehlt upstream (nur 4 von 6 abonnierten Tabellen registriert). Upstream-Prod hat das offenbar per Dashboard gesetzt, ohne Migration. |
+
+---
+
+## Nach jedem Upstream-Merge: Rauchtest
+
+Die teuren Fehler sind die **stillen**. Ein wiederaufgetauchter Supporter-Link fällt auf; verschwundene deutsche Quest-Texte monatelang nicht.
+
+- [ ] `/auth/v1/admin/users` → **404** (Admin-API öffentlich gesperrt)
+- [ ] `/storage/v1/`, `/pg/` → **404**
+- [ ] `connect-src` im ausgelieferten Header enthält unsere Domain **+ `wss://`**
+- [ ] Ein bekannter Quest-Name kommt auf **Deutsch** (Overlay wirkt — fehlt `$meta.version`, wird es **still** verworfen)
+- [ ] Ein bekannter UI-String zeigt unsere Fassung (Locale-Override wirkt)
+- [ ] Direkte E-Mail-Registrierung schlägt fehl
+- [ ] Kein Supporter-/Stripe-Einstiegspunkt in Kopf-/Fusszeile, `/supporter` leitet um
+- [ ] Login end-to-end: User anlegen → Token → Session → eigene Daten lesen/schreiben
+- [ ] Fremde Daten bleiben blockiert (IDOR-Gegenprobe)
+- [ ] Realtime: eigener Fortschritt synchronisiert
+- [ ] `docker compose ps` → 6 Container, kein Studio
+
+---
+
+## Rückgaben an den Upstream
+
+Wir leben von deren Arbeit. Was allgemein nützlich ist, geht als PR zurück — das ist fair und senkt nebenbei unsere Patch-Last.
+
+Öffentlicher Fork dafür: **`MiwiDots/TarkovTrackerNuxt`** (dieses private Repo kann kein GitHub-Fork sein und keine PRs stellen).
+
+Offene Kandidaten:
+- `/api/team/members?teamId=<nicht-UUID>` → **500** statt 400/403. Regex `^[a-zA-Z0-9-]{1,64}$` lässt Nicht-UUIDs durch, PostgREST kippt.
+- Fehlende Publication-Einträge für `teams` und `user_system`
+- Realtime-Policy auf `teams`: mit `service_role` kommen Events, mit User-Token (sogar dem Owner) nicht — PostgREST liefert die Zeile dagegen problemlos
+
+**Nicht zurückgeben:** alles Stammtisch-Spezifische (Branding, unser SSO, Supporter-Entfernung).
+
+---
+
+## Lizenz
+
+GPL-3.0, **nicht** AGPL. Reiner Selbstbetrieb löst keine Pflicht zur Quelltext-Herausgabe aus. `LICENSE.md` und Copyright-Vermerke bleiben unverändert erhalten.
