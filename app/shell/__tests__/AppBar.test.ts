@@ -349,37 +349,6 @@ describe('AppBar logged out actions', () => {
     wrapper.unmount();
   });
 });
-describe('AppBar supporter badge', () => {
-  beforeEach(() => {
-    supporterTierRef.value = null;
-  });
-  it('renders the green Support Development CTA when there is no active tier', async () => {
-    const wrapper = await mountAppBar();
-    expect(wrapper.text()).toContain('common.support');
-    expect(wrapper.text()).not.toContain('page.supporter.tier_chad_name');
-    wrapper.unmount();
-  });
-  it('renders the chad tier badge for active chad subscribers', async () => {
-    supporterTierRef.value = 'chad';
-    const wrapper = await mountAppBar();
-    // te() mock returns false, so AppBar falls back to the capitalized tier name
-    expect(wrapper.text()).toContain('Chad');
-    // The support CTA (v-else branch) is not rendered when a supporter tier is active.
-    // The More menu always contains the support label, so we check the CTA link specifically.
-    const supportCtaLinks = wrapper.findAll('a').filter((a) => {
-      const text = a.text();
-      return text.includes('common.support') && !a.attributes('data-menu-item');
-    });
-    expect(supportCtaLinks.length).toBe(0);
-    wrapper.unmount();
-  });
-  it('falls back to the generic Supporter label for past supporters', async () => {
-    supporterTierRef.value = 'supporter';
-    const wrapper = await mountAppBar();
-    expect(wrapper.text()).toContain('common.supporter');
-    wrapper.unmount();
-  });
-});
 describe('AppBar page title', () => {
   beforeEach(() => {
     routeState.name = 'tasks';
@@ -464,23 +433,14 @@ describe('AppBar responsive layout', () => {
     mockSupabase.user.loggedIn = false;
     supporterTierRef.value = null;
   });
-  it('renders the More menu with Language, Support, Discord, and GitHub items', async () => {
+  it('renders the More menu with only the Language item', async () => {
     const wrapper = await mountAppBar();
     const moreMenuItems = wrapper.findAll('[data-menu-item]');
     const labels = moreMenuItems.map((el) => el.attributes('data-menu-item'));
     expect(labels).toContain('settings.locale');
-    expect(labels).toContain('common.support');
-    expect(labels).toContain('footer.call_to_action.discord');
-    expect(labels).toContain('footer.call_to_action.github');
-    wrapper.unmount();
-  });
-  it('wraps the Support CTA in a hidden sm:inline-flex container for CSS responsive visibility', async () => {
-    const wrapper = await mountAppBar();
-    const supportWrappers = wrapper.findAll('span.hidden').filter((span) => {
-      const classAttr = span.attributes('class') || '';
-      return classAttr.includes('sm:inline-flex');
-    });
-    expect(supportWrappers.length).toBeGreaterThanOrEqual(1);
+    expect(labels).not.toContain('common.support');
+    expect(labels).not.toContain('footer.call_to_action.discord');
+    expect(labels).not.toContain('footer.call_to_action.github');
     wrapper.unmount();
   });
   it('wraps the More menu in a sm:hidden container for CSS responsive visibility', async () => {

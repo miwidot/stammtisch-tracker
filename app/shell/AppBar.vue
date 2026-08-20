@@ -99,34 +99,6 @@
               <UIcon name="i-mdi-translate" class="text-surface-400 h-4 w-4 shrink-0" />
             </template>
           </SelectMenuFixed>
-          <span v-if="supporterTier" class="hidden sm:inline-flex">
-            <AppTooltip :text="supporterBadgeAriaLabel">
-              <NuxtLink
-                to="/supporter"
-                :class="[
-                  'inline-flex h-9 items-center gap-1.5 rounded-md border px-0 text-[13px] font-semibold text-white transition-colors md:w-auto md:px-3',
-                  'w-9 justify-center',
-                  supporterBadgeClass,
-                ]"
-                :aria-label="supporterBadgeAriaLabel"
-              >
-                <UIcon :name="supporterBadgeIcon" class="h-4 w-4 shrink-0 text-white" />
-                <span class="hidden md:inline">{{ supporterBadgeLabel }}</span>
-              </NuxtLink>
-            </AppTooltip>
-          </span>
-          <span v-else class="hidden sm:inline-flex">
-            <AppTooltip :text="t('common.support')">
-              <NuxtLink
-                to="/supporter"
-                class="border-success-500/50 bg-success-500/5 text-success-400 hover:bg-success-500/10 hover:border-success-500/70 inline-flex h-9 w-9 items-center justify-center gap-1.5 rounded-md border px-0 text-[13px] font-semibold transition-colors md:w-auto md:px-3"
-                :aria-label="t('common.support')"
-              >
-                <UIcon name="i-mdi-heart" class="h-4 w-4 shrink-0" />
-                <span class="hidden md:inline">{{ t('common.support') }}</span>
-              </NuxtLink>
-            </AppTooltip>
-          </span>
           <span class="sm:hidden">
             <AppTooltip :text="t('common.more', 'More')">
               <UDropdownMenu :items="moreMenuItems" :content="{ align: 'end', sideOffset: 8 }">
@@ -188,7 +160,6 @@
   import { useWindowSize } from '@vueuse/core';
   import { storeToRefs } from 'pinia';
   import { useKeybinds } from '@/composables/useKeybinds';
-  import { useSupporter } from '@/composables/useSupporter';
   import { getResourceBySlug } from '@/features/resources/resourceData';
   import { useActivityLogStore } from '@/stores/useActivityLogStore';
   import { useAppStore } from '@/stores/useApp';
@@ -256,46 +227,6 @@
     }
     return 'border-pvp-700/60 bg-surface-900';
   });
-  const { activeTier: supporterTier } = useSupporter();
-  const supporterBadgeLabel = computed(() => {
-    const tier = supporterTier.value;
-    if (!tier) return '';
-    if (tier === 'supporter') {
-      return t('common.supporter', 'Supporter');
-    }
-    const tierKey = `page.supporter.tier_${tier}_name`;
-    if (te(tierKey)) {
-      return t(tierKey);
-    }
-    return tier.charAt(0).toUpperCase() + tier.slice(1);
-  });
-  const supporterBadgeAriaLabel = computed(() =>
-    t('app_bar.supporter_badge_aria', { tier: supporterBadgeLabel.value })
-  );
-  const supporterBadgeIcon = computed(() => {
-    switch (supporterTier.value) {
-      case 'chad':
-        return 'i-mdi-crown';
-      case 'timmy':
-        return 'i-mdi-star';
-      case 'scav':
-        return 'i-mdi-shield-star';
-      default:
-        return 'i-mdi-heart';
-    }
-  });
-  const supporterBadgeClass = computed(() => {
-    switch (supporterTier.value) {
-      case 'chad':
-        return 'border-amber-400 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500';
-      case 'timmy':
-        return 'border-primary-400 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-400 hover:to-primary-500';
-      case 'scav':
-        return 'border-surface-500 bg-gradient-to-r from-surface-600 to-surface-700 hover:from-surface-500 hover:to-surface-600';
-      default:
-        return 'border-success-500 bg-success-600 hover:border-success-400 hover:bg-success-500';
-    }
-  });
   const skillCalculation = useSkillCalculation();
   const route = useRoute();
   const { $supabase } = useNuxtApp();
@@ -361,27 +292,6 @@
             void applyLocaleSelection(localeCode);
           },
         })),
-      },
-      {
-        icon: 'i-mdi-heart-outline',
-        label: t('common.support'),
-        to: '/supporter',
-      },
-    ],
-    [
-      {
-        icon: 'i-mdi-discord',
-        label: t('footer.call_to_action.discord'),
-        onSelect: () => {
-          window.open('https://discord.gg/M8nBgA2sT6', '_blank', 'noopener');
-        },
-      },
-      {
-        icon: 'i-mdi-github',
-        label: t('footer.call_to_action.github'),
-        onSelect: () => {
-          window.open('https://github.com/tarkovtracker-org/TarkovTracker', '_blank', 'noopener');
-        },
       },
     ],
   ]);
