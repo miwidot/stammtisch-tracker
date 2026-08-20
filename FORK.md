@@ -99,6 +99,7 @@ Neue Dateien. Routen sind dateibasiert, Komponenten werden automatisch eingebund
 | `app/pages/login.vue`                                                                         | 1      | Anbieter-Knöpfe → Weiterleitung auf unser Login                                                                         | Auth ist der eine unvermeidbare Eingriff                                                                                     |
 | `app/plugins/supabase.client.ts`                                                              | 1      | ggf. Session-Übernahme                                                                                                  | erst prüfen, ob ein eigenes Plugin reicht (→ wäre B)                                                                         |
 | `app/shell/AppBar.vue`                                                                        | **7**  | Supporter-Badge + CTA raus, Links ersetzen; Community-Gruppe (Discord/GitHub/Support) und GitHub-Link im More-Menü raus | **Minimal-Patch, NICHT Vollübernahme** — die Datei hat ~450 Zeilen fremde Funktionalität                                     |
+| `app/components/ui/GlobalHelpLauncher.vue`                                                    | 1      | Community-Gruppe (Discord/GitHub) im Hilfe-Menü raus                                                                    | separates Menü vom More-Menü in `AppBar.vue`, eigener kleiner Eingriff                                                       |
 | `app/shell/NavDrawer.vue`                                                                     | 6      | Logo, Marke                                                                                                             | Vollübernahme vertretbar (~50 Zeilen Logik)                                                                                  |
 | `app/shell/AppFooter.vue`                                                                     | 2      | Logo, Supporter-Link raus                                                                                               | Vollübernahme vertretbar                                                                                                     |
 | `app/features/drawer/DrawerLinks.vue`                                                         | 2      | eigene Menüpunkte                                                                                                       | einzige zentrale Nav-Liste                                                                                                   |
@@ -146,7 +147,7 @@ Die teuren Fehler sind die **stillen**. Ein wiederaufgetauchter Supporter-Link f
 - [ ] Sprachumschalter bietet **nur Deutsch und Englisch**
 - [ ] Direkte E-Mail-Registrierung schlägt fehl
 - [ ] Kein Supporter-/Stripe-Einstiegspunkt in Kopf-/Fusszeile, `/supporter` leitet um
-- [ ] Kein Supporter-Button neben dem Login, keine Community-Gruppe und kein GitHub-Link im More-Menü
+- [ ] Kein Supporter-Button neben dem Login, keine Community-Gruppe und kein GitHub-Link im More-Menü noch im Hilfe-Menü
 - [ ] Login end-to-end: User anlegen → Token → Session → eigene Daten lesen/schreiben
 - [ ] Fremde Daten bleiben blockiert (IDOR-Gegenprobe)
 - [ ] Realtime: eigener Fortschritt synchronisiert
