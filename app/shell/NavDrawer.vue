@@ -76,12 +76,6 @@
         </div>
         <ul class="flex flex-col gap-0.5 px-1 pb-2">
           <DrawerItem
-            icon="i-mdi-compass-outline"
-            locale-key="navigation_drawer.resources"
-            to="/resources"
-            :is-collapsed="isCollapsed"
-          />
-          <DrawerItem
             icon="i-mdi-cog-outline"
             locale-key="common.settings"
             to="/settings"
