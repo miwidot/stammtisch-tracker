@@ -41,18 +41,18 @@ html.no-smooth-scroll {
   --radius-lg: 12px;
   --radius-md: 8px;
   --radius-sm: 4px;
-  /* Primary (brand tan) - warmer, more saturated */
-  --color-primary-50: hsl(40 45% 95%);
-  --color-primary-100: hsl(39 42% 88%);
-  --color-primary-200: hsl(38 40% 76%);
-  --color-primary-300: hsl(37 42% 64%);
-  --color-primary-400: hsl(36 45% 52%);
-  --color-primary-500: hsl(35 48% 46%);
-  --color-primary-600: hsl(34 50% 40%);
-  --color-primary-700: hsl(33 48% 32%);
-  --color-primary-800: hsl(32 42% 24%);
-  --color-primary-900: hsl(30 35% 16%);
-  --color-primary-950: hsl(28 30% 10%);
+  /* Primary (brand neon green) - Tarkov Stammtisch */
+  --color-primary-50: hsl(156.7 100% 95%);
+  --color-primary-100: hsl(156.7 100% 88%);
+  --color-primary-200: hsl(156.7 100% 78%);
+  --color-primary-300: hsl(156.7 100% 64%);
+  --color-primary-400: hsl(156.7 100% 50%);
+  --color-primary-500: hsl(156.7 100% 42.4%);
+  --color-primary-600: hsl(156.7 100% 36.1%);
+  --color-primary-700: hsl(156.7 100% 28%);
+  --color-primary-800: hsl(156.7 100% 20%);
+  --color-primary-900: hsl(156.7 100% 13%);
+  --color-primary-950: hsl(156.7 100% 8%);
   /* Secondary (muted cyan/teal - general UI accent) */
   --color-secondary-50: hsl(185 50% 96%);
   --color-secondary-100: hsl(185 50% 90%);
@@ -77,32 +77,32 @@ html.no-smooth-scroll {
   --color-brand-800: var(--color-primary-800);
   --color-brand-900: var(--color-primary-900);
   --color-brand-950: var(--color-primary-950);
-  /* Accent — deep forest/teal drawn from legacy UI */
-  --color-accent-50: hsl(180 14% 94%);
-  --color-accent-100: hsl(180 14% 86%);
-  --color-accent-200: hsl(184 16% 72%);
-  --color-accent-300: hsl(186 18% 58%);
-  --color-accent-400: hsl(187 22% 44%);
-  --color-accent-500: hsl(189 28% 32%);
-  --color-accent-600: hsl(189 30% 26%);
-  --color-accent-700: hsl(190 32% 20%);
-  --color-accent-800: hsl(190 34% 15%);
-  --color-accent-900: hsl(192 38% 11%);
-  --color-accent-950: hsl(192 42% 8%);
-  /* Surface ladder: Tailwind Neutral (pure gray, no tint) */
+  /* Accent (dezentes Blau) - Tarkov Stammtisch */
+  --color-accent-50: hsl(217 91% 96%);
+  --color-accent-100: hsl(217 91% 90%);
+  --color-accent-200: hsl(217 91% 82%);
+  --color-accent-300: hsl(217 91% 74%);
+  --color-accent-400: hsl(217 91% 67%);
+  --color-accent-500: hsl(217 91% 60%);
+  --color-accent-600: hsl(217 85% 52%);
+  --color-accent-700: hsl(217 80% 44%);
+  --color-accent-800: hsl(217 75% 35%);
+  --color-accent-900: hsl(217 70% 26%);
+  --color-accent-950: hsl(217 65% 17%);
+  /* Surface ladder: blue-tinted dark (Tarkov Stammtisch) */
   /* bg(950) → chrome(900) → content(850) → raised(800) → state(700) */
-  --color-surface-50: hsl(0 0% 98%);
-  --color-surface-100: hsl(0 0% 96%);
-  --color-surface-200: hsl(0 0% 90%);
-  --color-surface-300: hsl(0 0% 83%);
-  --color-surface-400: hsl(0 0% 64%);
-  --color-surface-500: hsl(0 0% 45%);
-  --color-surface-600: hsl(0 0% 32%); /* Borders/dividers */
-  --color-surface-700: hsl(0 0% 25%); /* State fallback */
-  --color-surface-800: hsl(0 0% 15%); /* Raised/interactive */
-  --color-surface-850: hsl(0 0% 12%); /* Content surfaces */
-  --color-surface-900: hsl(0 0% 9%); /* Shell chrome */
-  --color-surface-950: hsl(0 0% 4%); /* Page canvas */
+  --color-surface-50: hsl(220 20% 97%);
+  --color-surface-100: hsl(220 20% 93%);
+  --color-surface-200: hsl(220 20% 86%);
+  --color-surface-300: hsl(220 20% 76%);
+  --color-surface-400: hsl(220 19% 58%);
+  --color-surface-500: hsl(220 20% 42%);
+  --color-surface-600: hsl(220 21% 28%); /* Borders/dividers */
+  --color-surface-700: hsl(220 23% 15%); /* State fallback */
+  --color-surface-800: hsl(220 24% 11%); /* Raised/interactive */
+  --color-surface-850: hsl(220 23% 9%); /* Content surfaces */
+  --color-surface-900: hsl(220 23% 8%); /* Shell chrome */
+  --color-surface-950: hsl(220 23% 5%); /* Page canvas */
   /* State overlay tokens */
   --state-hover: rgba(255, 255, 255, 0.05);
   --state-pressed: rgba(255, 255, 255, 0.08);
@@ -135,18 +135,18 @@ html.no-smooth-scroll {
   --color-pve-800: hsl(199 32.4% 27.3%);
   --color-pve-900: hsl(201 32% 19.6%);
   --color-pve-950: hsl(201 31.2% 12.5%);
-  /* Success (vibrant teal-green matching COMPLETE button) */
-  --color-success-50: hsl(158 60% 96%);
-  --color-success-100: hsl(158 58% 88%);
-  --color-success-200: hsl(158 56% 75%);
-  --color-success-300: hsl(158 60% 62%);
-  --color-success-400: hsl(158 64% 52%);
-  --color-success-500: hsl(158 68% 42%);
-  --color-success-600: hsl(158 70% 36%);
-  --color-success-700: hsl(158 68% 28%);
-  --color-success-800: hsl(158 64% 22%);
-  --color-success-900: hsl(158 60% 15%);
-  --color-success-950: hsl(158 55% 9%);
+  /* Success (Tarkov Stammtisch green) */
+  --color-success-50: hsl(160 84% 96%);
+  --color-success-100: hsl(160 84% 90%);
+  --color-success-200: hsl(160 82% 78%);
+  --color-success-300: hsl(160 80% 65%);
+  --color-success-400: hsl(160 82% 52%);
+  --color-success-500: hsl(160 84% 39%);
+  --color-success-600: hsl(160 84% 33%);
+  --color-success-700: hsl(160 84% 26%);
+  --color-success-800: hsl(160 84% 20%);
+  --color-success-900: hsl(160 84% 14%);
+  --color-success-950: hsl(160 80% 9%);
   /* Completed state (muted olive-green, military/tactical feel) */
   /* Low saturation, yellow-gray bias, near-background luminance */
   --color-completed-400: hsl(95 18% 42%);
@@ -156,42 +156,42 @@ html.no-smooth-scroll {
   --color-completed-950: hsl(95 8% 8%);
   /* Locked state (matches legacy task lock icon accent) */
   --color-locked-500: hsl(20 100% 50%);
-  /* Warning (amber) */
-  --color-warning-50: hsl(45 80% 96%);
-  --color-warning-100: hsl(45 80% 90%);
-  --color-warning-200: hsl(45 80% 80%);
-  --color-warning-300: hsl(45 80% 68%);
-  --color-warning-400: hsl(45 80% 56%);
-  --color-warning-500: hsl(45 80% 45%);
-  --color-warning-600: hsl(45 80% 38%);
-  --color-warning-700: hsl(45 80% 30%);
-  --color-warning-800: hsl(45 80% 24%);
-  --color-warning-900: hsl(45 80% 18%);
-  --color-warning-950: hsl(45 80% 12%);
-  /* Info (blue) */
-  --color-info-50: hsl(205 75% 96%);
-  --color-info-100: hsl(205 75% 90%);
-  --color-info-200: hsl(205 70% 80%);
-  --color-info-300: hsl(205 70% 68%);
-  --color-info-400: hsl(205 70% 55%);
-  --color-info-500: hsl(205 70% 45%);
-  --color-info-600: hsl(205 70% 38%);
-  --color-info-700: hsl(205 70% 30%);
-  --color-info-800: hsl(205 65% 24%);
-  --color-info-900: hsl(205 60% 18%);
-  --color-info-950: hsl(205 55% 12%);
-  /* Error (muted red) */
-  --color-error-50: hsl(0 55% 96%);
-  --color-error-100: hsl(0 55% 90%);
-  --color-error-200: hsl(0 55% 80%);
-  --color-error-300: hsl(0 55% 70%);
-  --color-error-400: hsl(0 55% 58%);
-  --color-error-500: hsl(0 55% 45%);
-  --color-error-600: hsl(0 55% 38%);
-  --color-error-700: hsl(0 55% 30%);
-  --color-error-800: hsl(0 55% 24%);
-  --color-error-900: hsl(0 55% 18%);
-  --color-error-950: hsl(0 55% 12%);
+  /* Warning (amber) - Tarkov Stammtisch */
+  --color-warning-50: hsl(38 92% 96%);
+  --color-warning-100: hsl(38 92% 90%);
+  --color-warning-200: hsl(38 92% 80%);
+  --color-warning-300: hsl(38 92% 68%);
+  --color-warning-400: hsl(38 92% 58%);
+  --color-warning-500: hsl(38 92% 50%);
+  --color-warning-600: hsl(38 92% 42%);
+  --color-warning-700: hsl(38 92% 34%);
+  --color-warning-800: hsl(38 92% 26%);
+  --color-warning-900: hsl(38 92% 19%);
+  --color-warning-950: hsl(38 88% 13%);
+  /* Info (neon blue) - Tarkov Stammtisch */
+  --color-info-50: hsl(198 100% 96%);
+  --color-info-100: hsl(198 100% 90%);
+  --color-info-200: hsl(198 100% 82%);
+  --color-info-300: hsl(198 100% 72%);
+  --color-info-400: hsl(198 100% 60%);
+  --color-info-500: hsl(198 100% 50%);
+  --color-info-600: hsl(198 95% 42%);
+  --color-info-700: hsl(198 90% 34%);
+  --color-info-800: hsl(198 85% 27%);
+  --color-info-900: hsl(198 80% 20%);
+  --color-info-950: hsl(198 75% 13%);
+  /* Error (Tarkov Stammtisch red) */
+  --color-error-50: hsl(350 100% 96%);
+  --color-error-100: hsl(350 100% 90%);
+  --color-error-200: hsl(350 100% 82%);
+  --color-error-300: hsl(350 100% 74%);
+  --color-error-400: hsl(350 100% 67%);
+  --color-error-500: hsl(350 100% 62%);
+  --color-error-600: hsl(350 90% 52%);
+  --color-error-700: hsl(350 85% 43%);
+  --color-error-800: hsl(350 80% 34%);
+  --color-error-900: hsl(350 75% 25%);
+  --color-error-950: hsl(350 70% 16%);
   --color-selection-500: hsl(262 83% 58%);
   /* Kappa (vibrant red) */
   --color-kappa-50: hsl(0 80% 96%);
@@ -370,17 +370,17 @@ html.no-smooth-scroll {
 /* Modern override: use OKLCH where supported for better perceptual consistency */
 @supports (color: oklch(0 0 0)) {
   :root {
-    --color-primary-50: oklch(0.958531 0.009845 87.47);
-    --color-primary-100: oklch(0.920558 0.016115 82.79);
-    --color-primary-200: oklch(0.838958 0.032256 84.59);
-    --color-primary-300: oklch(0.756775 0.049173 83.87);
-    --color-primary-400: oklch(0.672055 0.066713 84.66);
-    --color-primary-500: oklch(0.634237 0.052556 83.12);
-    --color-primary-600: oklch(0.588274 0.048467 80.24);
-    --color-primary-700: oklch(0.492406 0.040305 80.92);
-    --color-primary-800: oklch(0.395258 0.025655 78.78);
-    --color-primary-900: oklch(0.291603 0.010623 73.5);
-    --color-primary-950: oklch(0.209826 0.008289 84.59);
+    --color-primary-50: oklch(0.978804 0.029547 170.4);
+    --color-primary-100: oklch(0.952221 0.069369 169);
+    --color-primary-200: oklch(0.921165 0.120874 166.6);
+    --color-primary-300: oklch(0.892421 0.176643 162.24);
+    --color-primary-400: oklch(0.879689 0.210891 156.63);
+    --color-primary-500: oklch(0.776893 0.185527 156.84);
+    --color-primary-600: oklch(0.689038 0.163829 157.08);
+    --color-primary-700: oklch(0.571727 0.134815 157.54);
+    --color-primary-800: oklch(0.449584 0.104532 158.35);
+    --color-primary-900: oklch(0.335431 0.076121 159.8);
+    --color-primary-950: oklch(0.247619 0.054156 162.19);
     --color-secondary-50: oklch(0.96 0.02 195);
     --color-secondary-100: oklch(0.91 0.04 195);
     --color-secondary-200: oklch(0.82 0.06 195);
@@ -405,18 +405,18 @@ html.no-smooth-scroll {
     --color-brand-950: var(--color-primary-950);
     /* Accent: fall back to HSL values when OKLCH is unsupported; no override needed */
     /* Surface ladder (OKLCH) - proper elevation steps */
-    --color-surface-50: oklch(0.985 0 0);
-    --color-surface-100: oklch(0.97 0 0);
-    --color-surface-200: oklch(0.92 0 0);
-    --color-surface-300: oklch(0.87 0 0);
-    --color-surface-400: oklch(0.71 0 0);
-    --color-surface-500: oklch(0.55 0 0);
-    --color-surface-600: oklch(0.44 0 0); /* Borders */
-    --color-surface-700: oklch(0.37 0 0); /* State fallback */
-    --color-surface-800: oklch(0.27 0 0); /* Raised/interactive */
-    --color-surface-850: oklch(0.23 0 0); /* Content surfaces */
-    --color-surface-900: oklch(0.2 0 0); /* Shell chrome */
-    --color-surface-950: oklch(0.14 0 0); /* Page canvas */
+    --color-surface-50: oklch(0.975459 0.002925 264.54);
+    --color-surface-100: oklch(0.942512 0.006892 264.53);
+    --color-surface-200: oklch(0.884203 0.014038 264.5);
+    --color-surface-300: oklch(0.799347 0.024762 264.43);
+    --color-surface-400: oklch(0.642467 0.043718 264.2);
+    --color-surface-500: oklch(0.502441 0.049039 263.98);
+    --color-surface-600: oklch(0.380114 0.036806 263.99); /* Borders */
+    --color-surface-700: oklch(0.257096 0.023808 264.02); /* State fallback */
+    --color-surface-800: oklch(0.216581 0.019012 264.06); /* Raised/interactive */
+    --color-surface-850: oklch(0.196208 0.015269 264.13); /* Content surfaces */
+    --color-surface-900: oklch(0.185629 0.013757 264.16); /* Shell chrome */
+    --color-surface-950: oklch(0.152939 0.00901 264.27); /* Page canvas */
     --color-pvp-50: oklch(0.994254 0.002849 84.56);
     --color-pvp-100: oklch(0.97706 0.007366 80.72);
     --color-pvp-200: oklch(0.951577 0.016465 79.35);
@@ -439,55 +439,55 @@ html.no-smooth-scroll {
     --color-pve-800: oklch(0.405769 0.043568 228.42);
     --color-pve-900: oklch(0.324052 0.03313 231.99);
     --color-pve-950: oklch(0.247436 0.022404 232.37);
-    --color-success-50: oklch(0.97 0.04 165);
-    --color-success-100: oklch(0.92 0.07 165);
-    --color-success-200: oklch(0.84 0.1 165);
-    --color-success-300: oklch(0.74 0.13 165);
-    --color-success-400: oklch(0.66 0.15 165);
-    --color-success-500: oklch(0.58 0.14 165);
-    --color-success-600: oklch(0.52 0.13 165);
-    --color-success-700: oklch(0.44 0.11 165);
-    --color-success-800: oklch(0.38 0.09 165);
-    --color-success-900: oklch(0.3 0.07 165);
-    --color-success-950: oklch(0.22 0.05 165);
+    --color-success-50: oklch(0.980952 0.01944 174);
+    --color-success-100: oklch(0.95385 0.047937 173.03);
+    --color-success-200: oklch(0.903633 0.098503 170.81);
+    --color-success-300: oklch(0.856332 0.141284 167.72);
+    --color-success-400: oklch(0.828423 0.173861 163.13);
+    --color-success-500: oklch(0.690196 0.148058 162.37);
+    --color-success-600: oklch(0.610395 0.130097 162.6);
+    --color-success-700: oklch(0.513858 0.108277 163);
+    --color-success-800: oklch(0.427386 0.088613 163.53);
+    --color-success-900: oklch(0.336274 0.067786 164.46);
+    --color-success-950: oklch(0.252565 0.047402 166.41);
     --color-completed-400: oklch(0.52 0.04 130);
     --color-completed-600: oklch(0.38 0.03 130);
     --color-completed-800: oklch(0.28 0.02 130);
     --color-completed-900: oklch(0.22 0.015 130);
     --color-completed-950: oklch(0.18 0.01 130);
-    --color-warning-50: oklch(0.98 0.04 90);
-    --color-warning-100: oklch(0.94 0.06 90);
-    --color-warning-200: oklch(0.88 0.1 90);
-    --color-warning-300: oklch(0.82 0.13 90);
-    --color-warning-400: oklch(0.76 0.15 90);
-    --color-warning-500: oklch(0.68 0.15 90);
-    --color-warning-600: oklch(0.6 0.13 90);
-    --color-warning-700: oklch(0.5 0.11 90);
-    --color-warning-800: oklch(0.43 0.09 90);
-    --color-warning-900: oklch(0.36 0.07 90);
-    --color-warning-950: oklch(0.28 0.05 90);
-    --color-info-50: oklch(0.97 0.03 240);
-    --color-info-100: oklch(0.92 0.05 240);
-    --color-info-200: oklch(0.84 0.08 240);
-    --color-info-300: oklch(0.74 0.11 240);
-    --color-info-400: oklch(0.64 0.13 240);
-    --color-info-500: oklch(0.56 0.12 240);
-    --color-info-600: oklch(0.5 0.1 240);
-    --color-info-700: oklch(0.42 0.08 240);
-    --color-info-800: oklch(0.36 0.07 240);
-    --color-info-900: oklch(0.3 0.05 240);
-    --color-info-950: oklch(0.24 0.04 240);
-    --color-error-50: oklch(0.964457 0.039644 24.35);
-    --color-error-100: oklch(0.906354 0.054454 20.44);
-    --color-error-200: oklch(0.810351 0.082005 17.29);
-    --color-error-300: oklch(0.717087 0.112933 16.04);
-    --color-error-400: oklch(0.613876 0.1522 15.95);
-    --color-error-500: oklch(0.514643 0.161326 16.46);
-    --color-error-600: oklch(0.456178 0.141018 16.42);
-    --color-error-700: oklch(0.38705 0.116818 16.35);
-    --color-error-800: oklch(0.333236 0.097764 16.27);
-    --color-error-900: oklch(0.27734 0.077642 16.16);
-    --color-error-950: oklch(0.218875 0.055957 15.99);
+    --color-warning-50: oklch(0.979152 0.017329 81.5);
+    --color-warning-100: oklch(0.948448 0.043188 81.41);
+    --color-warning-200: oklch(0.899071 0.084915 80.91);
+    --color-warning-300: oklch(0.843503 0.128748 79.17);
+    --color-warning-400: oklch(0.800965 0.154309 75.7);
+    --color-warning-500: oklch(0.769725 0.16452 70.61);
+    --color-warning-600: oklch(0.676444 0.143918 71);
+    --color-warning-700: oklch(0.579825 0.122548 71.55);
+    --color-warning-800: oklch(0.478992 0.100203 72.42);
+    --color-warning-900: oklch(0.386211 0.079601 73.7);
+    --color-warning-950: oklch(0.299444 0.05893 76.08);
+    --color-info-50: oklch(0.972954 0.017176 225.19);
+    --color-info-100: oklch(0.933489 0.04256 225.61);
+    --color-info-200: oklch(0.883396 0.074989 226.45);
+    --color-info-300: oklch(0.825972 0.111247 228.28);
+    --color-info-400: oklch(0.76681 0.144275 232.39);
+    --color-info-500: oklch(0.726562 0.16132 238.09);
+    --color-info-600: oklch(0.630904 0.136544 236.91);
+    --color-info-700: oklch(0.534709 0.112155 235.61);
+    --color-info-800: oklch(0.449001 0.09057 234.24);
+    --color-info-900: oklch(0.362109 0.069076 232.71);
+    --color-info-950: oklch(0.272942 0.047392 230.83);
+    --color-error-50: oklch(0.956087 0.022606 6.06);
+    --color-error-100: oklch(0.891974 0.058663 7.12);
+    --color-error-200: oklch(0.811519 0.109988 8.95);
+    --color-error-300: oklch(0.740269 0.162069 11.48);
+    --color-error-400: oklch(0.689457 0.203292 14.54);
+    --color-error-500: oklch(0.661942 0.226914 17.31);
+    --color-error-600: oklch(0.613851 0.239715 22.07);
+    --color-error-700: oklch(0.536121 0.209545 22.12);
+    --color-error-800: oklch(0.445451 0.168899 20.54);
+    --color-error-900: oklch(0.354803 0.127802 18.66);
+    --color-error-950: oklch(0.262981 0.085732 16.22);
     --color-checker-dark: oklch(0.228228 0.03707 283.07);
     --color-checker-bg: oklch(0.192364 0.027672 283.49);
     --color-kappa-50: oklch(0.97 0.08 25);
@@ -789,13 +789,13 @@ summary {
   100% {
     box-shadow:
       0 0 0 0 rgba(0, 0, 0, 0.5),
-      0 0 0 0 rgba(196, 145, 89, 0.18);
+      0 0 0 0 rgba(0, 216, 132, 0.18);
     transform: scale(1);
   }
   50% {
     box-shadow:
       0 0 0 10px rgba(0, 0, 0, 0.18),
-      0 0 0 1px rgba(196, 145, 89, 0.38);
+      0 0 0 1px rgba(0, 216, 132, 0.38);
     transform: scale(1.01);
   }
 }

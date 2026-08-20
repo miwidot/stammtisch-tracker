@@ -83,7 +83,7 @@ Client-only plugins, **numbered to control load order**:
 | ------------------------ | -------------------------------------------------------------------------------- |
 | `shell/AppBar.vue`       | Top navigation bar.                                                              |
 | `shell/NavDrawer.vue`    | Side navigation drawer.                                                          |
-| `shell/AppFooter.vue`    | Footer (incl. analytics preferences control).                                    |
+| `shell/AppFooter.vue`    | Footer (Tarkov Stammtisch branding, external links only — no analytics control). |
 | `components/ui/*`        | Shared UI primitives (cards, tooltips, context menu, help spotlight, game item). |
 | `components/analytics/*` | Consent banner.                                                                  |
 

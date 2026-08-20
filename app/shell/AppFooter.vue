@@ -1,95 +1,75 @@
 <template>
-  <footer class="bg-surface-900/60 border-surface-800/70 w-full border-t px-4 py-8 sm:px-6">
-    <div class="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      <div class="grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
-        <div class="min-w-0 lg:col-span-2">
-          <NuxtLink
-            to="/"
-            class="focus-visible:ring-primary-500 inline-flex items-center gap-2.5 rounded focus-visible:ring-2 focus-visible:outline-none"
-          >
-            <NuxtImg
-              src="/img/logos/tarkovtrackerlogo-light.webp"
-              alt=""
-              width="36"
-              height="36"
-              class="h-9 w-9 shrink-0"
-              loading="lazy"
-            />
-            <span class="text-base font-medium text-white">
-              {{ t('navigation_drawer.brand_name') }}
-            </span>
-          </NuxtLink>
-          <p class="text-surface-400 mt-3 max-w-sm text-xs leading-relaxed">
-            {{ t('footer.tagline') }}
-          </p>
+  <footer class="border-surface-800 border-t">
+    <div class="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 md:grid-cols-3 lg:px-8">
+      <div class="min-w-0">
+        <div class="flex items-center gap-2 text-base font-medium text-white">
+          <UIcon name="i-mdi-shield" class="text-primary-400 h-5 w-5 shrink-0" />
+          <span>Tarkov Stammtisch</span>
         </div>
-        <AppFooterColumn :title="t('footer.sections.explore')" :items="exploreItems" />
-        <AppFooterColumn :title="t('footer.sections.project')" :items="projectItems" />
-        <AppFooterColumn :title="t('footer.sections.legal')" :items="legalItems" />
-      </div>
-      <div
-        class="border-surface-800/70 flex flex-col gap-2 border-t pt-5 text-xs sm:flex-row sm:items-center sm:justify-between"
-      >
-        <p class="text-surface-400">
-          TarkovTracker &copy; 2020–{{ new Date().getFullYear() }}
-          <span class="text-surface-400 font-mono">v{{ appVersion }}</span>
+        <p class="text-surface-400 mt-3 text-sm leading-relaxed">
+          Die deutsche Escape from Tarkov Community - PVE/PVP/Arena. Gemeinsam durch Tarkov - Von
+          Spielern, für Spieler.
         </p>
-        <p class="text-surface-400 max-w-xl leading-relaxed">
-          {{ t('footer.game_attribution') }}
+      </div>
+      <div class="min-w-0">
+        <h3 class="text-surface-200 text-sm font-semibold">Quick Links</h3>
+        <ul class="mt-3 space-y-2 text-sm">
+          <li v-for="link in quickLinks" :key="link.href">
+            <a
+              :href="link.href"
+              :target="link.external ? '_blank' : undefined"
+              :rel="link.external ? 'noopener noreferrer' : undefined"
+              class="text-surface-400 transition-colors"
+              :class="link.pink ? 'hover:text-pink-400' : 'hover:text-primary-400'"
+            >
+              {{ link.label }}
+            </a>
+          </li>
+        </ul>
+      </div>
+      <div class="min-w-0">
+        <h3 class="text-surface-200 text-sm font-semibold">Rechtliches</h3>
+        <ul class="mt-3 space-y-2 text-sm">
+          <li v-for="link in legalLinks" :key="link.href">
+            <a
+              :href="link.href"
+              class="text-surface-400 transition-colors"
+              :class="link.pink ? 'hover:text-pink-400' : 'hover:text-primary-400'"
+            >
+              {{ link.label }}
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+    <div class="border-surface-800 border-t">
+      <div class="mx-auto max-w-7xl px-4 py-4 text-center sm:px-6 lg:px-8">
+        <p class="text-surface-400 text-xs">
+          &copy; {{ currentYear }} Tarkov Stammtisch. Alle Rechte vorbehalten.
+        </p>
+        <p class="text-surface-500 mt-1 text-xs">
+          Escape from Tarkov ist eine eingetragene Marke von Battlestate Games Limited. Diese
+          Website steht in keiner Verbindung zu Battlestate Games.
         </p>
       </div>
     </div>
   </footer>
 </template>
 <script setup lang="ts">
-  import AppFooterColumn from '@/shell/AppFooterColumn.vue';
-  import { logger } from '@/utils/logger';
-  import { shouldEnableAnalyticsIntegrations } from '@/utils/runtimeConfig';
-  import type { FooterNavItem } from '@/shell/footerNavigation';
-  const { t } = useI18n({ useScope: 'global' });
-  const runtimeConfig = useRuntimeConfig();
-  const appVersion = runtimeConfig.public.appVersion || 'dev';
-  const analyticsConfigured =
-    shouldEnableAnalyticsIntegrations({
-      appUrl: runtimeConfig.public.appUrl,
-      hostname: import.meta.client ? window.location.hostname : undefined,
-      isProduction: import.meta.env.PROD,
-    }) &&
-    [
-      runtimeConfig.public.googleAnalyticsMeasurementId,
-      runtimeConfig.public.microsoftClarityProjectId,
-    ].some((value) => String(value || '').trim().length > 0);
-  const analyticsConsentApi = shallowRef<ReturnType<typeof useAnalyticsConsent> | null>(null);
-  try {
-    const consentApi = useAnalyticsConsent();
-    analyticsConsentApi.value = analyticsConfigured ? consentApi : null;
-  } catch (error) {
-    logger.error('[AppFooter] Failed to initialize analytics consent', error);
-    analyticsConsentApi.value = null;
-  }
-  const openAnalyticsPreferences = () => {
-    analyticsConsentApi.value?.openPreferences();
-  };
-  const exploreItems = computed(() => [
-    { label: t('common.dashboard'), to: '/' },
-    { label: t('common.tasks'), to: '/tasks' },
-    { label: t('common.hideout'), to: '/hideout' },
-    { label: t('common.needed_items'), to: '/needed-items' },
-    { label: t('common.storyline'), to: '/storyline' },
-  ]);
-  const projectItems = computed(() => [
-    { label: t('common.team'), to: '/team' },
-    { label: t('common.credits'), to: '/credits' },
-    { label: t('page.changelog.title'), to: '/changelog' },
-  ]);
-  const legalItems = computed(() => {
-    const items: FooterNavItem[] = [
-      { label: t('common.terms_of_service'), to: '/terms-of-service' },
-      { label: t('common.privacy_policy'), to: '/privacy' },
-    ];
-    if (analyticsConfigured) {
-      items.push({ label: t('footer.analytics_preferences'), onClick: openAnalyticsPreferences });
-    }
-    return items;
-  });
+  const currentYear = new Date().getFullYear();
+  const quickLinks = [
+    { href: 'https://tarkov-stammtisch.de/community', label: 'Über uns' },
+    { href: 'https://tarkov-stammtisch.de/konvoi', label: 'Konvoi System' },
+    { href: 'https://tarkov-stammtisch.de/streamers', label: 'Streamer' },
+    { href: 'https://tarkov-stammtisch.de/for-streamers', label: 'Für Streamer' },
+    { href: 'https://discord.gg/tarkovstammtisch', label: 'Discord Server', external: true },
+    { href: 'https://tarkov-stammtisch.de/spenden', label: 'Spenden ❤️', pink: true },
+  ];
+  const legalLinks = [
+    { href: 'https://tarkov-stammtisch.de/regeln', label: 'Discord Regeln' },
+    { href: 'https://tarkov-stammtisch.de/impressum', label: 'Impressum' },
+    { href: 'https://tarkov-stammtisch.de/datenschutz', label: 'Datenschutzerklärung' },
+    { href: 'https://tarkov-stammtisch.de/nutzungsbedingungen', label: 'Nutzungsbedingungen' },
+    { href: 'https://tarkov-stammtisch.de/danke', label: 'Danke ❤️', pink: true },
+  ];
 </script>

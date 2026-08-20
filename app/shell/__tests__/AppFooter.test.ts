@@ -1,55 +1,75 @@
 // @vitest-environment happy-dom
-import { mockNuxtImport } from '@nuxt/test-utils/runtime';
 import { mount } from '@vue/test-utils';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-const { openPreferences, runtimeConfig } = vi.hoisted(() => ({
-  openPreferences: vi.fn(),
-  runtimeConfig: {
-    public: {
-      appUrl: 'https://tarkovtracker.org',
-      appVersion: '1.2.3',
-      googleAnalyticsMeasurementId: 'G-TEST',
-      microsoftClarityProjectId: '',
-    },
-  },
-}));
-mockNuxtImport('useRuntimeConfig', () => () => runtimeConfig);
-mockNuxtImport('useAnalyticsConsent', () => () => ({ openPreferences }));
-vi.mock('@/utils/runtimeConfig', () => ({
-  shouldEnableAnalyticsIntegrations: () => true,
-}));
-vi.mock('vue-i18n', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('vue-i18n')>()),
-  useI18n: () => ({ t: (key: string) => key }),
-}));
+import { describe, expect, it } from 'vitest';
 const mountFooter = async () => {
   const { default: AppFooter } = await import('@/shell/AppFooter.vue');
   return mount(AppFooter, {
     global: {
       stubs: {
-        AppFooterColumn: {
-          props: ['title', 'items'],
-          template:
-            '<section :data-title="title"><button v-for="item in items" :key="item.label" @click="item.onClick?.()">{{ item.label }}</button></section>',
-        },
-        NuxtImg: true,
-        NuxtLink: { template: '<a><slot /></a>' },
+        UIcon: true,
       },
     },
   });
 };
 describe('AppFooter', () => {
-  beforeEach(() => openPreferences.mockReset());
-  it('renders the navigation groups, version, and analytics preferences action', async () => {
+  it('renders the Tarkov Stammtisch brand and tagline', async () => {
     const wrapper = await mountFooter();
-    expect(wrapper.text()).toContain('navigation_drawer.brand_name');
-    expect(wrapper.text()).toContain('v1.2.3');
-    expect(wrapper.findAll('section')).toHaveLength(3);
-    const analyticsButton = wrapper
-      .findAll('button')
-      .find((button) => button.text() === 'footer.analytics_preferences');
-    expect(analyticsButton).toBeDefined();
-    await analyticsButton?.trigger('click');
-    expect(openPreferences).toHaveBeenCalledOnce();
+    expect(wrapper.text()).toContain('Tarkov Stammtisch');
+    expect(wrapper.text()).toContain('Die deutsche Escape from Tarkov Community');
+  });
+  it('renders exactly three columns', async () => {
+    const wrapper = await mountFooter();
+    expect(wrapper.findAll('h3')).toHaveLength(2);
+    expect(wrapper.text()).toContain('Quick Links');
+    expect(wrapper.text()).toContain('Rechtliches');
+  });
+  it('links Quick Links to our external stammtisch domain', async () => {
+    const wrapper = await mountFooter();
+    const links = wrapper.findAll('a');
+    const byLabel = (label: string) => links.find((link) => link.text() === label);
+    expect(byLabel('Über uns')?.attributes('href')).toBe('https://tarkov-stammtisch.de/community');
+    expect(byLabel('Konvoi System')?.attributes('href')).toBe(
+      'https://tarkov-stammtisch.de/konvoi'
+    );
+    expect(byLabel('Streamer')?.attributes('href')).toBe('https://tarkov-stammtisch.de/streamers');
+    expect(byLabel('Für Streamer')?.attributes('href')).toBe(
+      'https://tarkov-stammtisch.de/for-streamers'
+    );
+    expect(byLabel('Spenden ❤️')?.attributes('href')).toBe('https://tarkov-stammtisch.de/spenden');
+  });
+  it('opens the Discord link in a new tab with a safe rel attribute', async () => {
+    const wrapper = await mountFooter();
+    const discordLink = wrapper.findAll('a').find((link) => link.text() === 'Discord Server');
+    expect(discordLink?.attributes('href')).toBe('https://discord.gg/tarkovstammtisch');
+    expect(discordLink?.attributes('target')).toBe('_blank');
+    expect(discordLink?.attributes('rel')).toBe('noopener noreferrer');
+  });
+  it('does not open internal stammtisch links in a new tab', async () => {
+    const wrapper = await mountFooter();
+    const aboutLink = wrapper.findAll('a').find((link) => link.text() === 'Über uns');
+    expect(aboutLink?.attributes('target')).toBeUndefined();
+    expect(aboutLink?.attributes('rel')).toBeUndefined();
+  });
+  it('links the Rechtliches column to our legal pages', async () => {
+    const wrapper = await mountFooter();
+    const links = wrapper.findAll('a');
+    const byLabel = (label: string) => links.find((link) => link.text() === label);
+    expect(byLabel('Discord Regeln')?.attributes('href')).toBe(
+      'https://tarkov-stammtisch.de/regeln'
+    );
+    expect(byLabel('Impressum')?.attributes('href')).toBe('https://tarkov-stammtisch.de/impressum');
+    expect(byLabel('Datenschutzerklärung')?.attributes('href')).toBe(
+      'https://tarkov-stammtisch.de/datenschutz'
+    );
+    expect(byLabel('Nutzungsbedingungen')?.attributes('href')).toBe(
+      'https://tarkov-stammtisch.de/nutzungsbedingungen'
+    );
+    expect(byLabel('Danke ❤️')?.attributes('href')).toBe('https://tarkov-stammtisch.de/danke');
+  });
+  it('renders the current year and the trademark disclaimer', async () => {
+    const wrapper = await mountFooter();
+    const currentYear = new Date().getFullYear().toString();
+    expect(wrapper.text()).toContain(`© ${currentYear} Tarkov Stammtisch`);
+    expect(wrapper.text()).toContain('Battlestate Games Limited');
   });
 });

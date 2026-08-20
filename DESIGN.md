@@ -3,21 +3,21 @@ version: alpha
 name: TarkovTracker
 description: Agent-facing design contract for the TarkovTracker Nuxt 4 SPA.
 colors:
-  canvas: '#090909'
-  shell: '#161616'
-  panel: '#1d1d1d'
-  raised: '#262626'
+  canvas: '#0a0c10'
+  shell: '#101319'
+  panel: '#12151c'
+  raised: '#151a23'
   text: '#e6e6e6'
   text-secondary: '#b7bcc2'
   text-muted: '#9da2aa'
-  primary: '#9a8866'
-  primary-strong: '#a99366'
+  primary: '#00d884'
+  primary-strong: '#00ff9c'
   secondary: '#1e7777'
-  accent: '#3b6268'
-  success: '#009365'
-  warning: '#bc9200'
-  error: '#b13346'
-  info: '#197cb3'
+  accent: '#3c83f6'
+  success: '#10b77f'
+  warning: '#f59f0a'
+  error: '#ff3d5e'
+  info: '#00b2ff'
   pvp: '#c9bfaa'
   pve: '#5a99b0'
 typography:
@@ -85,7 +85,7 @@ components:
     padding: '{spacing.xs}'
   badge-accent:
     backgroundColor: '{colors.accent}'
-    textColor: '{colors.text}'
+    textColor: '{colors.canvas}'
     rounded: '{rounded.sm}'
     padding: '{spacing.xs}'
   status-success:
@@ -98,11 +98,11 @@ components:
     rounded: '{rounded.sm}'
   status-error:
     backgroundColor: '{colors.error}'
-    textColor: '{colors.text}'
+    textColor: '{colors.canvas}'
     rounded: '{rounded.sm}'
   status-info:
     backgroundColor: '{colors.info}'
-    textColor: '#ffffff'
+    textColor: '{colors.canvas}'
     rounded: '{rounded.sm}'
   mode-pvp:
     backgroundColor: '{colors.pvp}'
@@ -119,8 +119,9 @@ components:
 ## Overview
 
 TarkovTracker is a dense, client-only tracking application for Escape from Tarkov players. The
-interface should feel tactical, quiet, and fast to scan: dark application chrome, compact panels,
-strong task/item hierarchy, and sparing tan or teal emphasis for actions and state.
+interface should feel tactical, quiet, and fast to scan: dark, blue-tinted application chrome,
+compact panels, strong task/item hierarchy, and sparing neon-green emphasis for actions and state
+(Tarkov Stammtisch branding).
 
 This file is agent-facing documentation. The runtime source of truth for CSS tokens is
 `app/assets/css/tailwind.css`, with Nuxt UI color registration in `nuxt.config.ts` and component
@@ -137,10 +138,10 @@ perceptually tuned production colors. Modern browsers use the OKLCH values, whic
 uniformity across hues (equal chroma steps look equal) and more natural desaturation at low
 lightness. The front matter hex values represent the rendered OKLCH output, not the HSL fallbacks.
 
-Primary actions use the golden-tan `primary` palette. Secondary accents use `secondary` or `accent`.
-Surfaces follow the `surface` ladder: page canvas at `surface-950`, shell chrome at `surface-900`,
-content panels at `surface-850` or `surface-900`, raised controls at `surface-800`, hover states at
-`surface-700`, and dividers at `surface-600`.
+Primary actions use the neon-green `primary` palette. Secondary accents use `secondary` or `accent`
+(blue). Surfaces follow the `surface` ladder (blue-tinted dark): page canvas at `surface-950`, shell
+chrome at `surface-900`, content panels at `surface-850` or `surface-900`, raised controls at
+`surface-800`, hover states at `surface-700`, and dividers at `surface-600`.
 
 Surface token mapping:
 
@@ -155,9 +156,10 @@ Surface token mapping:
 State colors are semantic: `success`, `warning`, `error`, and `info`. Game-mode colors should use
 `pvp` and `pve`, not ad hoc tan or blue classes.
 
-Note: Nuxt UI maps its semantic `info` color to the `accent` (teal) palette in `app.config.ts`, so
-`<UButton color="info">` renders teal, while the CSS `text-info-500` class renders blue. This is
-intentional — the teal accent is the primary informational tone in the UI.
+Note: Nuxt UI maps its semantic `info` color to the `accent` (muted blue, `#3B82F6`-based) palette in
+`app.config.ts`, so `<UButton color="info">` renders the muted accent blue, while the CSS
+`text-info-500` class renders the brighter `#00B4FF`-based `info` palette. This is intentional — the
+two blues are deliberately distinct shades of the same brand accent.
 
 ## Typography
 
@@ -198,8 +200,8 @@ when a standard icon button is clearer.
 
 ## Do's and Don'ts
 
-Do keep UI changes consistent with the current dark surface ladder, tan primary action color, teal
-accent language, and compact app ergonomics.
+Do keep UI changes consistent with the current dark, blue-tinted surface ladder, neon-green primary
+action color, blue accent language, and compact app ergonomics.
 
 Do run `pnpm run design:lint` after editing this file and `pnpm run format:check` before leaving
 code (the pre-commit hook already formats staged files; use `pnpm run format` only if bypassing hooks).
