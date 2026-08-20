@@ -2,7 +2,7 @@
   <div class="flex min-h-[calc(100vh-250px)] overflow-x-hidden">
     <div class="min-w-0 flex-1 px-3 py-6 sm:px-6">
       <div class="mx-auto max-w-350 xl:max-w-400 2xl:max-w-450">
-        <h1 class="sr-only">Tarkov Tracker - Escape from Tarkov Progress Tracker</h1>
+        <h1 class="sr-only">Tarkov Stammtisch Quest-Tracker</h1>
         <DashboardNextActions />
         <div class="mb-8">
           <button
@@ -21,7 +21,7 @@
           </button>
           <div
             v-show="!progressSectionCollapsed"
-            class="bg-surface-950/40 rounded-2xl border border-white/8 p-4 sm:p-5"
+            class="bg-surface-950/40 clip-corners corner-decoration rounded-none border border-white/8 p-4 sm:p-5"
           >
             <div
               class="text-surface-400 mb-3 flex items-center justify-end gap-1.5 text-[11px] sm:text-xs"
@@ -323,12 +323,12 @@
   const traderHighlightTimeout = ref<ReturnType<typeof setTimeout> | null>(null);
   // Page metadata
   useSeoMeta({
-    title: 'Tarkov Tracker - Escape from Tarkov Quest and Hideout Tracker',
+    title: 'Quest-Tracker | Tarkov Stammtisch',
     description:
-      'Track Escape from Tarkov quests, storyline, hideout upgrades, and needed items in one place. Tarkov Tracker supports PvP and PvE progression tracking and team collaboration.',
-    ogTitle: 'Tarkov Tracker - Escape from Tarkov Quest and Hideout Tracker',
+      'Der deutsche Quest-Tracker der Tarkov-Stammtisch-Community - verfolge deinen Fortschritt bei Aufgaben, Hideout-Ausbau und benoetigten Gegenstaenden.',
+    ogTitle: 'Quest-Tracker | Tarkov Stammtisch',
     ogDescription:
-      'Track Escape from Tarkov quests, storyline, hideout upgrades, and needed items in one place. Tarkov Tracker supports PvP and PvE progression tracking and team collaboration.',
+      'Der deutsche Quest-Tracker der Tarkov-Stammtisch-Community - verfolge deinen Fortschritt bei Aufgaben, Hideout-Ausbau und benoetigten Gegenstaenden.',
     robots: 'index, follow',
   });
   // Dashboard statistics composable

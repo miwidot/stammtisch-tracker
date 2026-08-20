@@ -2,7 +2,10 @@
   <section
     v-if="primaryRecommendation"
     data-testid="dashboard-focus-card"
-    :class="['relative mb-8 overflow-hidden rounded-2xl border shadow-2xl', toneClasses.shell]"
+    :class="[
+      'clip-corners corner-decoration relative mb-8 overflow-hidden rounded-none border shadow-2xl',
+      toneClasses.shell,
+    ]"
   >
     <div
       :class="[

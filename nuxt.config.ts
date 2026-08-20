@@ -13,6 +13,7 @@ import {
 } from './app/utils/nuxtSecurityConfig';
 import {
   GITHUB_IMAGE_DOMAINS,
+  resolveCanonicalSiteUrl,
   resolveClientLogSinkUrl,
   resolvePublicAppUrl,
   resolveSupabaseRuntimeConfig,
@@ -37,6 +38,9 @@ const isNonProduction = process.env.NODE_ENV !== 'production';
 const CONFIGURED_NITRO_PRESET = process.env.NITRO_PRESET;
 const NITRO_PRESET = resolveNitroPreset(CONFIGURED_NITRO_PRESET);
 const PUBLIC_APP_URL = resolvePublicAppUrl(process.env);
+// Meta/SEO surfaces (og:url, JSON-LD, sitemap site.url) must never leak a localhost/dev URL;
+// fall back to the canonical production URL the same way the runtime canonical-link builder does.
+const CANONICAL_SITE_URL = resolveCanonicalSiteUrl(PUBLIC_APP_URL);
 const IS_PRODUCTION_BUILD = process.env.NODE_ENV === 'production';
 const GOOGLE_ANALYTICS_MEASUREMENT_ID = process.env.GA_MEASUREMENT_ID || '';
 const MICROSOFT_CLARITY_PROJECT_ID = process.env.CLARITY_PROJECT_ID || '';
@@ -96,22 +100,22 @@ const cspRouteRules = buildContentSecurityPolicyRouteRules({
 const webApplicationSchema = {
   '@context': 'https://schema.org',
   '@type': 'WebApplication',
-  name: 'Tarkov Tracker',
-  alternateName: 'TarkovTracker',
-  url: 'https://tarkovtracker.org',
+  name: 'Tarkov Stammtisch Quest-Tracker',
+  alternateName: 'Tarkov Tracker',
+  url: CANONICAL_SITE_URL,
   applicationCategory: 'GameApplication',
   operatingSystem: 'Web',
   description:
-    'Tarkov Tracker helps you track Escape from Tarkov quest progress, storyline, hideout upgrades, and needed items.',
+    'Der deutsche Quest-Tracker der Tarkov-Stammtisch-Community: Fortschritt bei Aufgaben, Hideout-Ausbau und benoetigten Gegenstaenden verfolgen.',
   offers: {
     '@type': 'Offer',
     price: '0',
-    priceCurrency: 'USD',
+    priceCurrency: 'EUR',
   },
   author: {
     '@type': 'Organization',
-    name: 'Tarkov Tracker',
-    url: 'https://tarkovtracker.org',
+    name: 'Tarkov Stammtisch',
+    url: CANONICAL_SITE_URL,
   },
   sameAs: ['https://github.com/tarkovtracker-org/TarkovTracker'],
 };
@@ -284,7 +288,15 @@ export default defineNuxtConfig({
     buildAssetsDir: '/_nuxt/',
     head: {
       titleTemplate: '%s | Tarkov Stammtisch',
-      title: 'Escape from Tarkov Quest, Hideout, and Item Tracker',
+      title: 'Quest-, Hideout- und Item-Tracker',
+      link: [
+        { rel: 'icon', type: 'image/png', sizes: '16x16', href: '/favicon-16x16.png' },
+        { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32x32.png' },
+        { rel: 'icon', type: 'image/png', sizes: '48x48', href: '/favicon-48x48.png' },
+        { rel: 'icon', type: 'image/png', sizes: '192x192', href: '/favicon-192x192.png' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
+        { rel: 'manifest', href: '/manifest.json' },
+      ],
       style: [
         {
           textContent: [
@@ -343,39 +355,43 @@ export default defineNuxtConfig({
         {
           name: 'description',
           content:
-            'Tarkov Tracker helps you track Escape from Tarkov quest progress, storyline, hideout upgrades, and needed items. Plan raids, share progression with your team, and stay ready for wipe updates.',
+            'Verfolge deinen Fortschritt bei Escape from Tarkov Aufgaben, Storyline, Hideout-Ausbau und benoetigten Gegenstaenden. Plane Raids, teile deinen Fortschritt mit deinem Team und bleib startklar fuer Wipes.',
         },
         {
           name: 'keywords',
           content:
-            'tarkov tracker, tarkov quest tracker, escape from tarkov tasks, eft hideout tracker, eft needed items',
+            'tarkov quest-tracker, escape from tarkov aufgaben, eft hideout tracker, eft benoetigte gegenstaende, tarkov stammtisch',
         },
         { name: 'theme-color', content: '#c8a882' },
         // OpenGraph tags
-        { property: 'og:site_name', content: 'Tarkov Tracker' },
+        { property: 'og:site_name', content: 'Tarkov Stammtisch' },
         { property: 'og:type', content: 'website' },
-        { property: 'og:title', content: 'Tarkov Tracker - Escape from Tarkov Progress Tracker' },
+        { property: 'og:title', content: 'Quest-Tracker | Tarkov Stammtisch' },
         {
           property: 'og:description',
           content:
-            'Tarkov Tracker helps you track Escape from Tarkov quest progress, storyline, hideout upgrades, and needed items. Plan raids, share progression with your team, and stay ready for wipe updates.',
+            'Der deutsche Quest-Tracker der Tarkov-Stammtisch-Community - verfolge deinen Fortschritt bei Aufgaben, Hideout-Ausbau und benoetigten Gegenstaenden.',
         },
         {
           property: 'og:image',
-          content: 'https://tarkovtracker.org/img/logos/tarkovtrackerlogo-light.webp',
+          content: `${CANONICAL_SITE_URL}/og-default.png`,
         },
-        { property: 'og:url', content: 'https://tarkovtracker.org' },
+        { property: 'og:image:width', content: '800' },
+        { property: 'og:image:height', content: '800' },
+        { property: 'og:image:alt', content: 'Tarkov Stammtisch Logo' },
+        { property: 'og:url', content: CANONICAL_SITE_URL },
+        { property: 'og:locale', content: 'de_DE' },
         // Twitter Card tags
         { name: 'twitter:card', content: 'summary_large_image' },
-        { name: 'twitter:title', content: 'Tarkov Tracker - Escape from Tarkov Progress Tracker' },
+        { name: 'twitter:title', content: 'Quest-Tracker | Tarkov Stammtisch' },
         {
           name: 'twitter:description',
           content:
-            'Tarkov Tracker helps you track Escape from Tarkov quest progress, storyline, hideout upgrades, and needed items. Plan raids, share progression with your team, and stay ready for wipe updates.',
+            'Der deutsche Quest-Tracker der Tarkov-Stammtisch-Community - verfolge deinen Fortschritt bei Aufgaben, Hideout-Ausbau und benoetigten Gegenstaenden.',
         },
         {
           name: 'twitter:image',
-          content: 'https://tarkovtracker.org/img/logos/tarkovtrackerlogo-light.webp',
+          content: `${CANONICAL_SITE_URL}/og-default.png`,
         },
       ],
     },
@@ -410,8 +426,8 @@ export default defineNuxtConfig({
       : undefined,
   ].filter(Boolean) as (string | [string, Record<string, unknown>])[],
   site: {
-    url: 'https://tarkovtracker.org',
-    name: 'Tarkov Tracker',
+    url: CANONICAL_SITE_URL,
+    name: 'Tarkov Stammtisch',
   },
   sitemap: {
     zeroRuntime: true,

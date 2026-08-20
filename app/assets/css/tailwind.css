@@ -53,7 +53,7 @@ body::after {
   );
 }
 @layer utilities {
-  /* Beveled corners for large panels (modals, dialogs) - not for small/repeated list items */
+  /* Beveled corners for large panels (modals, dialogs, dashboard hero/section panels) - not for small/repeated list items */
   .clip-corners {
     clip-path: polygon(
       0 8px,
