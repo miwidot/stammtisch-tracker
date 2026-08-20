@@ -141,14 +141,14 @@
             </UDropdownMenu>
           </AppTooltip>
           <AppTooltip v-if="!isLoggedIn" :text="t('app_bar.login_aria', 'Log in to your account')">
-            <NuxtLink
-              to="/login"
+            <a
+              :href="trackerHandoffUrl"
               class="bg-primary-600 hover:bg-primary-500 border-primary-500 flex h-9 items-center gap-1.5 rounded-md border px-3.5 text-[13px] leading-none font-semibold text-white transition-colors"
               :aria-label="t('app_bar.login_aria', 'Log in to your account')"
             >
               <UIcon name="i-mdi-account-outline" class="h-4 w-4 shrink-0" />
               <span class="leading-none">{{ t('navigation_drawer.login') }}</span>
-            </NuxtLink>
+            </a>
           </AppTooltip>
         </div>
       </div>
@@ -172,6 +172,7 @@
   import { SHELL_DESKTOP_BREAKPOINT_PX } from '@/utils/shellConfig';
   import type { DropdownMenuItem } from '@nuxt/ui';
   const { availableLocales, locale, setLocale, t, te } = useI18n({ useScope: 'global' });
+  const trackerHandoffUrl = useRuntimeConfig().public.trackerHandoffUrl;
   const appStore = useAppStore();
   const activityLogStore = useActivityLogStore();
   const metadataStore = useMetadataStore();

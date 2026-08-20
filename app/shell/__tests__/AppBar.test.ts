@@ -130,6 +130,11 @@ mockNuxtImport('useRoute', () => () => ({
 }));
 mockNuxtImport('useSkillCalculation', () => () => mockSkillCalculation);
 mockNuxtImport('useToast', () => () => mockToast);
+mockNuxtImport('useRuntimeConfig', () => () => ({
+  public: {
+    trackerHandoffUrl: 'https://dev.tarkov-stammtisch.de/api/tracker/handoff',
+  },
+}));
 const SelectMenuFixedStub = {
   props: ['items', 'modelValue'],
   emits: ['update:modelValue'],
