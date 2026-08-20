@@ -50,6 +50,17 @@ Liegt ausserhalb des Upstream-Codes. Kein Merge-Konflikt möglich.
 | `API_TRUST_PROXY=true` | nginx + Cloudflare davor, sonst ist jede Client-IP die von nginx | — |
 | `OVERLAY_URL` → unser Overlay-Fork | deutsche Quest-Inhalte | bekannter Quest-Name auf Deutsch |
 
+⚠️ **`OVERLAY_URL` muss HTTPS sein — seit 1.73.2 zwingend.** Upstream hat `http:` in `fix/secure-overlay-url` (PR #755) entfernt:
+```diff
+- const ALLOWED_OVERLAY_PROTOCOLS = ['https:', 'http:'];
++ const OVERLAY_PROTOCOL = 'https:';
+```
+Ein `http:`-Overlay fällt **still** auf die Upstream-Adresse zurück — keine Fehlermeldung, unsere Übersetzungen sind einfach weg. Zusätzlich: max. 3 Weiterleitungen, Ziele müssen ebenfalls HTTPS sein.
+
+Unser Phase-0-Test lief noch über `http://127.0.0.1:8099` und wäre auf diesem Stand fehlgeschlagen. **Das Overlay muss über HTTPS ausgeliefert werden.**
+
+Genau diese Klasse von Änderung ist der Grund für den Rauchtest unten: sie kam vier Tage nach der Analyse und ohne den Blick in den Upstream-Diff hätten wir sie erst gemerkt, wenn jemand fragt, warum die Quests wieder englisch sind.
+
 ### Infrastruktur (ausserhalb dieses Repos)
 
 - nginx-vhost: Same-Origin-Setup, 4 Supabase-Pfade + App auf **einem** Host
