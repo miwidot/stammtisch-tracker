@@ -1,8 +1,24 @@
 {
+  "common": {
+    "complete": "Abschließen",
+    "fail": "Fehlgeschlagen",
+    "mark_complete": "Als abgeschlossen markieren",
+    "reset_failed": "Fehlgeschlagen zurücksetzen"
+  },
   "navigation_drawer": {
     "brand_name": "Tarkov Stammtisch"
   },
+  "needed_items": {
+    "any_of_items": "Einer dieser {count} Gegenstände genügt",
+    "any_of_items_short": "1 von {count}",
+    "view_accepted_items": "Alle {count} akzeptierten Gegenstände anzeigen"
+  },
   "page": {
+    "kappa": {
+      "row": {
+        "action_reset_failed": "Fehlgeschlagen zurücksetzen"
+      }
+    },
     "tasks": {
       "questcard": {
         "level_badge": "Stufe {count}",
