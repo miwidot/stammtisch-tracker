@@ -2,7 +2,7 @@
 
 **Zweck:** Dieses Dokument beschreibt den kompletten Aufbau so, dass jemand ohne Vorwissen ihn nachvollziehen, reparieren oder neu errichten kann. Es ersetzt bewusst das Gedächtnis einer Arbeitssitzung.
 
-Stand: 2026-08-20 · App-Version 1.73.2 · Analyse + Entscheidungen: [Epic #1293](https://github.com/miwidot/tarkov-stammtisch/issues/1293) · Abweichungen: [FORK.md](./FORK.md)
+Stand: **2026-08-21** · App-Version 1.73.2 · Analyse + Entscheidungen: [Epic #1293](https://github.com/miwidot/tarkov-stammtisch/issues/1293) · Abweichungen: [FORK.md](./FORK.md) · Daten-Overlay: eigenes Repo mit eigenem FORK.md (siehe §2)
 
 ---
 
@@ -18,13 +18,35 @@ Der eigene Quest-Tracker von Tarkov Stammtisch ist durch den BSG-Umbau des Quest
 
 ## 2. Repos
 
-| Repo                              | Zweck                            | Sichtbarkeit |
-| --------------------------------- | -------------------------------- | ------------ |
-| `miwidot/stammtisch-tracker`      | unser Arbeits-Fork (dieses Repo) | **privat**   |
-| `MiwiDots/TarkovTrackerNuxt`      | nur für PRs zurück an Upstream   | öffentlich   |
-| `tarkovtracker-org/TarkovTracker` | Upstream                         | öffentlich   |
+**Drei Repos gehören zusammen** — wer hier weitermacht, sollte alle drei kennen:
 
-**Warum zwei:** Ein privates Repo kann kein GitHub-Fork eines öffentlichen sein und keine PRs upstream stellen. Der öffentliche Fork existierte bereits und wird ausschliesslich für Rückgaben benutzt.
+| Repo                                    | Zweck                                               | Sichtbarkeit |
+| --------------------------------------- | --------------------------------------------------- | ------------ |
+| `miwidot/stammtisch-tracker`            | Tracker-App, unser Arbeits-Fork (**dieses Repo**)   | privat       |
+| `miwidot/stammtisch-tracker-overlay`    | **Spieldaten-Overlay** — deutsche Quest-Korrekturen | privat       |
+| `miwidot/tarkov-stammtisch`             | unser Hauptsystem (Login, SSO-Brücke)               | privat       |
+| `MiwiDots/TarkovTrackerNuxt`            | nur für PRs zurück an TarkovTracker                 | öffentlich   |
+| `tarkovtracker-org/TarkovTracker`       | Upstream der App (GPL-3)                            | öffentlich   |
+| `tarkovtracker-org/tarkov-data-overlay` | Upstream des Overlays (**MIT**)                     | öffentlich   |
+
+**Warum ein separater öffentlicher Fork:** Ein privates Repo kann kein GitHub-Fork eines öffentlichen sein und keine PRs upstream stellen. Der öffentliche Fork existierte bereits und wird ausschliesslich für Rückgaben benutzt.
+
+> ⚠️ **„Overlay" bedeutet drei verschiedene Dinge.** Das **Spieldaten-Overlay** (eigenes Repo, Quest-Korrekturen als JSON). Das **Theme** des Trackers (Farben, in diesem Repo in `tailwind.css`/`app.config.ts`). Und die **OBS-Overlays** für Streams auf der Hauptseite. Nicht verwechseln.
+
+### Das Spieldaten-Overlay (eigenes Repo, eigenes FORK.md)
+
+Der Tracker unterstützt **genau eine** Overlay-Quelle. Zeigt `OVERLAY_URL` auf eine eigene Datei, ist das Upstream-Overlay **komplett weg** — gemessen: Task-Anzahl sprang 487 → 517, weil ~30 per `disabled: true` gefilterte Tasks zurückkamen, und alle 211 Korrekturen fehlten.
+
+Deshalb der zweite Fork: `src/overrides/locales/de.json5` ist eine **neue Datei**, die upstream nicht existiert → Konflikt unmöglich. Der Build sammelt sie automatisch ein (keine Sprach-Allowlist).
+
+```bash
+git clone git@github.com:miwidot/stammtisch-tracker-overlay.git
+cd stammtisch-tracker-overlay && npm install
+npm run build          # -> dist/overlay.json (211 Korrekturen + unser Deutsch)
+npm run check-overrides # was hat Upstream inzwischen selbst gefixt?
+```
+
+**Faustregel:** „Der deutsche Text ist falsch" → unser Fork. „Die Daten sind falsch" → PR an Upstream (MIT, unkompliziert).
 
 ### Remotes in diesem Repo
 
@@ -261,18 +283,52 @@ Deren `de.json` ist zu ~30 % unübersetzt (563 von 1886 Schlüsseln identisch mi
 
 ---
 
+## 7b. Stand der Umstellung (2026-08-21)
+
+**Fertig und live auf stammdev:**
+
+- Tracker läuft unter `trackerdev.tarkov-stammtisch.de`, Theme/Branding/Footer in unserem Design
+- **Login durchgehend:** Stammtisch-Konto → Tracker, kein zweiter Login. Im Browser verifiziert.
+- **Login-Pflicht** für die ganze App (nur `/login` und `/auth/callback` offen)
+- Nur DE/EN, Deutsch als Fallback
+- Supporter/Community/GitHub/Resources/Migrations-Banner/„Neuigkeiten" entfernt
+- Settings: „Tools & Integrations" und Discord-Karte raus
+- **Alter Tracker im Hauptsystem ausgebaut** — 112 Dateien, 31.715 Zeilen. Alte Pfade leiten auf den neuen Tracker.
+
+**Bewusst NICHT gemacht:**
+
+- **Prisma-Modelle des alten Trackers stehen noch** (`TarkovQuest`, `TarkovProfile`, `TarkovQuestProgress`, `QuestKeyProgress`, `QuestTeam`, `QuestTeamMember`, `QuestContent`). Auf stammlive liegen dort **echte Nutzerdaten**: 338 Profile, 35.812 Fortschritts-Einträge, 15 Teams, 691 Schlüssel-Einträge.
+  Würde man die Modelle entfernen, löscht der nächste `prisma db push` die Tabellen. `--accept-data-loss` ist projektweit hart gesperrt.
+  **Sicherung existiert:** `stammlive:~/backup-tracker-20260820-190203.sql` (14 MB, alle 7 Tabellen, verifiziert).
+  Der Schema-Rückbau ist ein **eigener, bewusster Schritt** mit eigener Freigabe.
+- `TarkovQuest` wird weiterhin per Cron befüllt (`lib/tarkov-tracker/sync-quests.ts`, aufgerufen aus `src/discordbot/services/cronManager.ts`) — die Zahlen auf der Quest-Info-Seite hängen daran.
+
+**Noch nie produktiv gelaufen:** Der Tracker läuft ausschliesslich als Prototyp auf stammdev.
+
+---
+
 ## 8. Bekannte offene Punkte
+
+### Vor einem Produktivgang zwingend
+
+| Punkt                                 | Warum                                                                                                                                                                                     |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`proxy_cache` für `/api/tarkov/*`** | **Pflicht, nicht Optimierung.** Ohne Cloudflare-Edge geht jeder Request bis `json.tarkov.dev` — es gibt keine DB-Kopie der Quest-Daten. Dokumentiertes Worst-Case-Budget ~55 s pro Route. |
+| **Produktions-Host entscheiden**      | stammlive ist zu knapp (1,7 GB wirklich frei, 4 GB Swap belegt, mysqld hält 9,8 GB). stammdev hat reichlich. Ggf. an #1000 koppeln.                                                       |
+| **`wrangler.toml` `APP_URL`**         | zeigt auf `trackerdev…` — vor Produktivgang auf die Live-Domain, sonst zeigen Vorschau-Links in die Entwicklungsumgebung                                                                  |
+| **`OVERLAY_URL` auf unser Overlay**   | aktuell noch die Test-Datei aus Phase 0; muss auf das gebaute `dist/overlay.json` aus dem Overlay-Fork zeigen (**HTTPS zwingend**)                                                        |
+
+### Funktionale Baustellen
 
 | Punkt                                                    | Stand                                                                                                                                                                                                                                                                       |
 | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`teams`-Realtime liefert an User-Tokens keine Events** | Isoliert bewiesen: `service_role` 3/3, User-Token (sogar der Owner) 0/3. Die Policy ruft `private.can_access_team()`; PostgREST liest die Zeile problemlos, Realtimes eigene RLS-Auswertung verwirft sie still. Betrifft Team-Metadaten, **nicht** den eigenen Fortschritt. |
 | **Realtime-Subscribe-Race (~2 s)**                       | `SUBSCRIBED` kommt bevor Realtime an Postgres hängt. Mutationen im Fenster gehen verloren → Client muss nach `SUBSCRIBED` **aktiv nachladen**.                                                                                                                              |
-| `proxy_cache` für `/api/tarkov/*`                        | noch nicht eingerichtet, siehe §5                                                                                                                                                                                                                                           |
-| Produktions-Host                                         | stammlive ist zu knapp (nur 1,7 GB wirklich frei, 4 GB Swap belegt, mysqld hält 9,8 GB). stammdev hat reichlich. Ggf. an #1000 koppeln.                                                                                                                                     |
-| Registrierung sperren                                    | in Arbeit — offen ob `admin.createUser` dann noch geht                                                                                                                                                                                                                      |
-| Login-Brücke zu unserem System                           | noch nicht gebaut                                                                                                                                                                                                                                                           |
-
----
+| **`ProfileSharingCard` ausblenden**                      | bietet einen Teilen-Link an, der durch die Login-Pflicht für Ausgeloggte nicht mehr funktioniert                                                                                                                                                                            |
+| **Analytics-Einwilligung**                               | der einzige Wiedereinstieg lag im ersetzten Footer (`useAnalyticsConsent().openPreferences()`) — ersatzlos weg                                                                                                                                                              |
+| **Schema-Rückbau alter Tracker**                         | siehe 7b — eigener Schritt, Sicherung liegt bereit                                                                                                                                                                                                                          |
+| **Migration der 338 Nutzer**                             | offen, ob/wie alter Fortschritt mitgenommen wird. Der Tracker hat Import-Wege (`useTarkovDevImport`, `useEftLogsImport`, Data-Backup).                                                                                                                                      |
+| **#1294 Löschkonzept**                                   | Supabase-Account beim User-Delete mitlöschen (DSGVO)                                                                                                                                                                                                                        |
 
 ## 9. Rückgaben an Upstream
 
