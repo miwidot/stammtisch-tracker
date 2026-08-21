@@ -283,6 +283,64 @@ Deren `de.json` ist zu ~30 % unübersetzt (563 von 1886 Schlüsseln identisch mi
 
 ---
 
+## 7a. Wie Quest-Daten fliessen — und was bei Spielupdates mit dem Fortschritt passiert
+
+> Am Code verifiziert (2026-08-21), nicht angenommen. Das ist der wichtigste Unterschied zu unserem alten Tracker.
+
+### Es gibt keinen Quest-Sync
+
+Upstream hat **keine Quest-Tabelle und keinen Sync-Job**. Alle 19 DB-Tabellen halten ausschliesslich _User_-Zustand (Fortschritt, Teams, Einstellungen, Admin). Quest-Definitionen werden **nie persistiert**.
+
+Der Weg der Daten:
+
+```
+json.tarkov.dev  (statische JSON, pro gameMode)
+      ↓  on-demand, keine Hintergrundjobs
+/api/tarkov/tasks-core|-objectives|-rewards          (Nitro-Server-Routen)
+      ↓  Sprach-Merge: tasks_<lang> + tasks_en als Fallback, per JSONPath
+      ↓  Overlay drüber (unser Fork -> OVERLAY_URL)
+      ↓  Cache: 12 h Standard (CACHE_TTL_DEFAULT=43200)
+      ↓         24 h Item-Katalog (CACHE_TTL_EXTENDED=86400)
+Client (Pinia-Stores + IndexedDB)
+```
+
+**Konsequenz:** Neue Spieldaten sind spätestens nach Ablauf der Cache-Zeit da. Nichts muss angestossen werden, es gibt keinen Job der schiefgehen kann.
+
+### Fortschritt ist reines Nachschlagewerk
+
+Gespeichert wird in `user_progress` / `user_game_mode_progress` als **JSONB**: `taskCompletions` und `taskObjectives`, jeweils als Map, gekeyt auf Task- bzw. Objective-**ID**.
+
+**Der entscheidende Mechanismus:** Die Auswertung iteriert über die **aktuellen Tasks** aus der Live-Quelle (`metadataStore.tasks` → `relevantTasks`) und schlägt den gespeicherten Stand darin **nach**. Nicht umgekehrt.
+
+Belegt in `app/composables/useDashboardStats.ts` (Nenner = `relevantTasks.value.filter(...).length`) und `app/stores/useProgress.ts` (`for (const task of metadataStore.tasks)`).
+
+### Was bei einem Spielupdate passiert
+
+| BSG ändert …                            | Verhalten                                                                       |
+| --------------------------------------- | ------------------------------------------------------------------------------- |
+| Quest **entfernt**                      | fällt aus dem Nenner; gespeicherter Eintrag wird nie mehr gelesen               |
+| Quest **neu**                           | erscheint als offen im Nenner                                                   |
+| **Ziele geändert** (neue Objective-IDs) | neue IDs starten offen, alte werden ignoriert → Quest wird wieder unvollständig |
+| Quest per Overlay **deaktiviert**       | verschwindet aus der Liste wie ein entfernter                                   |
+
+**Es gibt strukturell nichts, das den Fortschritt verfälschen könnte** — weil kein Prozess ihn anfasst. Die aktuellen Daten gewinnen immer.
+
+> **Genau das war beim alten Tracker anders.** Dort standen Quests in unserer DB, und ein Sync, der Objectives änderte, hat die Completion-Rechnung still verfälscht. Deshalb sah der alte Plan (#1215) ein eigenes Ticket „Progress reconciliation on sync" vor. **Der Fork braucht das strukturell nicht.**
+
+### Was bleibt: verwaiste Einträge
+
+Wird eine Quest entfernt, bleibt ihr Eintrag im JSONB liegen — er wird nur nie wieder gelesen. Es gibt **keine** Bereinigung dafür.
+
+Der Trigger `sanitize_user_progress_row` (Migration `20260215160000`) normalisiert die **Struktur** der Payload und entfernt unbekannte Top-Level-Felder — er räumt **keine** verwaisten Task-/Objective-IDs weg. _(Verifiziert; dass die Waisen dadurch harmlos, aber dauerhaft sind, ist die logische Folge — nicht separat gemessen.)_
+
+Praktisch unkritisch: es sind ein paar Bytes pro entfallener Quest. Falls es je stört, wäre eine batched Bereinigung in einem Wartungsfenster der Weg — die Migration selbst weist explizit auf dieses Muster hin.
+
+### Repariert wird nur eines: fehlgeschlagene Quest-Zweige
+
+`app/stores/useTarkov.ts` enthält `clearFailedTaskObjectives()` — wenn eine Quest als „failed" markiert ist, werden deren Objective-Häkchen zurückgesetzt, und veraltete Failed-Flags ohne gültige Ursache werden gelöscht. Das ist Zweig-Logik (sich gegenseitig ausschliessende Quests), nicht Datenabgleich.
+
+---
+
 ## 7b. Stand der Umstellung (2026-08-21)
 
 **Fertig und live auf stammdev:**
