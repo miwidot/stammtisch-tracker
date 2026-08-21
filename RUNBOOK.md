@@ -397,6 +397,25 @@ ssh stammdev "cd ~/overlay-fork && git checkout -- dist/ && git pull && npm run 
 ⚠️ Versionskennung kommt aus dem neuesten **Git-Tag** — ohne Tags baut es `1.0.0` statt `1.67`.
 ⚠️ **Kein `scp`.** Der Weg läuft über Git; das wurde einmal abgekürzt und zu Recht bemängelt.
 
+⚠️ **Commit nach dem Ausliefern nie stillschweigend amenden.** Ein `git commit --amend` + Force-Push
+nach dem Deploy lässt `~/overlay-fork` auf stammdev auf einem Commit stehen, den es auf origin nicht
+mehr gibt. Der nächste `git pull` dort läuft dann in eine divergierte Historie. Passiert 2026-08-21
+beim Korrigieren einer Zahl in der Commit-Message.
+
+Ablauf, wenn ein Amend trotzdem nötig ist:
+
+```bash
+# 1. BEWEISEN, dass sich nur die Message geaendert hat — vor jeder Aenderung am Server
+ssh stammdev "cd ~/overlay-fork && git fetch origin && git rev-parse <alt>^{tree} && git rev-parse <neu>^{tree}"
+#    Die beiden Tree-Hashes MUESSEN gleich sein. Wenn nicht: nicht zuruecksetzen, sonst gehen Inhalte verloren.
+
+# 2. Erst dann den Clone nachziehen
+ssh stammdev "cd ~/overlay-fork && git checkout -- dist/ && git reset --hard origin/main"
+```
+
+Bei identischem Baum ist **kein `npm run build` und kein App-Neustart nötig** — die ausgelieferte
+Datei ändert sich nicht.
+
 ### Übersetzungen — Verfahren steht, Arbeit läuft
 
 |                                   |                                                  |
@@ -420,6 +439,38 @@ ssh stammdev "cd ~/overlay-fork && git checkout -- dist/ && git pull && npm run 
 ### Falsch-Positive bei der Lückenmessung
 
 Nicht jeder deutsch==englisch-Treffer ist eine Lücke: `Level`, `PvP`, `PvE`, `Scav`, `Kappa`, `Optional` sind im Deutschen identisch. Von 560 gemeldeten UI-Treffern waren **15 Falsch-Positive** → 545 echte.
+
+### Falsch-NEGATIVE — die Lückenzahl ist eine Untergrenze
+
+`deutsch == englisch` findet nur die exakten Treffer. Am 2026-08-21 wurden bei der Punisher-Reihe
+**23 weitere englische Einträge** gefunden, die sich vom Englischen minimal unterscheiden und
+deshalb durch jede Gleichheitsprüfung rutschen. Vier Klassen:
+
+| Klasse                     | Beispiel                                                                                                       | Anzahl |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------- | ------ |
+| **Schreibfehler / Casing** | `knive` statt `knife` · `Streets of tarkov` · `No limit to perfection`                                         | 3      |
+| **Veraltetes Englisch**    | DE hält eine ältere englische Fassung, EN wurde seither umformuliert (12× Figurinen-Ziele + 5 Einzelfälle)     | 17     |
+| **Echter Datenfehler**     | `68486a0e…37b`: EN `Survive and extract from Interchange`, DE `Hand over … Labyrinth figurines` — anderes Ziel | 1      |
+| **Sprachen vertauscht**    | 3× „New Beginning": EN-Feld enthält `Neuanfang`, DE-Feld `New Beginning`                                       | 3      |
+
+Die letzten beiden Klassen sind **Fehler der Datenquelle, keine fehlenden Übersetzungen** — die
+gehören nach upstream gemeldet, nicht im Overlay überpflastert.
+
+**So wird gesucht** (Skript-Ansatz, kein fertiges Tool im Repo): für jeden Schlüssel mit
+`de !== en` prüfen, ob der deutsche Text sprach-eindeutige **englische** Funktionswörter enthält
+(`the`, `with`, `any`, `while`, `hand over`, …) und **kein** deutsches Signal (Umlaut/`ß` oder
+`der/die/das/mit/auf/und/eliminiere/übergib/…`).
+
+Zwei Fallen, die dabei beide zugeschlagen haben:
+
+- **Wörter, die in beiden Sprachen existieren, dürfen nicht als Signal zählen.** `raid` als
+  deutsches Merkmal geführt → ausgerechnet der `knive`-Fall galt als „korrekt deutsch".
+- **Eigennamen kollidieren mit Funktionswörtern.** `Den figurine` traf auf den Artikel „den" →
+  drei Figurinen-Ziele fielen durch.
+
+Für kurze Eigennamen ohne Funktionswörter ist der Ansatz grundsätzlich blind. Das **Item-Bundle**
+liefert damit gar nichts Brauchbares: deutsche Grossschreibung (`Duct Tape` vs `Duct tape`) erzeugt
+massenhaft Fehltreffer.
 
 ### Vor dem Melden von „Fehlern" IMMER prüfen
 
@@ -472,14 +523,51 @@ Wir leben von deren Arbeit. Was allgemein nützlich ist, geht als PR zurück —
 
 ## 10. Wenn etwas kaputt ist
 
-| Symptom                                          | Erste Vermutung                                                                                        |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| `ERR_TOO_MANY_REDIRECTS`                         | nginx-Redirect nicht Cloudflare-bewusst (§5)                                                           |
-| `502 Bad Gateway`                                | App-Prozess tot oder auf falschem Port (muss 3101 sein)                                                |
-| Seite lädt, aber keine Daten                     | CSP enthält die falsche Supabase-Adresse → Neubau nötig, nicht Neustart                                |
-| 403 auf allen `/api/*`                           | `APP_URL`/`API_ALLOWED_HOSTS` stimmt nicht                                                             |
-| Login geht nicht, alles sieht ok aus             | `NODE_ENV` ist nicht `production` → Offline-Stub                                                       |
-| Quests plötzlich englisch                        | Overlay still verworfen: `$meta.version` fehlt, oder URL ist `http:`                                   |
-| **Komplett leere Seite trotz HTTP 200**          | alter Prozess lebt noch, serviert HTML des alten Builds → PID über `ss -tlnp \| grep 3101` killen (§3) |
-| `Repository not found` beim Pull                 | Deploy-Key (§3)                                                                                        |
-| Migration bricht bei `CREATE INDEX CONCURRENTLY` | die `disable-transaction`-Datei (§4)                                                                   |
+| Symptom                                                                            | Erste Vermutung                                                                                        |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `ERR_TOO_MANY_REDIRECTS`                                                           | nginx-Redirect nicht Cloudflare-bewusst (§5)                                                           |
+| `502 Bad Gateway`                                                                  | App-Prozess tot oder auf falschem Port (muss 3101 sein)                                                |
+| Seite lädt, aber keine Daten                                                       | CSP enthält die falsche Supabase-Adresse → Neubau nötig, nicht Neustart                                |
+| 403 auf allen `/api/*`                                                             | `APP_URL`/`API_ALLOWED_HOSTS` stimmt nicht                                                             |
+| Login geht nicht, alles sieht ok aus                                               | `NODE_ENV` ist nicht `production` → Offline-Stub                                                       |
+| Quests plötzlich englisch                                                          | Overlay still verworfen: `$meta.version` fehlt, oder URL ist `http:`                                   |
+| **Komplett leere Seite trotz HTTP 200**                                            | alter Prozess lebt noch, serviert HTML des alten Builds → PID über `ss -tlnp \| grep 3101` killen (§3) |
+| **Overlay-Änderung im Browser nicht sichtbar, obwohl die App neu gestartet wurde** | **Zweiter Cache im Browser**, nicht der Server. Siehe unten.                                           |
+
+### Zwei Caches, nicht einer
+
+Der 1-Stunden-Cache aus §7c ist der **Prozessspeicher der App** — der fällt beim Neustart. Davon
+unabhängig legt der Client die Quest-Daten in **IndexedDB** ab: Datenbank `tarkov-tracker-cache`,
+**TTL 12 Stunden** (`app/utils/tarkovCache.ts`, verwendet in `app/stores/useMetadata.ts`).
+
+Ein Neustart hilft dagegen nicht, ein hartes Neuladen auch nicht (das leert nur den HTTP-Cache).
+
+```
+javascript:indexedDB.deleteDatabase('tarkov-tracker-cache');location.reload();
+```
+
+Als Lesezeichen ablegen — das ist der Entwicklungs-Weg. Einen Abschalt-Schalter gibt es nicht:
+keine Env, keine Runtime-Config, kein Knopf. `forceRefresh` wird zwar durch den Store gereicht,
+aber von keiner Komponente ausgelöst.
+
+**Erst prüfen, welche Schicht klemmt**, bevor irgendwas neu gestartet wird:
+
+```bash
+ssh stammdev "curl -s 'http://127.0.0.1:3101/api/tarkov/tasks-objectives?lang=de' | grep -c '<deutscher Text>'"
+```
+
+Liefert das >0, ist der Server sauber und der Browser hält die alten Daten.
+
+### Zwei Upstream-Fehler, bewusst NICHT lokal gepatcht
+
+Beide in Dateien, die bei uns byte-identisch mit upstream sind — ein Patch wäre Kategorie C:
+
+| Fehler                                                                                                                                                                                                                                           | Datei                             | Volatilität              | Stand                    |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- | ------------------------ | ------------------------ |
+| Cache-Schlüssel enthält nur die handgepflegte Konstante `json-v3`, nichts aus den Daten → Overlay-Änderungen sind bis zu 12 h unsichtbar. Der Server schickt `X-Overlay-Version` + `X-Overlay-Sha256` bereits mit, der Client ignoriert sie.     | `app/stores/useMetadata.ts`       | 5 Commits / 66 Tage      | offen, Upstream-Kandidat |
+| `taskRequirements[].task.name` wird nicht übersetzt — `adaptTaskRef` greift den Namen roh ab, an der Übersetzungsschicht vorbei. Reproduzierbar ohne Overlay: Teil 4 ist upstream deutsch, erscheint in der „Benötigt:"-Zeile trotzdem englisch. | `app/server/utils/tarkov-json.ts` | **10 Commits / 66 Tage** | offen, Upstream-Kandidat |
+
+Entscheidung 2026-08-21: **nicht lokal patchen.** Der zweite sitzt in der volatilsten Datei des
+Projekts; ein Eingriff dort brächte dauerhaft Merge-Konflikte für einen fremden Fehler.
+| `Repository not found` beim Pull | Deploy-Key (§3) |
+| Migration bricht bei `CREATE INDEX CONCURRENTLY` | die `disable-transaction`-Datei (§4) |
