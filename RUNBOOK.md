@@ -365,6 +365,77 @@ Praktisch unkritisch: es sind ein paar Bytes pro entfallener Quest. Falls es je 
 
 ---
 
+## 7c. ÜBERGABE — Stand 2026-08-21 abends
+
+> Wer hier neu einsteigt: **dieser Abschnitt zuerst.** Er sagt, wo wir stehen und was der nächste Griff ist.
+
+### Läuft und ist verifiziert
+
+- **trackerdev.tarkov-stammtisch.de** — Tracker live, unser Theme/Footer/Branding, Login-Pflicht, Anmeldung über Stammtisch-Konto ohne zweiten Klick (im Browser geprüft)
+- **Alter Tracker im Hauptsystem ausgebaut** (112 Dateien), alte Pfade leiten weiter
+- **Beide Forks synchron mit Upstream** (per `merge-base` geprüft, nicht nur „nicht hinterher")
+- **Testdaten zurückgesetzt** — auf BEIDEN Seiten: Supabase (`auth.users` CASCADE) **und** unsere `QuestTrackerAccount`-Zuordnung. Nur eine Seite zu leeren erzeugt Zuordnungen auf gelöschte Konten → User landet unter falscher Identität.
+
+### Spieldaten-Overlay — so wird es ausgeliefert
+
+```
+~/overlay-fork (Git-Clone, eigener read-only Deploy-Key `id_overlay_fork`, Host-Alias `github-overlay`)
+   -> npm run build  ->  dist/overlay.json
+   -> nginx  location = /overlay.json   (alias auf die Datei)
+   -> OVERLAY_URL=https://trackerdev.tarkov-stammtisch.de/overlay.json  (in proto.env)
+```
+
+**Übersetzung ändern:**
+
+```bash
+# lokal im Overlay-Fork editieren, committen, pushen, dann:
+ssh stammdev "cd ~/overlay-fork && git checkout -- dist/ && git pull && npm run build"
+# App NEU STARTEN — das Overlay liegt 1 h im Prozessspeicher, sonst sieht man die alten Texte
+```
+
+⚠️ `git pull` scheitert sonst an `dist/overlay.json` (lokal gebaut vs. eingecheckt) → vorher `git checkout -- dist/`.
+⚠️ Versionskennung kommt aus dem neuesten **Git-Tag** — ohne Tags baut es `1.0.0` statt `1.67`.
+⚠️ **Kein `scp`.** Der Weg läuft über Git; das wurde einmal abgekürzt und zu Recht bemängelt.
+
+### Übersetzungen — Verfahren steht, Arbeit läuft
+
+|                                   |                                                  |
+| --------------------------------- | ------------------------------------------------ |
+| Erledigt im Overlay-Fork          | **11 Einträge**                                  |
+| Davon upstream (PR #279 gemerged) | 4                                                |
+| Noch nicht eingereicht            | 7 + Glory-Eintrag (**Owner: PR zurückgestellt**) |
+| Verbleibend                       | ~367 Quest-Ziele · 545 UI-Strings                |
+
+**So wird übersetzt** (bitte beibehalten):
+
+1. Lücken finden: deutsche und englische `tasks-objectives` holen, vergleichen — gleich = keine Übersetzung vorhanden
+2. **Erst nachsehen, wie die deutsche Datenbasis den Satztyp schon übersetzt**, dann formulieren. Nicht erfinden. Etabliert: `Eliminate any target on X` → `Eliminiere ein beliebiges Ziel auf X` · `Stash X in Y` → `Verstaue X in Y` · `Obtain the item: X` → `Beschaffe den Gegenstand: X` · `Complete the task X` → `Schließe die Aufgabe X ab` · PMCs · Repetiergewehr · Scav-Scharfschützen · Körperschutz
+3. Jeder Eintrag bekommt `// Was: <englischer Originaltext>` — **Konvention aus `en.json5`**, wurde im PR-Review eingefordert
+4. `npm run validate` + `npm run build`, dann ausliefern und im Tracker gegenprüfen
+
+**Priorisierung:** nach Spielerstufe aufsteigend (Neulinge sehen es zuerst) oder gezielt **Ragman — dort sitzen 108 der 378 Lücken**.
+
+⛔ **Blockiert:** Ziele der Form `Obtain the item: <Schlüssel>` brauchen die **deutschen Item-Namen** aus einer anderen Datenquelle. Raten verboten — sonst suchen Spieler nach Gegenständen, die im deutschen Client anders heissen.
+
+### Falsch-Positive bei der Lückenmessung
+
+Nicht jeder deutsch==englisch-Treffer ist eine Lücke: `Level`, `PvP`, `PvE`, `Scav`, `Kappa`, `Optional` sind im Deutschen identisch. Von 560 gemeldeten UI-Treffern waren **15 Falsch-Positive** → 545 echte.
+
+### Vor dem Melden von „Fehlern" IMMER prüfen
+
+Zwei gemeldete Auffälligkeiten waren **bewusste Upstream-Entscheidungen**, im Code begründet:
+
+- Doppelte Questnamen („Glory to CPSU" 2×, „New Beginning" 6×) — BSG hat Namenszusätze entfernt, siehe `src/overrides/tasks.json5`
+- `(OPTIONAL)` — im Deutschen dasselbe Wort
+
+### Der nächste Griff
+
+1. Nächsten Übersetzungs-Schwung (Ragman oder weiter nach Stufe)
+2. Dann gesammelt **ein** PR ans Overlay — lohnt für die Gegenseite mehr als Einzelstücke
+3. Parallel: Terminfrage zu #1000 (Hardware-Bewertung liegt dort als Kommentar)
+
+---
+
 ## 8. Bekannte offene Punkte
 
 ### Vor einem Produktivgang zwingend
