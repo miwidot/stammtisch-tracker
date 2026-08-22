@@ -354,14 +354,6 @@
           "
         />
         <ContextMenuItem
-          icon="i-mdi-alert-circle-outline"
-          :label="t('page.tasks.questcard.report_data_issue')"
-          @click="
-            openTaskDataIssue();
-            close();
-          "
-        />
-        <ContextMenuItem
           v-if="preferencesStore.getEnableManualTaskFail && isOurFaction && !isFailed"
           icon="i-mdi-close-circle"
           :label="t('page.tasks.questcard.mark_failed')"
@@ -481,11 +473,9 @@
   const isGlobalTask = computed(() => isGlobalTaskFn(props.task));
   const taskContextMenu = ref<ContextMenuRef | null>(null);
   const itemContextMenu = ref<ContextMenuRef | null>(null);
-  const { copyTaskLink, openTaskDataIssue, setSelectedItem, openItemOnTarkovDev, openItemOnWiki } =
-    useTaskCardLinks({
-      task: () => props.task,
-      objectives: () => taskObjectives.value,
-    });
+  const { copyTaskLink, setSelectedItem, openItemOnTarkovDev, openItemOnWiki } = useTaskCardLinks({
+    task: () => props.task,
+  });
   const { isComplete, isFailed, isLocked, isInvalid } = useTaskState(() => props.task.id);
   const objectivesExpanded = ref(true);
   const shouldAutoCollapseObjectives = computed(() => {
