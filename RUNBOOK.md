@@ -438,6 +438,31 @@ Der Tracker zeigte neun Ziele, das Spiel hat acht. Die Kette:
 
 Im selben handgepflegten Eintrag steht auch `experience: 155000`, wo das Wiki 65.000 sagt — dieselbe veraltete Quelle. Bewusst nicht mitgeändert, weil der zugrundeliegende API-Wert unbekannt ist; als Beobachtung im PR vermerkt.
 
+### „Glory to CPSU" steht zweimal da
+
+Der zweite Fall, an dem man das Verfahren lernt — und der erklärt, warum ein englischer Name in der deutschen Oberfläche **nicht** immer eine fehlende Übersetzung ist.
+
+Es gibt wirklich zwei Tasks, beide von Prapor auf Streets:
+
+|                  | `639135b0…47d7`        | `64f5aac4…14c2`   |
+| ---------------- | ---------------------- | ----------------- |
+| `normalizedName` | `glory-to-cpsu-part-1` | `glory-to-cpsu`   |
+| Mindestlevel     | 17                     | 6                 |
+| Ziele            | 2                      | 4 (eins optional) |
+| Vorbedingung     | ein Vorgänger-Task     | keine             |
+| EXP              | 7.300                  | 10.000            |
+
+Der erste ist **aus dem Spiel raus**: die Wiki-Seite `Glory_to_CPSU_-_Part_1` trägt `{{Historical content}}` und schreibt „_was_ a Quest". Der `wikiLink` in den Rohdaten zeigt genau dorthin.
+
+Den Namenskonflikt erzeugt aber nicht BSG, sondern eine **upstream-Datenkorrektur**: `overrides/tasks.json5` setzt für `639135…` `name: 'Glory to CPSU'` (Commit `045c943`, Niv, 2026-08-11), mit der Begründung, BSG habe das Suffix fallen lassen. Die Rohdaten sagen etwas anderes — dort steht weiterhin `Glory to CPSU - Part 1` bzw. `Heil der KPdSU - Teil 1`, und `normalizedName` sagt bis heute `glory-to-cpsu-part-1`.
+
+Dass beide Zeilen **englisch** sind, hat zwei verschiedene Gründe:
+
+- `639135…` — `applyOverlay()` legt Datenkorrekturen **auf die bereits lokalisierten** Daten und **vor** `applyLocaleOverlays()`. Der englische Korrekturname überschreibt also das deutsche Bundle. Ein Name-Override in `locales/de.json5` gäbe es zurück; den haben wir nicht.
+- `64f5aac4…` — schlicht unübersetzt, BSGs deutsches Bundle liefert hier den englischen Namen.
+
+**Die Lehre:** Vor dem Flicken in `de.json5` prüfen, ob `overrides/tasks.json5` denselben Task anfasst. Sonst behandelt man das Symptom auf der falschen Ebene — und ein Locale-Override, der eine falsche Datenkorrektur übermalt, versteckt den eigentlichen Fehler dauerhaft. Der saubere Weg ist hier upstream: die Umbenennung zurückziehen. **Noch nicht gemeldet.**
+
 ### Der nächste Griff
 
 1. **Skier** übersetzen (8 Namen, 49 Ziele) — oder die Oberfläche angehen, dort sind 556 Schlüssel offen und jeder Nutzer sieht sie bei jedem Besuch
