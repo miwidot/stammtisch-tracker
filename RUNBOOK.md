@@ -2,7 +2,7 @@
 
 **Zweck:** Dieses Dokument beschreibt den kompletten Aufbau so, dass jemand ohne Vorwissen ihn nachvollziehen, reparieren oder neu errichten kann. Es ersetzt bewusst das Gedächtnis einer Arbeitssitzung.
 
-Stand: **2026-08-21** · App-Version 1.73.2 · Analyse + Entscheidungen: [Epic #1293](https://github.com/miwidot/tarkov-stammtisch/issues/1293) · Abweichungen: [FORK.md](./FORK.md) · Daten-Overlay: eigenes Repo mit eigenem FORK.md (siehe §2)
+Stand: **2026-08-26** · App-Version 1.73.2 · Analyse + Entscheidungen: [Epic #1293](https://github.com/miwidot/tarkov-stammtisch/issues/1293) · Abweichungen: [FORK.md](./FORK.md) · Daten-Overlay: eigenes Repo mit eigenem FORK.md (siehe §2)
 
 ---
 
@@ -37,7 +37,9 @@ Der eigene Quest-Tracker von Tarkov Stammtisch ist durch den BSG-Umbau des Quest
 
 Der Tracker unterstützt **genau eine** Overlay-Quelle. Zeigt `OVERLAY_URL` auf eine eigene Datei, ist das Upstream-Overlay **komplett weg** — gemessen: Task-Anzahl sprang 487 → 517, weil ~30 per `disabled: true` gefilterte Tasks zurückkamen, und alle 211 Korrekturen fehlten.
 
-Deshalb der zweite Fork: `src/overrides/locales/de.json5` ist eine **neue Datei**, die upstream nicht existiert → Konflikt unmöglich. Der Build sammelt sie automatisch ein (keine Sprach-Allowlist).
+Deshalb der zweite Fork. `src/overrides/locales/de.json5` war anfangs eine **neue Datei** — seit PR #280/#281 gehoert sie **upstream mit**, unser Deutsch liegt also dort. Der Build sammelt sie automatisch ein (keine Sprach-Allowlist).
+
+⚠️ Damit sind Konflikte in dieser Datei nicht mehr ausgeschlossen. Rein kosmetische Umformatierungen darin kosten bei jedem Merge — eine Kommentar-Vereinheitlichung erzeugte 17 Konflikte, von denen zwei stillschweigend Inhalte zurueckdrehten.
 
 ```bash
 git clone git@github.com:miwidot/stammtisch-tracker-overlay.git
@@ -365,125 +367,82 @@ Praktisch unkritisch: es sind ein paar Bytes pro entfallener Quest. Falls es je 
 
 ---
 
-## 7c. ÜBERGABE — Stand 2026-08-21 abends
+## 7c. ÜBERGABE — Stand 2026-08-26
 
-> Wer hier neu einsteigt: **dieser Abschnitt zuerst.** Er sagt, wo wir stehen und was der nächste Griff ist.
+> Wer hier neu einsteigt: **dieser Abschnitt zuerst.**
 
-### Läuft und ist verifiziert
+### Die Lage hat sich grundlegend geändert
 
-- **trackerdev.tarkov-stammtisch.de** — Tracker live, unser Theme/Footer/Branding, Login-Pflicht, Anmeldung über Stammtisch-Konto ohne zweiten Klick (im Browser geprüft)
-- **Alter Tracker im Hauptsystem ausgebaut** (112 Dateien), alte Pfade leiten weiter
-- **Beide Forks synchron mit Upstream** (per `merge-base` geprüft, nicht nur „nicht hinterher")
-- **Testdaten zurückgesetzt** — auf BEIDEN Seiten: Supabase (`auth.users` CASCADE) **und** unsere `QuestTrackerAccount`-Zuordnung. Nur eine Seite zu leeren erzeugt Zuordnungen auf gelöschte Konten → User landet unter falscher Identität.
+**Unser Deutsch wird nicht mehr von uns gepflegt.** PR #280 und #281 sind upstream gemerged. `de.json5` enthält 21 Quest-Namen und 119 Ziele — und liegt bei `tarkovtracker-org/tarkov-data-overlay`, nicht mehr nur bei uns. Alle deutschsprachigen Nutzer von tarkovtracker.org bekommen es mit.
 
-### Spieldaten-Overlay — so wird es ausgeliefert
+Damit ist die Abweichung unseres Overlay-Forks von **sieben Dateien auf drei** geschrumpft:
 
-```
-~/overlay-fork (Git-Clone, eigener read-only Deploy-Key `id_overlay_fork`, Host-Alias `github-overlay`)
-   -> npm run build  ->  dist/overlay.json
-   -> nginx  location = /overlay.json   (alias auf die Datei)
-   -> OVERLAY_URL=https://trackerdev.tarkov-stammtisch.de/overlay.json  (in proto.env)
-```
+| Datei                      | warum sie bleibt                             |
+| -------------------------- | -------------------------------------------- |
+| `.github/workflows/ci.yml` | unser `if: false` beim `Commit dist`-Schritt |
+| `FORK.md`                  | unser Dokument                               |
+| `dist/overlay.json`        | Build-Artefakt, steht auf upstreams Stand    |
 
-**Übersetzung ändern:**
+Mit upstream gegangen sind: `de.json5`, `scripts/status-locale.ts`, `src/lib/json5-keys.ts`, drei Testdateien, `tests/file-loader.test.ts`, `src/overrides/tasks.json5`, `src/suppressions/tasks.json5` — und `package.json`, womit unsere einzige Kategorie-C-Abweichung verschwunden ist.
+
+### Werkzeuge, die es jetzt gibt (alle upstream)
 
 ```bash
-# lokal im Overlay-Fork editieren, committen, pushen, dann:
-ssh stammdev "cd ~/overlay-fork && git checkout -- dist/ && git pull && npm run build"
-# App NEU STARTEN — das Overlay liegt 1 h im Prozessspeicher, sonst sieht man die alten Texte
+npm run status:locale de   # offen je Haendler, Drift, wirkungslose Overrides
+npm run check-overrides    # was hat upstream inzwischen selbst gefixt
+npm run wiki:compare -- --all --cache   # tarkov.dev gegen das Wiki
+npx vitest run             # u.a. Dubletten-Waechter und die Korrektur-Kopplung
 ```
 
-⚠️ `git pull` scheitert sonst an `dist/overlay.json` (lokal gebaut vs. eingecheckt) → vorher `git checkout -- dist/`.
-⚠️ Versionskennung kommt aus dem neuesten **Git-Tag** — ohne Tags baut es `1.0.0` statt `1.67`.
-⚠️ **Kein `scp`.** Der Weg läuft über Git; das wurde einmal abgekürzt und zu Recht bemängelt.
+`status:locale` beantwortet drei Fragen, die sonst jedes Mal neu von Hand hergeleitet werden: was ist offen je Händler **abzüglich unserer Abdeckung**, welche Einträge stützen sich auf ein Englisch, das sich seither geändert hat, und welche Overrides trifft das Bundle inzwischen wortgleich.
 
-⚠️ **Commit nach dem Ausliefern nie stillschweigend amenden.** Ein `git commit --amend` + Force-Push
-nach dem Deploy lässt `~/overlay-fork` auf stammdev auf einem Commit stehen, den es auf origin nicht
-mehr gibt. Der nächste `git pull` dort läuft dann in eine divergierte Historie. Passiert 2026-08-21
-beim Korrigieren einer Zahl in der Commit-Message.
+### Übersetzungsstand
 
-Ablauf, wenn ein Amend trotzdem nötig ist:
+Rund **357 Quest-Texte offen**, 140 abgedeckt. Grösste Brocken: Mechanic 61 (davon 36 Namen), Peacekeeper 58, Therapist 57, Skier 57. **Skier ist der günstigste Schnitt** — nur 8 Namen gegen 49 Ziele, und Ziele sind die eingespielte Fliessarbeit.
 
-```bash
-# 1. BEWEISEN, dass sich nur die Message geaendert hat — vor jeder Aenderung am Server
-ssh stammdev "cd ~/overlay-fork && git fetch origin && git rev-parse <alt>^{tree} && git rev-parse <neu>^{tree}"
-#    Die beiden Tree-Hashes MUESSEN gleich sein. Wenn nicht: nicht zuruecksetzen, sonst gehen Inhalte verloren.
+Ragman ist fertig, Punisher ist fertig.
 
-# 2. Erst dann den Clone nachziehen
-ssh stammdev "cd ~/overlay-fork && git checkout -- dist/ && git reset --hard origin/main"
-```
+### Die Falle, die zweimal zugeschlagen hat
 
-Bei identischem Baum ist **kein `npm run build` und kein App-Neustart nötig** — die ausgelieferte
-Datei ändert sich nicht.
+**Eine Übersetzung folgt dem korrigierten Englisch, nicht dem der API.** `overrides/tasks.json5` ersetzt falsches Englisch: One-Way Ticket verlangt 15 Kopfschuss-Kills, die API sagt „any target". Die deutsche Fassung sagte korrekt „15 Ziele".
 
-### Übersetzungen — Verfahren steht, Arbeit läuft
+Meine Drift-Prüfung verglich gegen das **rohe** Bundle, meldete den Eintrag als veraltet — und ich habe der Meldung geglaubt und die Übersetzung kaputtgemacht.
 
-|                                   |                                                  |
-| --------------------------------- | ------------------------------------------------ |
-| Erledigt im Overlay-Fork          | **11 Einträge**                                  |
-| Davon upstream (PR #279 gemerged) | 4                                                |
-| Noch nicht eingereicht            | 7 + Glory-Eintrag (**Owner: PR zurückgestellt**) |
-| Verbleibend                       | ~367 Quest-Ziele · 545 UI-Strings                |
+Behoben: die Prüfung wendet die Datenkorrekturen vorher an, und `tests/locale-follows-corrections.test.ts` schlägt rot an, wenn ein `// Was:` einer Korrektur widerspricht. Der Test deckt heute **1 von 140 Einträgen** ab, weil nur eine Überschneidung existiert — er wächst mit, ist aber kein Rundumschutz.
 
-**So wird übersetzt** (bitte beibehalten):
+### Was `wiki:compare` kann und was nicht
 
-1. Lücken finden: deutsche und englische `tasks-objectives` holen, vergleichen — gleich = keine Übersetzung vorhanden
-2. **Erst nachsehen, wie die deutsche Datenbasis den Satztyp schon übersetzt**, dann formulieren. Nicht erfinden. Etabliert: `Eliminate any target on X` → `Eliminiere ein beliebiges Ziel auf X` · `Stash X in Y` → `Verstaue X in Y` · `Obtain the item: X` → `Beschaffe den Gegenstand: X` · `Complete the task X` → `Schließe die Aufgabe X ab` · PMCs · Repetiergewehr · Scav-Scharfschützen · Körperschutz
-3. Jeder Eintrag bekommt `// Was: <englischer Originaltext>` — **Konvention aus `en.json5`**, wurde im PR-Review eingefordert
-4. `npm run validate` + `npm run build`, dann ausliefern und im Tracker gegenprüfen
+Ein Lauf über 505 Quests meldet **3867 Abweichungen**. Das sind **keine 3867 Fehler**:
 
-**Priorisierung:** nach Spielerstufe aufsteigend (Neulinge sehen es zuerst) oder gezielt **Ragman — dort sitzen 108 der 378 Lücken**.
+- 17 % sind gescheiterte Zuordnungen (`not found` auf einer Seite)
+- `trustsWiki` steht bei **allen** auf `true` — das Feld unterscheidet nichts
+- 196 von 505 Quests weichen beim Level ab, 235 bei der XP. Bei solchen Anteilen ist die Ursache systematisch, nicht einzeln — vermutlich haben die Wiki-Abschnitte „Requirements" den 1.0-Umbau nicht mitgemacht
 
-⛔ **Blockiert:** Ziele der Form `Obtain the item: <Schlüssel>` brauchen die **deutschen Item-Namen** aus einer anderen Datenquelle. Raten verboten — sonst suchen Spieler nach Gegenständen, die im deutschen Client anders heissen.
+**Es ist ein Kandidatenfinder, kein Fehlerbericht.** Bei Escort hat es funktioniert, weil wir von Hand nachgeprüft haben. Gezielte Fragen lohnen: „Ziele mit abweichender Anzahl" sind 48 Fälle statt 3867.
 
-### Falsch-Positive bei der Lückenmessung
+### Escort — der Fall, an dem man das Verfahren lernt
 
-Nicht jeder deutsch==englisch-Treffer ist eine Lücke: `Level`, `PvP`, `PvE`, `Scav`, `Kappa`, `Optional` sind im Deutschen identisch. Von 560 gemeldeten UI-Treffern waren **15 Falsch-Positive** → 545 echte.
+Der Tracker zeigte neun Ziele, das Spiel hat acht. Die Kette:
 
-### Falsch-NEGATIVE — die Lückenzahl ist eine Untergrenze
+| Ebene                             | Zustand                                                                                                                |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Wiki                              | 8 Ziele, Ground Zero einmal, je 2 PMCs                                                                                 |
+| `the-hideout/tarkov-data-manager` | fügt in `data/changed_quests.json` per Hand ein 9. Ziel hinzu (`objectivesAdded`, count 4) — **hier sitzt der Fehler** |
+| `json.tarkov.dev`                 | liefert es aus, ohne Übersetzung ausser Englisch                                                                       |
+| `tarkov-data-overlay`             | erkennt es als Duplikat, schaltet es aber nur im Wiki-Bericht stumm                                                    |
+| unser Overlay                     | markiert es `optional: true` → Fortschritt 8 statt 9                                                                   |
 
-`deutsch == englisch` findet nur die exakten Treffer. Am 2026-08-21 wurden bei der Punisher-Reihe
-**23 weitere englische Einträge** gefunden, die sich vom Englischen minimal unterscheiden und
-deshalb durch jede Gleichheitsprüfung rutschen. Vier Klassen:
+**Suppressions sind kein Auslieferungsmechanismus** — sie stehen nicht im gebauten `overlay.json` und erreichen keinen Konsumenten. Und das Schema kennt `disabled` nur auf Task-, nicht auf Ziel-Ebene; entfernen lässt sich das Phantom über das Overlay also nicht.
 
-| Klasse                     | Beispiel                                                                                                       | Anzahl |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------- | ------ |
-| **Schreibfehler / Casing** | `knive` statt `knife` · `Streets of tarkov` · `No limit to perfection`                                         | 3      |
-| **Veraltetes Englisch**    | DE hält eine ältere englische Fassung, EN wurde seither umformuliert (12× Figurinen-Ziele + 5 Einzelfälle)     | 17     |
-| **Echter Datenfehler**     | `68486a0e…37b`: EN `Survive and extract from Interchange`, DE `Hand over … Labyrinth figurines` — anderes Ziel | 1      |
-| **Sprachen vertauscht**    | 3× „New Beginning": EN-Feld enthält `Neuanfang`, DE-Feld `New Beginning`                                       | 3      |
+**PR the-hideout/tarkov-data-manager#859**: von `Razzmatazzz` **approved**, aber blockiert — ihre Automatisierung verweigert Deploys aus Forks. Inhaltlich durch, technisch hängend. Solange es hängt, bleibt unser `optional: true` nötig. Sobald es durchläuft, meldet `check-overrides` den Override als überflüssig — dann fliegt er raus, nicht vorher.
 
-Die letzten beiden Klassen sind **Fehler der Datenquelle, keine fehlenden Übersetzungen** — die
-gehören nach upstream gemeldet, nicht im Overlay überpflastert.
-
-**So wird gesucht** (Skript-Ansatz, kein fertiges Tool im Repo): für jeden Schlüssel mit
-`de !== en` prüfen, ob der deutsche Text sprach-eindeutige **englische** Funktionswörter enthält
-(`the`, `with`, `any`, `while`, `hand over`, …) und **kein** deutsches Signal (Umlaut/`ß` oder
-`der/die/das/mit/auf/und/eliminiere/übergib/…`).
-
-Zwei Fallen, die dabei beide zugeschlagen haben:
-
-- **Wörter, die in beiden Sprachen existieren, dürfen nicht als Signal zählen.** `raid` als
-  deutsches Merkmal geführt → ausgerechnet der `knive`-Fall galt als „korrekt deutsch".
-- **Eigennamen kollidieren mit Funktionswörtern.** `Den figurine` traf auf den Artikel „den" →
-  drei Figurinen-Ziele fielen durch.
-
-Für kurze Eigennamen ohne Funktionswörter ist der Ansatz grundsätzlich blind. Das **Item-Bundle**
-liefert damit gar nichts Brauchbares: deutsche Grossschreibung (`Duct Tape` vs `Duct tape`) erzeugt
-massenhaft Fehltreffer.
-
-### Vor dem Melden von „Fehlern" IMMER prüfen
-
-Zwei gemeldete Auffälligkeiten waren **bewusste Upstream-Entscheidungen**, im Code begründet:
-
-- Doppelte Questnamen („Glory to CPSU" 2×, „New Beginning" 6×) — BSG hat Namenszusätze entfernt, siehe `src/overrides/tasks.json5`
-- `(OPTIONAL)` — im Deutschen dasselbe Wort
+Im selben handgepflegten Eintrag steht auch `experience: 155000`, wo das Wiki 65.000 sagt — dieselbe veraltete Quelle. Bewusst nicht mitgeändert, weil der zugrundeliegende API-Wert unbekannt ist; als Beobachtung im PR vermerkt.
 
 ### Der nächste Griff
 
-1. Nächsten Übersetzungs-Schwung (Ragman oder weiter nach Stufe)
-2. Dann gesammelt **ein** PR ans Overlay — lohnt für die Gegenseite mehr als Einzelstücke
-3. Parallel: Terminfrage zu #1000 (Hardware-Bewertung liegt dort als Kommentar)
+1. **Skier** übersetzen (8 Namen, 49 Ziele) — oder die Oberfläche angehen, dort sind 556 Schlüssel offen und jeder Nutzer sieht sie bei jedem Besuch
+2. `#859` beobachten; wenn es durchläuft, den Escort-Override entfernen
+3. Optional: die Drift-Prüfung und den Dubletten-Wächter kennt upstream jetzt — bei jedem Sync mitlaufen lassen
 
 ---
 
