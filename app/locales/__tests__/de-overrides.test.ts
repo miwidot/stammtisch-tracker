@@ -50,6 +50,9 @@ describe('de.overrides.json', () => {
   const IDENTICAL_BY_DESIGN = new Set([
     'navigation_drawer.brand_name',
     'page.tasks.questcard.trader_level_badge',
+    // A trader's name. The override restores the English spelling on purpose —
+    // see the Lightkeeper case below.
+    'common.kappa_lightkeeper',
   ]);
   it('carries no entry that merely repeats the English source', () => {
     const untranslated = [...overrides]
@@ -85,6 +88,23 @@ describe('reported translation defects', () => {
     expect(overrides.get('common.fail')).toBe('Fehlgeschlagen');
     expect(crowdin.get('common.mark_complete')).toBe('Vollständig markieren');
     expect(overrides.get('common.mark_complete')).toBe('Als abgeschlossen markieren');
+  });
+  // Trader names are proper nouns. BSG's own German bundle leaves Lightkeeper
+  // untranslated (only Jaeger and BTR Driver get German forms), and every other
+  // string in this UI writes "Lightkeeper" too. The Crowdin export invented
+  // "Lichthalter" for the menu entry alone, so the one place a reader meets the
+  // trader in navigation disagreed with everywhere else they meet him.
+  it('keeps the Lightkeeper trader name in the menu entry', () => {
+    expect(crowdin.get('common.kappa_lightkeeper')).toBe('Kappa & Lichthalter');
+    expect(overrides.get('common.kappa_lightkeeper')).toBe('Kappa & Lightkeeper');
+  });
+  // The sibling strings that were never renamed — these are what the override
+  // above realigns with.
+  it('matches the Lightkeeper spelling the rest of the German UI uses', () => {
+    expect(crowdin.get('page.tasks.settings.filters.lightkeeper_required')).toContain(
+      'Lightkeeper'
+    );
+    expect(crowdin.get('page.tasks.questcard.lightkeeper_tooltip')).toContain('Lightkeeper');
   });
   // The sibling buttons upstream already got right — these anchor the pattern
   // the two corrections above follow.

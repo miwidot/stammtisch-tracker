@@ -2,6 +2,7 @@
   "common": {
     "complete": "Abschließen",
     "fail": "Fehlgeschlagen",
+    "kappa_lightkeeper": "Kappa & Lightkeeper",
     "mark_complete": "Als abgeschlossen markieren",
     "reset_failed": "Fehlgeschlagen zurücksetzen"
   },
