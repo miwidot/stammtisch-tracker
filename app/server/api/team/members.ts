@@ -1,5 +1,6 @@
 import { createError, defineEventHandler, getQuery, getRequestHeader, setResponseHeader } from 'h3';
 import { fetchWithTimeout } from '@/server/utils/fetchWithTimeout';
+import { resolveGameModeSeason } from '@/server/utils/gameModeSeason';
 import { createLogger } from '@/server/utils/logger';
 import { getProxyAwareClientIdentifier } from '@/server/utils/requestIdentity';
 import {
@@ -10,7 +11,7 @@ import {
   writeSharedCache,
   type SharedCacheHandle,
 } from '@/server/utils/sharedEdgeStore';
-import { getGameModeSeasonNumber, isGameMode, type GameMode } from '@/utils/constants';
+import { isGameMode, type GameMode } from '@/utils/constants';
 import {
   getLegacyModeProgressField,
   hasMaterializedProgress,
@@ -21,7 +22,6 @@ import {
 import type { ApiProtectionConfig } from '@/server/middleware/api-protection';
 const logger = createLogger('TeamMembers');
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const TEAM_ID_REGEX = /^[a-zA-Z0-9-]{1,64}$/;
 const REST_FETCH_TIMEOUT_MS = 8000;
 const RATE_LIMIT_WINDOW_MS = 60000;
 const DEFAULT_TEAM_MEMBERS_RATE_LIMIT_PER_MINUTE = 120;
@@ -30,7 +30,6 @@ const TEAM_MEMBERS_CACHE_PREFIX = 'team-members';
 const TEAM_MEMBERS_RATE_LIMIT_PREFIX = 'team-members-rate';
 const isTestEnvironment = process.env.NODE_ENV === 'test';
 const isValidUuid = (value: string): boolean => UUID_REGEX.test(value);
-const isValidTeamId = (value: string): boolean => TEAM_ID_REGEX.test(value);
 const buildRestPath = (resource: string, params: Record<string, string | number>): string => {
   const searchParams = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -166,7 +165,6 @@ const setCachedTeamMembers = async (
   );
 };
 type LegacyTeamFetchers = {
-  restFetch: (path: string) => Promise<Response>;
   serviceFetch: (path: string) => Promise<Response | null>;
 };
 const legacyTeamProgressPath = (gameMode: GameMode, memberIds: string[]): string | null => {
@@ -183,8 +181,14 @@ const fetchLegacyTeamProgressRows = async (
   teamId: string
 ): Promise<LegacyProgressRow[]> => {
   try {
-    const response =
-      (await fetchers.serviceFetch(legacyPath)) ?? (await fetchers.restFetch(legacyPath));
+    const response = await fetchers.serviceFetch(legacyPath);
+    if (!response) {
+      // `user_progress` is readable only by its owner, so retrying this with the
+      // caller's JWT would always return an empty list. Surface the missing
+      // service-role key instead of silently dropping the fallback.
+      logger.warn('Team legacy progress fallback skipped without a service role key', { teamId });
+      return [];
+    }
     if (response.ok) return (await response.json()) as LegacyProgressRow[];
     logger.warn('Team legacy progress fallback fetch failed', { status: response.status, teamId });
   } catch (error) {
@@ -231,7 +235,7 @@ export default defineEventHandler(async (event) => {
   if (!teamId) {
     throw createError({ statusCode: 400, statusMessage: 'teamId is required' });
   }
-  if (!isValidTeamId(teamId)) {
+  if (!isValidUuid(teamId)) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid teamId' });
   }
   const teamMembersRateLimitPerMinute = toPositiveInteger(
@@ -302,13 +306,6 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 429, statusMessage: 'Too many requests' });
     }
   }
-  const teamMembersCacheKey = `${teamId}:${userId}`;
-  if (!isTestEnvironment && !forceRefresh) {
-    const cached = await getCachedTeamMembers(sharedCacheHandle, teamMembersCacheKey);
-    if (cached) {
-      return cached;
-    }
-  }
   const restApiKey = supabaseServiceKey || supabaseAnonKey;
   const restAuthorization =
     authHeader || (supabaseServiceKey ? `Bearer ${supabaseServiceKey}` : '');
@@ -369,6 +366,14 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: 'Team has an invalid game mode' });
   }
   const gameMode: GameMode = gameModeValue;
+  const seasonNumber = await resolveGameModeSeason(gameMode, { supabaseUrl, supabaseServiceKey });
+  const teamMembersCacheKey = `${teamId}:${userId}:${seasonNumber}`;
+  if (!isTestEnvironment && !forceRefresh) {
+    const cached = await getCachedTeamMembers(sharedCacheHandle, teamMembersCacheKey);
+    if (cached) {
+      return cached;
+    }
+  }
   const membersResp = await restFetch(
     buildRestPath('team_memberships', {
       select: 'user_id',
@@ -386,7 +391,7 @@ export default defineEventHandler(async (event) => {
     const profilesResp = await restFetch(
       buildRestPath('team_member_mode_summary', {
         game_mode: `eq.${gameMode}`,
-        season_number: `eq.${getGameModeSeasonNumber(gameMode)}`,
+        season_number: `eq.${seasonNumber}`,
         select: 'user_id,display_name,level,tasks_completed',
         user_id: idsParam,
       })
@@ -426,7 +431,7 @@ export default defineEventHandler(async (event) => {
         const resp = await restFetch(
           buildRestPath('team_member_mode_summary', {
             game_mode: `eq.${gameMode}`,
-            season_number: `eq.${getGameModeSeasonNumber(gameMode)}`,
+            season_number: `eq.${seasonNumber}`,
             select: 'user_id,display_name,level,tasks_completed',
             user_id: `eq.${id}`,
           })
@@ -443,7 +448,7 @@ export default defineEventHandler(async (event) => {
       validMemberIds.filter((id) => profileMap[id]?.level == null)
     );
     const legacyRows = legacyPath
-      ? await fetchLegacyTeamProgressRows({ restFetch, serviceFetch }, legacyPath, teamId)
+      ? await fetchLegacyTeamProgressRows({ serviceFetch }, legacyPath, teamId)
       : [];
     for (const row of legacyRows) {
       applyLegacyTeamProfile(row, gameMode, profileMap, editionsByUserId.get(row.user_id));

@@ -4,6 +4,23 @@
     "error_title": "Connection Error",
     "load_error_description": "Failed to load admin data. Please refresh or contact support. Reference: {reference}",
     "no_reference": "N/A",
+    "error": {
+      "cache_purge_failed": "Nelze odstranit mezipaměť. Zkuste to prosím znovu.",
+      "invalid_purge_type": "Vyberte platný typ čištění mezipaměti.",
+      "method_not_allowed": "Tato metoda požadavku není podporována.",
+      "admin_privileges_required": "Nemáte oprávnění k provedení této akce.",
+      "authentication_required": "Pro pokračování musíte být přihlášeni.",
+      "invalid_channel": "Zadejte platný název kanálu Twitch.",
+      "invalid_display_name": "Zadejte platné zobrazované jméno.",
+      "invalid_enabled_flag": "Povolená hodnota je neplatná.",
+      "invalid_request_body": "Tělo požadavku je neplatné.",
+      "invalid_target_user_id": "Zadejte platné ID uživatele.",
+      "invalid_tier": "Vyberte platnou vrstvu podporovatele.",
+      "service_config_missing": "Administrátorská služba není nakonfigurována.",
+      "supabase_request_failed": "Nelze dokončit požadavek administrátorem.",
+      "supporter_update_failed": "Nelze aktualizovat přístup podporovatele.",
+      "twitch_config_update_failed": "Nelze aktualizovat konfiguraci Twitch."
+    },
     "access_warning_title": "Admin Access",
     "access_warning_description": "Actions performed here affect all users. Logged in as {user}.",
     "cache_management_title": "Cache Management",
@@ -516,19 +533,6 @@
       "drag_to_resize": "Přetažením změníte velikost mapy",
       "switch_floor": "Přepínací podlaha (Ctrl + Scroll)"
     },
-    "controls": {
-      "help": {
-        "pan": "nebo přetáhněte k pánvi",
-        "zoom": "Zvětšit",
-        "reset": "pro obnovení zobrazení",
-        "cycle_floors": "K cyklování podlah",
-        "floor_panel": "nebo použijte podlahovou desku",
-        "click_at_cursor": "pro kliknutí na kurzor",
-        "click_marker": "Pro podrobnosti klikněte na značku",
-        "fullscreen": "Použít tlačítko na celou obrazovku v ovládacích prvcích mapy",
-        "resize": "Přetažením dolního okraje mapy změníte velikost"
-      }
-    },
     "help": {
       "title": "Ovládání mapy",
       "groups": {
@@ -536,13 +540,21 @@
         "floors": "Podlahy",
         "interact": "Interakce",
         "view": "Zobrazit"
-      }
+      },
+      "pan": "{keys} nebo přetáhněte k pánvi",
+      "zoom": "{keys} pro přiblížení",
+      "reset": "{key} pro obnovení zobrazení",
+      "cycle_floors": "{keys} k cyklování podlaží",
+      "floor_panel": "Nebo použijte podlahovou desku.",
+      "click_at_cursor": "{key} klikněte na kurzor",
+      "click_marker": "Pro podrobnosti klikněte na značku.",
+      "fullscreen": "Použijte tlačítko na celou obrazovku v ovládacích prvcích mapy.",
+      "resize": "Přetažením dolního okraje mapy změníte velikost."
     },
     "hint": {
       "title": "Ovládání rychlých map",
-      "drag_to_pan": "Přetáhněte k pánvi",
-      "shift_scroll_zoom": "Přesunout + posunout na přiblížení",
-      "ctrl_scroll_floors": "Ctrl + Posunutím změníte podlahy",
+      "summary": "Přetažením posouvat · Shift + posunutím přiblížit",
+      "summary_multi_floor": "Přetažením prstu · Shift + Posunutím přiblížíte · Ctrl + Posunutím změnit podlahu",
       "all_controls": "Všechny ovládací prvky"
     },
     "aria": {
@@ -593,6 +605,7 @@
           "filter_hidden_other": "Vaše aktuální filtry skrývají {count} dostupné úkoly.",
           "blocked_level_one": "{task} je vaše nejbližší odemknutí, ale stále potřebujete ještě jednu úroveň.",
           "blocked_level_other": "{task} je vaše nejbližší odemknutí, ale stále potřebujete {count} další úrovně.",
+          "blocked_requirement": "{task} je zablokován svými požadavky.",
           "blocked_prerequisite": "{task} je blízko, ale stále je dán nezbytnými úkoly.",
           "blocked_fence": "{task} čeká na reputaci plotu.",
           "blocked_trader_unlock": "{task} je uzamčen za jiným úkolem pro odemknutí obchodníka.",
@@ -886,7 +899,8 @@
         "xp": "XP Odměna",
         "ascending": "Vzestupně",
         "descending": "sestupně",
-        "aria_label": "Třídit úkoly"
+        "aria_label": "Třídit úkoly",
+        "progression": "Pokrok"
       },
       "settings": {
         "title": "Nastavení úkolu",
@@ -912,7 +926,9 @@
           "experience_rewards": "Zkušenosti odměn",
           "next_tasks": "Další úkoly",
           "previous_tasks": "Předchozí úkoly",
-          "collapse_completed_objectives": "Sbalit cíle při dokončených úkolech"
+          "collapse_completed_objectives": "Sbalit cíle při dokončených úkolech",
+          "collapse_by_default": "Sbalit úkoly ve výchozím nastavení",
+          "hide_rewards": "Skrýt odměny"
         },
         "filter_bar": {
           "hint": "Zvolte, zda zobrazit nebo schovat stavové filtry.",
@@ -945,8 +961,11 @@
         "show_map": "Zobrazit mapu",
         "hide_map": "Skrýt mapu",
         "fullscreen_label": "Celá obrazovka",
+        "required_items": "Požadované položky",
+        "required_keys": "Požadované klíče",
         "required_items_summary": "Požadované položky pro aktivní úkoly",
         "required_keys_summary": "Požadované klíče pro aktivní úkoly",
+        "active_tasks_group": "Aktivní úkoly",
         "time_period": {
           "dawn": "Úsvit",
           "day": "Den",
@@ -993,6 +1012,8 @@
         "available_button": "Označit k dispozici",
         "uncomplete_button": "Označit jako nedokončené",
         "reset_item_counts": "Resetovat počet položek",
+        "collapse_task": "Sbalit úkol",
+        "expand_task": "Rozbalit úkol",
         "reset_item_counts_disabled_complete": "Nedokončete tento úkol pro resetování počtu položek",
         "reset_item_counts_disabled_failed": "Označit tento úkol jako dostupný pro obnovení počtu položek",
         "reset_item_counts_disabled_nothing_to_reset": "Neexistují žádné počty položek k obnovení",
@@ -1059,7 +1080,32 @@
         "previous_tasks": "Předchozí úkol(y):",
         "progress": "Postup {completed}/{total}",
         "rewards": "Odměny",
-        "unlocks_count": "Odemkne {count}"
+        "unlocks_count": "Odemkne {count}",
+        "trader_requirement_badge": "{trader} {kind} {comparison} {value}",
+        "loyalty_level": "LL",
+        "reputation": "Odpověď"
+      },
+      "blockers": {
+        "player_level": "Úroveň hráče {comparison} {required} je vyžadována (aktuální: {current}).",
+        "trader_level": "{trader} Věrnostní úroveň {comparison} {required} vyžadována (aktuální: {current}).",
+        "trader_reputation": "{trader} reputace {comparison} {required} vyžadována (aktuální: {current}).",
+        "prerequisite": "Seznamte se s požadovanými stavy úkolů: {tasks}.",
+        "story_route": "Seznamte se s požadovanými stavy úkolu pro {tasks}nebo postupujte v jedné z kapitol příběhu: {chapters}.",
+        "failed_branch": "Zablokováno selháním úkolu: {task}.",
+        "faction": "K dispozici na {faction} znaků.",
+        "trader_unlock": "Odemknout {trader} dokončením {task}.",
+        "prestige": "Vyžaduje Prestige {required} (aktuální: {current}).",
+        "unknown": "Data požadavků jsou nedostupná nebo nepodporovaná. Dostupnost nemůže být potvrzena.",
+        "cycle": "Předpokladový řetězec obsahuje cyklus. Dostupnost nemůže být potvrzena.",
+        "complete": "Tento úkol je dokončen.",
+        "failed": "Tento úkol se nezdařil.",
+        "disabled": "Tento úkol je zakázán.",
+        "task_status": "{task} ({status})",
+        "status_complete": "dokončeno",
+        "status_failed": "selhalo",
+        "status_active": "aktivní nebo přijaté",
+        "status_unknown": "neznámý stav",
+        "status_or": " nebo "
       }
     },
     "hideout": {
@@ -1200,6 +1246,51 @@
       "meta": {
         "description": "Spolupracujte s týmovými spolupracovníky na útěku od Tarkovu. Sdílejte dokončení úkolů, skrývejte stav a koordinujte shromažďování položek."
       },
+      "page_title": "Tým",
+      "page_description": "Pozvěte týmové spoluhráče, zvolte, jaký tým postupuje a sledujte společně.",
+      "invite": {
+        "title": "Odkaz na pozvání",
+        "subtitle": "Sdílejte svůj tým s důvěryhodnými týmovými spolupracovníky.",
+        "link_label": "URL pozvánky týmu",
+        "helper": "Kdokoli s tímto odkazem se může připojit k vašemu týmu.",
+        "show": "Zobrazit odkaz",
+        "hide": "Skrýt odkaz",
+        "copy": "Kopírovat odkaz",
+        "copied": "Zkopírováno!"
+      },
+      "members": {
+        "title": "Členové ({count})",
+        "no_members": "Zatím žádní členové tohoto týmu. Sdílejte svůj odkaz pro přidání týmových spolupracovníků.",
+        "alone": "Jste zde sami — sdílejte svůj pozvánkový odkaz pro přidání týmových spolupracovníků.",
+        "copy_invite": "Kopírovat pozvánku",
+        "copied": "Zkopírováno!"
+      },
+      "visibility": {
+        "title": "Nastavení viditelnosti",
+        "description": "Kontrolujte průběh týmů na vašem trackeru.",
+        "items_section": "Položky",
+        "show_tasks": "Zobrazit úkoly členů týmu",
+        "show_items": "Zobrazit potřebné položky členů týmu",
+        "show_non_fir": "Zobrazit nevyžadované položky",
+        "show_hideout": "Zobrazit potřebné položky",
+        "show_maps": "Zobrazit mapové cíle členů týmu"
+      },
+      "danger_zone": {
+        "title": "Nebezpečná zóna",
+        "disband_description": "Zrušení odebere tým pro všechny členy. Tuto akci nelze vrátit zpět.",
+        "leave_description": "Necháte-li vás odebrat z tohoto týmu. Váš postup zůstává na vašem účtu.",
+        "disband": "Spárovat tým",
+        "leave": "Opustit tým",
+        "confirm_disband_title": "Zrušit tým?",
+        "confirm_disband_description": "Tím se odstraní tým a jeho členství pro všechny. Tuto akci nelze vrátit zpět.",
+        "confirm_leave_title": "Opustit týmu?",
+        "confirm_leave_description": "Opustíte tento tým a přestanete sdílet pokrok s jeho členy.",
+        "confirm_disband": "Ano, rozštěpovat tým",
+        "confirm_leave": "Ano, odejít z týmu",
+        "disband_success": "Tým úspěšně odstraněn.",
+        "disband_error": "Nepodařilo se rozptýlit tým.",
+        "action_error": "Nelze aktualizovat členství v týmu."
+      },
       "card": {
         "manageteam": {
           "title": "Členové týmu",
@@ -1209,7 +1300,12 @@
             "owner": "Vlastník",
             "taskscomplete": "{completed}/{total} úkoly dokončeny",
             "kick_success": "Teamy úspěšně vyhozeny.",
-            "kick_error": "Chyba při vybírání týmového partnera."
+            "kick_error": "Chyba při vybírání týmového partnera.",
+            "level_badge_alt": "Úroveň {level} odznak",
+            "hide_progress": "Skrýt postup {name}od mě",
+            "show_progress": "Zobrazit postup {name}pro mě",
+            "enable_team_tasks": "Zobrazit úkoly členů týmu před změnou jednotlivého člena",
+            "remove_member": "Odstranit {name} z týmu"
           }
         },
         "teamoptions": {
@@ -1815,7 +1911,8 @@
         "show_xp": "Zobrazit XP odměny",
         "show_next": "Zobrazit další úkoly",
         "show_prev": "Zobrazit předchozí úkoly",
-        "density": "Hustota karty",
+        "collapse_by_default": "Sbalit úkoly ve výchozím nastavení",
+        "hide_rewards": "Skrýt odměny",
         "require_trader_levels": "Require Trader Loyalty Level and Reputation for Task Availability",
         "flags_section": "Zobrazení úloh",
         "availability_section": "Dostupnost úkolu",
@@ -2140,6 +2237,7 @@
       "xp_progress_value": "{percent}% směrem k další úrovni"
     },
     "danger_zone": {
+      "confirm_instruction": "Zadejte {word} pro potvrzení resetování všech dat:",
       "confirm_word": "ODSTRANIT"
     },
     "log_import": {
@@ -2205,7 +2303,19 @@
         "no_quest_events_found": "Ve vybraných záznamech nebyly nalezeny žádné start/dokončovací události.",
         "parse_failed": "Nepodařilo se analyzovat protokoly EFT.",
         "selected_logs_too_large": "Vybrané protokoly obsahují příliš mnoho obsahu (max {max_mb} MB).",
-        "task_metadata_not_loaded": "Metadata úkolů ještě nejsou načtena. Prosím aktualizujte a zkuste to znovu."
+        "task_metadata_not_loaded": "Metadata úkolů ještě nejsou načtena. Prosím aktualizujte a zkuste to znovu.",
+        "invalid_mode": "Vyberte platný cílový herní režim.",
+        "outside_active_season": "Tyto protokoly obsahují události mimo aktivní sezónu nebo bez data použitelnosti. Před importem do sezony vyberte relace z aktivní sezóny."
+      },
+      "failed_tasks": "Odpovídající neúspěšné úkoly: {count}",
+      "unknown_failed_events": "Neúspěšné úkoly (neznámý režim)",
+      "skipped_malformed": {
+        "single": "Přeskočeno {count} chybné oznámení.",
+        "plural": "Přeskočeno {count} chybná oznámení."
+      },
+      "skipped_seasonal": {
+        "single": "Přeskočeno {count} Sezónní událost mimo aktivní sezónu nebo bez platného data.",
+        "plural": "Přeskočeno {count} Sezónní události mimo aktivní sezónu nebo bez platných dat."
       }
     },
     "tarkov_dev_import": {

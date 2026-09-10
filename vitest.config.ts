@@ -37,18 +37,59 @@ export default defineVitestConfig({
       provider: 'v8',
       reportsDirectory: './coverage',
       reporter: ['text', 'json-summary', 'lcov', 'cobertura'],
-      include: ['app/**/*.{ts,vue}'],
-      exclude: ['app/**/*.d.ts', 'app/**/__tests__/**'],
-      // Per-shard coverage is partial; Codecov merges the lcov uploads and
-      // enforces thresholds via codecov.yml status checks on the full result.
+      include: isSharded ? undefined : ['app/**/*.{ts,vue}'],
+      exclude: [
+        'app/**/*.d.ts',
+        'app/**/__tests__/**',
+        'docs/**',
+        'public/**',
+        'scripts/**',
+        'supabase/**',
+        'tests/**',
+        'workers/**',
+      ],
+      // Shards report only imported files so Codecov can merge them without
+      // zero-filled duplicates. Unsharded runs retain the full app denominator.
       ...(isSharded
         ? {}
         : {
             thresholds: {
-              branches: 15,
-              functions: 20,
-              lines: 20,
-              statements: 20,
+              branches: 50,
+              functions: 60,
+              lines: 65,
+              statements: 63,
+              'app/stores/utils/gameMode.ts': { 100: true },
+              'app/composables/useTaskState.ts': { 100: true },
+              'app/utils/storeHelpers.ts': {
+                lines: 85,
+                statements: 85,
+                functions: 100,
+                branches: 85,
+              },
+              'app/composables/useTaskRepair.ts': {
+                lines: 90,
+                statements: 90,
+                functions: 85,
+                branches: 75,
+              },
+              'app/composables/useAppInitialization.ts': {
+                lines: 95,
+                statements: 85,
+                functions: 100,
+                branches: 80,
+              },
+              'app/server/api/changelog.get.ts': {
+                lines: 90,
+                statements: 85,
+                functions: 95,
+                branches: 70,
+              },
+              'app/utils/changelog.ts': {
+                lines: 100,
+                statements: 100,
+                functions: 100,
+                branches: 90,
+              },
             },
           }),
     },

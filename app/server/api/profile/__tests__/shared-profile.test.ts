@@ -1,8 +1,12 @@
 // @vitest-environment happy-dom
 import { mockNuxtImport } from '@nuxt/test-utils/runtime';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { H3Event, H3EventContext } from 'h3';
-type SiteConfigStackEntry = Record<string, unknown>;
+import {
+  BASE_SITE_CONTEXT,
+  createRouterStub,
+  stubEdgeCache,
+} from '@/server/utils/__tests__/eventStubs';
+import type { H3Event } from 'h3';
 const { mockGetRequestHeader, mockGetRouterParam, mockFetch } = vi.hoisted(() => ({
   mockGetRequestHeader: vi.fn(),
   mockGetRouterParam: vi.fn(),
@@ -69,22 +73,9 @@ vi.mock('h3', async () => {
   };
 });
 mockNuxtImport('useRuntimeConfig', () => () => runtimeConfig);
-mockNuxtImport('useRouter', () => () => ({
-  afterEach: vi.fn(),
-  beforeEach: vi.fn(),
-  beforeResolve: vi.fn(),
-  onError: vi.fn(),
-}));
+mockNuxtImport('useRouter', () => () => createRouterStub());
 describe('Shared Profile API', () => {
   let mockEvent: Partial<H3Event>;
-  const BASE_SITE_CONTEXT: Pick<H3EventContext, 'siteConfig' | 'siteConfigNitroOrigin'> = {
-    siteConfig: {
-      stack: [] as Partial<SiteConfigStackEntry>[],
-      push: vi.fn(() => () => {}),
-      get: vi.fn(() => ({})),
-    },
-    siteConfigNitroOrigin: '',
-  };
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
@@ -143,6 +134,39 @@ describe('Shared Profile API', () => {
       statusMessage: 'Missing Supabase configuration for shared profiles',
     });
   });
+  it.each(['not-a-url', 'ftp://test.supabase.co', '   '])(
+    'rejects invalid Supabase URL %s before fetching',
+    async (url) => {
+      runtimeConfig.supabaseUrl = url;
+      const { default: handler } = await import('@/server/api/profile/[userId]/[mode].get');
+      await expect(handler(mockEvent as H3Event)).rejects.toMatchObject({ statusCode: 500 });
+      expect(mockFetch).not.toHaveBeenCalled();
+    }
+  );
+  it('normalizes the Supabase URL for authentication and all profile reads', async () => {
+    runtimeConfig.supabaseUrl = ' https://test.supabase.co/?source=config#fragment ';
+    mockGetRequestHeader.mockReturnValue('Bearer user-token');
+    mockFetch.mockImplementation(async (url: string) => {
+      if (url.endsWith('/auth/v1/user')) {
+        return new Response(JSON.stringify({ id: '11111111-1111-4111-8111-111111111111' }));
+      }
+      if (url.includes('/rest/v1/user_game_mode_progress?'))
+        return modeProgressResponse({ level: 24 });
+      if (url.includes('/rest/v1/user_preferences?')) return preferencesResponse();
+      return progressResponse();
+    });
+    const { default: handler } = await import('@/server/api/profile/[userId]/[mode].get');
+    await handler(mockEvent as H3Event);
+    const urls = mockFetch.mock.calls.map(([url]) => url as string);
+    expect(urls).toContain('https://test.supabase.co/auth/v1/user');
+    const restUrls = urls.filter((url) => url.includes('/rest/v1/'));
+    expect(restUrls).toHaveLength(3);
+    for (const url of urls) {
+      expect(url).not.toContain('source=config');
+      expect(url).not.toContain('#fragment');
+      expect(url).toMatch(/^https:\/\/test\.supabase\.co\/(auth|rest)\/v1\//);
+    }
+  });
   it('serves shared profiles in production mode', async () => {
     const originalNodeEnv = process.env.NODE_ENV;
     process.env.NODE_ENV = 'production';
@@ -161,7 +185,8 @@ describe('Shared Profile API', () => {
         visibility: 'public',
       });
     } finally {
-      process.env.NODE_ENV = originalNodeEnv;
+      if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = originalNodeEnv;
       vi.resetModules();
     }
   });
@@ -195,6 +220,40 @@ describe('Shared Profile API', () => {
       statusMessage: 'Timed out while loading shared profile data',
     });
   });
+  it.each(['user_progress?', 'user_game_mode_progress?', 'user_preferences?'])(
+    'returns 504 when the %s response body stalls after headers',
+    async (stalledPath) => {
+      vi.useFakeTimers();
+      const signals: AbortSignal[] = [];
+      mockFetch.mockImplementation(async (url: string, init: RequestInit) => {
+        const signal = init.signal!;
+        signals.push(signal);
+        if (url.includes(stalledPath)) {
+          return {
+            ok: true,
+            arrayBuffer: () =>
+              new Promise((_, reject) => {
+                signal.addEventListener('abort', () => reject(createAbortError()), { once: true });
+              }),
+            json: () => new Promise(() => {}),
+          };
+        }
+        if (url.includes('user_game_mode_progress?')) return modeProgressResponse({ level: 24 });
+        if (url.includes('user_preferences?')) return preferencesResponse();
+        return progressResponse();
+      });
+      const { default: handler } = await import('@/server/api/profile/[userId]/[mode].get');
+      const expectation = expect(handler(mockEvent as H3Event)).rejects.toMatchObject({
+        statusCode: 504,
+        statusMessage: 'Timed out while loading shared profile data',
+      });
+      await vi.advanceTimersByTimeAsync(8000);
+      await expectation;
+      expect(signals).toHaveLength(3);
+      expect(signals.every((signal) => signal.aborted)).toBe(true);
+      expect(vi.getTimerCount()).toBe(0);
+    }
+  );
   it('returns 502 when shared profile resources cannot be loaded', async () => {
     mockFetch.mockRejectedValueOnce(new Error('upstream failure'));
     const { default: handler } = await import('@/server/api/profile/[userId]/[mode].get');
@@ -251,37 +310,67 @@ describe('Shared Profile API', () => {
       userId: '11111111-1111-4111-8111-111111111111',
       visibility: 'public',
     });
+    const restCalls = mockFetch.mock.calls
+      .map(([url]) => new URL(String(url)))
+      .filter((url) => url.pathname.includes('/rest/v1/'));
+    expect(restCalls).toHaveLength(3);
+    expect(
+      restCalls.find((url) => url.pathname.endsWith('/user_progress'))?.searchParams.get('select')
+    ).toBe('user_id,game_edition');
   });
-  it('falls back to legacy persistent progress and visibility when the normalized row is missing', async () => {
+  it.each(['network', 'json'])('normalizes deferred legacy %s failures to 502', async (failure) => {
     mockFetch
-      .mockResolvedValueOnce(
-        progressResponse(3, { pvp_data: { displayName: 'LegacyPlayer', level: 39 } })
-      )
+      .mockResolvedValueOnce(progressResponse(3))
       .mockResolvedValueOnce({ ok: true, json: async () => [] })
       .mockResolvedValueOnce(preferencesResponse(false, { pvp: true }));
+    if (failure === 'network') mockFetch.mockRejectedValueOnce(new Error('offline'));
+    else
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => {
+          throw new Error('invalid json');
+        },
+      });
     const { default: handler } = await import('@/server/api/profile/[userId]/[mode].get');
-    const result = await handler(mockEvent as H3Event);
-    expect(result).toMatchObject({
-      data: { displayName: 'LegacyPlayer', level: 39 },
-      gameEdition: 3,
-      mode: 'pvp',
-      visibility: 'public',
-    });
+    await expect(handler(mockEvent as H3Event)).rejects.toMatchObject({ statusCode: 502 });
   });
-  it('falls back to legacy progress when the normalized row carries no level', async () => {
+  it.each(['missing', 'placeholder'])(
+    'loads deferred legacy data for a %s normalized row',
+    async (kind) => {
+      mockFetch
+        .mockResolvedValueOnce(progressResponse(3))
+        .mockResolvedValueOnce(
+          kind === 'missing'
+            ? { ok: true, json: async () => [] }
+            : modeProgressResponse({ taskCompletions: {} }, true)
+        )
+        .mockResolvedValueOnce(preferencesResponse(false, { pvp: true }))
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => [{ pvp_data: { displayName: 'LegacyPlayer', level: 39 } }],
+        });
+      const { default: handler } = await import('@/server/api/profile/[userId]/[mode].get');
+      expect(await handler(mockEvent as H3Event)).toMatchObject({
+        data: { displayName: 'LegacyPlayer', level: 39 },
+        gameEdition: 3,
+        mode: 'pvp',
+        visibility: 'public',
+      });
+    }
+  );
+  it.each(['http', 'abort', 'timeout'])('normalizes deferred legacy %s errors', async (failure) => {
     mockFetch
-      .mockResolvedValueOnce(
-        progressResponse(3, { pvp_data: { displayName: 'LegacyPlayer', level: 39 } })
-      )
-      .mockResolvedValueOnce(modeProgressResponse({ taskCompletions: {} }, true))
+      .mockResolvedValueOnce(progressResponse(3))
+      .mockResolvedValueOnce({ ok: true, json: async () => [] })
       .mockResolvedValueOnce(preferencesResponse(false, { pvp: true }));
+    if (failure === 'http') mockFetch.mockResolvedValueOnce({ ok: false });
+    else
+      mockFetch.mockRejectedValueOnce(
+        failure === 'abort' ? createAbortError() : { statusCode: 504 }
+      );
     const { default: handler } = await import('@/server/api/profile/[userId]/[mode].get');
-    const result = await handler(mockEvent as H3Event);
-    expect(result).toMatchObject({
-      data: { displayName: 'LegacyPlayer', level: 39 },
-      gameEdition: 3,
-      mode: 'pvp',
-      visibility: 'public',
+    await expect(handler(mockEvent as H3Event)).rejects.toMatchObject({
+      statusCode: failure === 'http' ? 502 : 504,
     });
   });
   it('loads Seasonal profiles from the active season row', async () => {
@@ -291,13 +380,14 @@ describe('Shared Profile API', () => {
       return undefined;
     });
     mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => 2 })
       .mockResolvedValueOnce(progressResponse())
       .mockResolvedValueOnce(modeProgressResponse({ displayName: 'SeasonOne', level: 18 }))
       .mockResolvedValueOnce(preferencesResponse());
     const { default: handler } = await import('@/server/api/profile/[userId]/[mode].get');
     const result = await handler(mockEvent as H3Event);
-    expect(String(mockFetch.mock.calls[1]?.[0])).toContain('game_mode=eq.seasonal');
-    expect(String(mockFetch.mock.calls[1]?.[0])).toContain('season_number=eq.1');
+    expect(String(mockFetch.mock.calls[2]?.[0])).toContain('game_mode=eq.seasonal');
+    expect(String(mockFetch.mock.calls[2]?.[0])).toContain('season_number=eq.2');
     expect(result).toMatchObject({
       data: { displayName: 'SeasonOne', level: 18 },
       mode: 'seasonal',
@@ -311,6 +401,7 @@ describe('Shared Profile API', () => {
       return undefined;
     });
     mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => 2 })
       .mockResolvedValueOnce(progressResponse())
       .mockResolvedValueOnce({ ok: true, json: async () => [] })
       .mockResolvedValueOnce(preferencesResponse());
@@ -318,7 +409,6 @@ describe('Shared Profile API', () => {
     await expect(handler(mockEvent as H3Event)).rejects.toThrow('Profile is private for this mode');
   });
   it('returns an empty owner payload when the Seasonal row does not exist yet', async () => {
-    runtimeConfig.supabaseServiceKey = '';
     mockGetRequestHeader.mockImplementation((_, key: string) => {
       if (key === 'authorization') return 'Bearer owner-token';
       return undefined;
@@ -333,6 +423,7 @@ describe('Shared Profile API', () => {
         ok: true,
         json: async () => ({ id: '11111111-1111-4111-8111-111111111111' }),
       })
+      .mockResolvedValueOnce({ ok: true, json: async () => 2 })
       .mockResolvedValueOnce(progressResponse(2))
       .mockResolvedValueOnce({ ok: true, json: async () => [] })
       .mockResolvedValueOnce(preferencesResponse());
@@ -490,50 +581,56 @@ describe('Shared Profile API', () => {
       'Shared profiles unavailable on this environment'
     );
   });
-  it('refreshes cache after fixed ttl even when profile is read repeatedly', async () => {
-    const originalNodeEnv = process.env.NODE_ENV;
-    try {
-      process.env.NODE_ENV = 'development';
-      runtimeConfig.sharedProfileCacheTtlMs = 50;
-      runtimeConfig.sharedProfileRateLimitPerMinute = 1000;
-      vi.resetModules();
-      const sharedCacheEntries = new Map<string, string>();
-      const cacheApi = {
-        match: vi.fn(async (request: Request) => {
-          const payload = sharedCacheEntries.get(request.url);
-          return payload
-            ? new Response(payload, { headers: { 'Content-Type': 'application/json' } })
-            : undefined;
-        }),
-        put: vi.fn(async (request: Request, response: Response) => {
-          sharedCacheEntries.set(request.url, await response.clone().text());
-        }),
-      };
-      vi.stubGlobal('caches', { default: cacheApi });
-      let now = 0;
-      vi.spyOn(Date, 'now').mockImplementation(() => now);
-      mockFetch
-        .mockResolvedValueOnce(progressResponse())
-        .mockResolvedValueOnce(modeProgressResponse({ displayName: 'PublicPlayer', level: 24 }))
-        .mockResolvedValueOnce(preferencesResponse())
-        .mockResolvedValueOnce(progressResponse())
-        .mockResolvedValueOnce(modeProgressResponse({ displayName: 'RefreshedPlayer', level: 30 }))
-        .mockResolvedValueOnce(preferencesResponse());
-      const { default: handler } = await import('@/server/api/profile/[userId]/[mode].get');
-      const first = await handler(mockEvent as H3Event);
-      now = 30;
-      const second = await handler(mockEvent as H3Event);
-      now = 60;
-      const third = await handler(mockEvent as H3Event);
-      expect(first.data).toEqual({ displayName: 'PublicPlayer', level: 24 });
-      expect(second.data).toEqual({ displayName: 'PublicPlayer', level: 24 });
-      expect(third.data).toEqual({ displayName: 'RefreshedPlayer', level: 30 });
-      expect(mockFetch).toHaveBeenCalledTimes(6);
-    } finally {
-      process.env.NODE_ENV = originalNodeEnv;
-      vi.unstubAllGlobals();
-      vi.stubGlobal('fetch', mockFetch as typeof fetch);
-      vi.resetModules();
+  it.each(['pvp', 'seasonal'])(
+    'refreshes %s cache on expiry or database rollover',
+    async (mode) => {
+      const originalNodeEnv = process.env.NODE_ENV;
+      try {
+        process.env.NODE_ENV = 'development';
+        runtimeConfig.sharedProfileCacheTtlMs = mode === 'seasonal' ? 5000 : 50;
+        runtimeConfig.sharedProfileRateLimitPerMinute = 1000;
+        mockGetRouterParam.mockImplementation((_, key: string) =>
+          key === 'mode' ? mode : '11111111-1111-4111-8111-111111111111'
+        );
+        vi.resetModules();
+        stubEdgeCache();
+        let now = 0;
+        let season = 2;
+        let lookupOk = true;
+        let level = 24;
+        vi.spyOn(Date, 'now').mockImplementation(() => now);
+        mockFetch.mockImplementation(async (url: string) => {
+          if (url.includes('/rpc/')) return { ok: lookupOk, json: async () => season };
+          if (url.includes('/user_game_mode_progress?')) return modeProgressResponse({ level });
+          if (url.includes('/user_progress?')) return progressResponse();
+          if (url.includes('/user_preferences?')) return preferencesResponse();
+          throw new Error(`Unexpected test request: ${url}`);
+        });
+        const { default: handler } = await import('@/server/api/profile/[userId]/[mode].get');
+        expect((await handler(mockEvent as H3Event)).data).toEqual({ level: 24 });
+        now = 30;
+        level = 30;
+        expect((await handler(mockEvent as H3Event)).data).toEqual({ level: 24 });
+        now = 60;
+        season = 3;
+        expect((await handler(mockEvent as H3Event)).data).toEqual({ level: 30 });
+        const reads = mockFetch.mock.calls.filter((call) =>
+          String(call[0]).includes('user_game_mode_progress')
+        );
+        expect(reads).toHaveLength(2);
+        expect(String(reads[0]?.[0])).toContain(`season_number=eq.${mode === 'seasonal' ? 2 : 0}`);
+        expect(String(reads[1]?.[0])).toContain(`season_number=eq.${mode === 'seasonal' ? 3 : 0}`);
+        if (mode === 'seasonal') {
+          lookupOk = false;
+          await expect(handler(mockEvent as H3Event)).rejects.toMatchObject({ statusCode: 503 });
+        }
+      } finally {
+        if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+        else process.env.NODE_ENV = originalNodeEnv;
+        vi.unstubAllGlobals();
+        vi.stubGlobal('fetch', mockFetch as typeof fetch);
+        vi.resetModules();
+      }
     }
-  });
+  );
 });

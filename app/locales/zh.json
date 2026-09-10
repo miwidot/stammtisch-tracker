@@ -4,6 +4,23 @@
     "error_title": "连接错误",
     "load_error_description": "Failed to load admin data. Please refresh or contact support. Reference: {reference}",
     "no_reference": "N/A",
+    "error": {
+      "cache_purge_failed": "无法清除缓存。请重试。",
+      "invalid_purge_type": "选择有效的缓存清除类型。",
+      "method_not_allowed": "不支持此请求方法。",
+      "admin_privileges_required": "您没有权限执行此操作。",
+      "authentication_required": "您必须登录才能继续。",
+      "invalid_channel": "输入一个有效的Twitch频道名称。",
+      "invalid_display_name": "输入一个有效的显示名称。",
+      "invalid_enabled_flag": "启用的值无效。",
+      "invalid_request_body": "请求正文无效。",
+      "invalid_target_user_id": "输入一个有效的用户 ID。",
+      "invalid_tier": "选择一个有效的支持者。",
+      "service_config_missing": "管理服务未配置。",
+      "supabase_request_failed": "管理服务无法完成请求。",
+      "supporter_update_failed": "无法更新支持者访问权限。",
+      "twitch_config_update_failed": "无法更新 Twitch 配置。"
+    },
     "access_warning_title": "管理员访问权限",
     "access_warning_description": "Actions performed here affect all users. Logged in as {user}.",
     "cache_management_title": "Cache Management",
@@ -516,19 +533,6 @@
       "drag_to_resize": "拖动以调整地图大小",
       "switch_floor": "切换底部(Ctrl + 滚动)"
     },
-    "controls": {
-      "help": {
-        "pan": "或拖动以pan",
-        "zoom": "缩放",
-        "reset": "重置视图",
-        "cycle_floors": "循环楼层",
-        "floor_panel": "或使用地板面板",
-        "click_at_cursor": "点击光标",
-        "click_marker": "点击标记查看详细信息",
-        "fullscreen": "使用地图控制中的全屏按钮",
-        "resize": "拖动地图的底部边缘以调整大小"
-      }
-    },
     "help": {
       "title": "地图控制",
       "groups": {
@@ -536,13 +540,21 @@
         "floors": "楼层",
         "interact": "交互功能",
         "view": "查看"
-      }
+      },
+      "pan": "{keys} or drag to pan",
+      "zoom": "{keys} to zoom",
+      "reset": "{key} to reset view",
+      "cycle_floors": "{keys} to cycle floors",
+      "floor_panel": "或使用地面板。",
+      "click_at_cursor": "{key} to click at cursor",
+      "click_marker": "点击标记查看详细信息。",
+      "fullscreen": "在地图控制中使用全屏按钮。",
+      "resize": "拖动地图的底部边缘来调整大小。"
     },
     "hint": {
       "title": "快速地图控制",
-      "drag_to_pan": "拖动以pan",
-      "shift_scroll_zoom": "Shift + 滚动以缩放",
-      "ctrl_scroll_floors": "Ctrl + 滚动以更改楼层",
+      "summary": "拖动以平移 · Shift + 滚动以缩放",
+      "summary_multi_floor": "拖动以平移 · Shift + 卷轴来缩放 · Ctrl + 卷轴来更改楼层。",
       "all_controls": "所有控制"
     },
     "aria": {
@@ -593,6 +605,7 @@
           "filter_hidden_other": "你当前的筛选隐藏了 {count} 个可用任务。",
           "blocked_level_one": "{task} 是你最近的解锁项，但你还差 1 级。",
           "blocked_level_other": "{task} 是你最近的解锁项，但你还差 {count} 级。",
+          "blocked_requirement": "{task} is blocked by its requirements.",
           "blocked_prerequisite": "{task} 已经很接近了，但仍被前置任务限制。",
           "blocked_fence": "{task} 正在等待 Fence 声望。",
           "blocked_trader_unlock": "{task} 被另一个商人解锁任务卡住了。",
@@ -886,7 +899,8 @@
         "xp": "经验奖励",
         "ascending": "升序排列",
         "descending": "降序排列",
-        "aria_label": "任务排序"
+        "aria_label": "任务排序",
+        "progression": "进度"
       },
       "settings": {
         "title": "任务设置",
@@ -912,7 +926,9 @@
           "experience_rewards": "经验奖励",
           "next_tasks": "后续任务",
           "previous_tasks": "前置任务",
-          "collapse_completed_objectives": "折叠已完成任务的目标"
+          "collapse_completed_objectives": "折叠已完成任务的目标",
+          "collapse_by_default": "默认情况下收起任务",
+          "hide_rewards": "隐藏奖励"
         },
         "filter_bar": {
           "hint": "显示或隐藏状态筛选",
@@ -945,8 +961,11 @@
         "show_map": "显示地图",
         "hide_map": "隐藏地图",
         "fullscreen_label": "全屏",
+        "required_items": "必填项",
+        "required_keys": "必需的密钥",
         "required_items_summary": "活跃任务所需物品",
         "required_keys_summary": "活跃任务所需钥匙",
+        "active_tasks_group": "活动任务",
         "time_period": {
           "dawn": "黎明",
           "day": "白天",
@@ -993,6 +1012,8 @@
         "available_button": "标记为可接取",
         "uncomplete_button": "标记为未完成",
         "reset_item_counts": "重置物品计数",
+        "collapse_task": "折叠任务",
+        "expand_task": "展开任务",
         "reset_item_counts_disabled_complete": "将此任务标记为未完成以重置物品计数",
         "reset_item_counts_disabled_failed": "将此任务标记为可用以重置物品计数",
         "reset_item_counts_disabled_nothing_to_reset": "没有可重置的物品计数",
@@ -1059,7 +1080,32 @@
         "previous_tasks": "前置任务：",
         "progress": "进步 {completed}/{total}",
         "rewards": "奖励",
-        "unlocks_count": "{count} 项解锁"
+        "unlocks_count": "{count} 项解锁",
+        "trader_requirement_badge": "{trader} {kind} {comparison} {value}",
+        "loyalty_level": "LL",
+        "reputation": "重写"
+      },
+      "blockers": {
+        "player_level": "Player level {comparison} {required} required (current: {current}).",
+        "trader_level": "{trader} Loyalty Level {comparison} {required} required (current: {current}).",
+        "trader_reputation": "{trader} reputation {comparison} {required} required (current: {current}).",
+        "prerequisite": "Meet the required task statuses for: {tasks}.",
+        "story_route": "Meet the required task statuses for {tasks}, or progress one of these story chapters: {chapters}.",
+        "failed_branch": "Blocked by failed task: {task}.",
+        "faction": "Available to {faction} characters.",
+        "trader_unlock": "Unlock {trader} by completing {task}.",
+        "prestige": "Requires Prestige {required} (current: {current}).",
+        "unknown": "要求数据不可用或不支持。可用性无法确认。",
+        "cycle": "必备链包含一个周期。可用性无法确认。",
+        "complete": "此任务已完成。",
+        "failed": "此任务失败。",
+        "disabled": "此任务已禁用。",
+        "task_status": "{task} ({status})",
+        "status_complete": "已完成",
+        "status_failed": "失败",
+        "status_active": "活动或接受",
+        "status_unknown": "未知状态",
+        "status_or": " 或 "
       }
     },
     "hideout": {
@@ -1200,6 +1246,51 @@
       "meta": {
         "description": "与队友协作推进《逃离塔科夫》进度。分享任务完成情况、藏身处状态，并协调物品收集。"
       },
+      "page_title": "团队",
+      "page_description": "邀请团队成员，选择您看到的团队进度，并一起跟踪。",
+      "invite": {
+        "title": "邀请链接",
+        "subtitle": "与信任的队友分享您的团队。",
+        "link_label": "团队邀请 URL",
+        "helper": "任何具有此链接的人都可以加入您的团队。",
+        "show": "显示链接",
+        "hide": "隐藏链接",
+        "copy": "复制链接",
+        "copied": "已复制！"
+      },
+      "members": {
+        "title": "Members ({count})",
+        "no_members": "此团队中还没有成员。分享您的邀请链接以添加队友。",
+        "alone": "只有您在这里 — — 分享您的邀请链接以添加队友。",
+        "copy_invite": "复制邀请链接",
+        "copied": "已复制！"
+      },
+      "visibility": {
+        "title": "可见性设置",
+        "description": "控制哪些团队成员的进度出现在您的跟踪上。",
+        "items_section": "项目",
+        "show_tasks": "显示团队成员的任务",
+        "show_items": "显示团队成员所需项目",
+        "show_non_fir": "显示非飞行情报区所需物品",
+        "show_hideout": "显示隐藏所需项目",
+        "show_maps": "显示团队成员的地图目标"
+      },
+      "danger_zone": {
+        "title": "危险区域",
+        "disband_description": "解散将移除所有成员的团队。此操作无法撤消。",
+        "leave_description": "离开将您从这个团队中移除。您的进度保持在您的帐户上。",
+        "disband": "解散队伍",
+        "leave": "退出队伍",
+        "confirm_disband_title": "解散团队吗？",
+        "confirm_disband_description": "这就取消了团队及其每个人的成员资格。这不能撤消。",
+        "confirm_leave_title": "离开团队吗？",
+        "confirm_leave_description": "您将离开这个团队，停止与其成员分享进度。",
+        "confirm_disband": "是的，解散团队",
+        "confirm_leave": "是的，离开团队",
+        "disband_success": "团队已成功解散。",
+        "disband_error": "解散团队失败。",
+        "action_error": "无法更新团队成员资格。"
+      },
       "card": {
         "manageteam": {
           "title": "队伍成员",
@@ -1209,7 +1300,12 @@
             "owner": "队长",
             "taskscomplete": "任务完成情况 {completed}/{total}",
             "kick_success": "已成功移出队友",
-            "kick_error": "移出队友失败"
+            "kick_error": "移出队友失败",
+            "level_badge_alt": "Level {level} badge",
+            "hide_progress": "Hide {name}'s progress from me",
+            "show_progress": "Show {name}'s progress to me",
+            "enable_team_tasks": "在更改单个成员之前显示团队成员的任务",
+            "remove_member": "Remove {name} from team"
           }
         },
         "teamoptions": {
@@ -1815,7 +1911,8 @@
         "show_xp": "显示经验奖励",
         "show_next": "显示后续任务",
         "show_prev": "显示前置任务",
-        "density": "卡片密度",
+        "collapse_by_default": "默认情况下收起任务",
+        "hide_rewards": "隐藏奖励",
         "require_trader_levels": "Require Trader Loyalty Level and Reputation for Task Availability",
         "flags_section": "任务显示",
         "availability_section": "任务可用性",
@@ -1867,7 +1964,7 @@
       "reset_pve_confirmation": "确定要重置你的 PvE 进度吗？",
       "reset_pve_warning": "这将永久删除你的 PvE 进度，包括任务、藏身处和等级。你的 PvP 数据不会受到影响。",
       "reset_seasonal_confirmation": "您确定要重置您的赛季PvP进度吗？",
-      "reset_seasonal_warning": "这将永久删除活动季节的所有赛季PvP进度。您的持续PvP和PvE数据不会受到影响。",
+      "reset_seasonal_warning": "这将永久删除当前赛季的赛季PvP进度。您的非赛季PvP和PvE数据不会受到影响。",
       "reset_all_confirmation": "确定要重置你的全部进度吗？",
       "reset_all_warning": "这将永久删除PvP，PvE和赛季PvP模式的全部进度。此操作无法撤销！",
       "prestige_mode_warning": "Your current {mode} run will be archived, then its progression will reset for the next prestige level. Other modes are not affected.",
@@ -2140,6 +2237,7 @@
       "xp_progress_value": "{percent}% toward the next level"
     },
     "danger_zone": {
+      "confirm_instruction": "Type {word} to confirm resetting all data:",
       "confirm_word": "删除账户"
     },
     "log_import": {
@@ -2205,7 +2303,19 @@
         "no_quest_events_found": "在所选日志中未找到任务开始/完成事件。",
         "parse_failed": "解析 EFT 日志失败。",
         "selected_logs_too_large": "所选日志内容过多（最大 {max_mb} MB）。",
-        "task_metadata_not_loaded": "任务元数据尚未加载。请刷新后重试。"
+        "task_metadata_not_loaded": "任务元数据尚未加载。请刷新后重试。",
+        "invalid_mode": "选择一个有效的目标游戏模式。",
+        "outside_active_season": "这些日志包含活动季节以外或没有可用日期的事件。从活动季节选择会话，然后导入季节性PvP。"
+      },
+      "failed_tasks": "Matched failed tasks: {count}",
+      "unknown_failed_events": "任务失败(未知模式)",
+      "skipped_malformed": {
+        "single": "Skipped {count} malformed notification.",
+        "plural": "Skipped {count} malformed notifications."
+      },
+      "skipped_seasonal": {
+        "single": "Skipped {count} Seasonal event outside the active season or without a valid date.",
+        "plural": "Skipped {count} Seasonal events outside the active season or without valid dates."
       }
     },
     "tarkov_dev_import": {
@@ -2318,7 +2428,7 @@
     "toggle_game_mode_label": "Toggle game mode",
     "select_game_mode_label": "选择游戏模式",
     "select_faction_label": "Select faction",
-    "season_ends_in": "第{season}赛季距离结束还有{days}天{hours}小时{minutes}分钟",
+    "season_ends_in": "第{season}赛季剩余{days}天{hours}小时{minutes}分钟",
     "season_ended": "Season {season} has ended"
   },
   "oauth": {

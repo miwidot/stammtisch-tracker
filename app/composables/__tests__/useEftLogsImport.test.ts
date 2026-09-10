@@ -1,11 +1,20 @@
 import { strToU8, zipSync } from 'fflate';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ACTIVE_SEASON } from '@/utils/constants';
 import type { Task } from '@/types/tarkov';
 import type { GameMode } from '@/utils/constants';
+const preferences = { getTasksRequireTraderLevels: true };
+vi.mock('@/stores/usePreferences', () => ({ usePreferencesStore: () => preferences }));
 const metadataStore: { tasks: Task[] } = {
   tasks: [{ id: '61604635c725987e815b1a46' }],
 };
 const tarkovStore = {
+  playerLevel: vi.fn(() => 1),
+  setLevel: vi.fn(),
+  getTraderLevel: vi.fn(() => 1),
+  getTraderReputation: vi.fn(() => 0),
+  setTraderLevel: vi.fn(),
+  setTraderReputation: vi.fn(),
   getObjectiveCount: vi.fn(() => 0),
   getCurrentGameMode: vi.fn<() => GameMode>(() => 'pvp'),
   getCurrentProgressData: vi.fn(() => ({ taskCompletions: {} })),
@@ -25,11 +34,11 @@ const mockLogger = {
   warn: vi.fn(),
 };
 const i18nMessages: Record<string, string> = {
-  'settings.data_management.seasonal_import_locked': 'Seasonal PvP imports are temporarily locked.',
+  'settings.log_import.errors.outside_active_season': 'Select logs from the active season.',
   'settings.log_import.selected_files': 'Selected files',
   'settings.log_import.selected_files_count': '{count} selected files',
   'settings.log_import.errors.apply_import_failed':
-    'Failed to apply imported task completion data.',
+    'Import could not finish. Some progress may already have been imported. Select the same logs again to retry; completed progress is preserved.',
   'settings.log_import.errors.archive_log_file_too_large':
     'Log file is too large in archive: {path}',
   'settings.log_import.errors.archive_logs_too_large':
@@ -54,6 +63,9 @@ const i18nMessages: Record<string, string> = {
 vi.mock('@/stores/useMetadata', () => ({
   useMetadataStore: () => metadataStore,
 }));
+vi.mock('@/utils/eftLogImportCatalog', () => ({
+  loadEftImportTaskCatalog: vi.fn(async () => metadataStore.tasks),
+}));
 vi.mock('@/stores/useTarkov', () => ({
   useTarkovStore: () => tarkovStore,
 }));
@@ -73,8 +85,11 @@ vi.mock('vue-i18n', async (importOriginal) => ({
 vi.mock('@/utils/logger', () => ({
   logger: mockLogger,
 }));
-const completionLog = (questId = '61604635c725987e815b1a46') => `
-2026-02-21 10:14:24.222|Info|push-notifications|Got notification | ChatMessageReceived
+const seasonDay = new Date(Date.parse(ACTIVE_SEASON.startsOn) + 86400000)
+  .toISOString()
+  .slice(0, 10);
+const completionLog = (questId = '61604635c725987e815b1a46', day = '2026-02-21') => `
+${day} 10:14:24.222|Info|push-notifications|Got notification | ChatMessageReceived
 {
   "type": "new_message",
   "eventId": "event-123",
@@ -83,14 +98,18 @@ const completionLog = (questId = '61604635c725987e815b1a46') => `
     "_id": "msg-1",
     "uid": "54cb57776803fa99248b456e",
     "type": 12,
-    "dt": 1764602065,
+    "dt": ${Date.parse(`${day}T10:14:24.222Z`) / 1000},
     "text": "quest started",
     "templateId": "${questId} successMessageText 54cb57776803fa99248b456e 0"
   }
 }
 `;
-const startedLog = (questId = '61604635c725987e815b1a46') => `
-2026-02-21 10:14:20.000|Info|push-notifications|Got notification | ChatMessageReceived
+const startedLog = (
+  questId = '61604635c725987e815b1a46',
+  day = '2026-02-21',
+  time = '10:14:20.000'
+) => `
+${day} ${time}|Info|push-notifications|Got notification | ChatMessageReceived
 {
   "type": "new_message",
   "eventId": "event-started",
@@ -99,7 +118,7 @@ const startedLog = (questId = '61604635c725987e815b1a46') => `
     "_id": "msg-started",
     "uid": "54cb57776803fa99248b456e",
     "type": 10,
-    "dt": 1764602060,
+    "dt": ${Date.parse(`${day}T${time}Z`) / 1000},
     "text": "quest started",
     "templateId": "${questId} description"
   }
@@ -118,6 +137,26 @@ describe('useEftLogsImport', () => {
     tarkovStore.getCurrentGameMode.mockReturnValue('pvp');
     tarkovStore.getCurrentProgressData.mockReturnValue({ taskCompletions: {} });
     tarkovStore.switchGameMode.mockImplementation(async () => undefined);
+  });
+  it('enforces the aggregate byte limit across raw logs and ZIP entries', async () => {
+    const rawFiles = Array.from({ length: 8 }, (_, index) => {
+      const file = new File([completionLog()], `${index} notifications.log`);
+      Object.defineProperty(file, 'size', { value: 32 * 1024 * 1024 });
+      return file;
+    });
+    const lastRawRead = vi.spyOn(rawFiles[7]!, 'text');
+    const archive = new File(
+      [new Uint8Array(zipSync({ 'notifications.log': strToU8(completionLog()) }))],
+      'Logs.zip'
+    );
+    const composable = await loadComposable();
+    await composable.parseFiles([...rawFiles, archive]);
+    expect(composable.importState.value).toBe('error');
+    expect(composable.importError.value).toBe(
+      'Selected logs contain too much content (max 256 MB).'
+    );
+    expect(lastRawRead).not.toHaveBeenCalled();
+    expect(tarkovStore.switchGameMode).not.toHaveBeenCalled();
   });
   it('parses a single log file and exposes preview data', async () => {
     const composable = await loadComposable();
@@ -205,17 +244,72 @@ describe('useEftLogsImport', () => {
     expect(currentMode).toBe('pvp');
     expect(composable.importState.value).toBe('error');
   });
-  it('rejects seasonal imports before mutating task progress', async () => {
+  it('reports partial progress when the second mode fails and permits reimporting the same logs', async () => {
+    let currentMode: GameMode = 'pvp';
+    const completed = new Set<GameMode>();
+    tarkovStore.getCurrentGameMode.mockImplementation(() => currentMode);
+    tarkovStore.setTaskComplete.mockImplementation(() => {
+      completed.add(currentMode);
+    });
+    tarkovStore.switchGameMode.mockImplementation(async (mode: GameMode) => {
+      currentMode = mode;
+      if (mode === 'pve') throw new Error('second mode failed');
+    });
+    const files = [
+      new File(
+        [backendLog('prod-01.escapefromtarkov.com'), '\n', completionLog()],
+        'pvp/notifications.log'
+      ),
+      new File(
+        [
+          backendLog('gw-pve-01.escapefromtarkov.com'),
+          '\n',
+          completionLog().replace('event-1', 'event-2').replace('msg-1', 'msg-2'),
+        ],
+        'pve/notifications.log'
+      ),
+    ];
+    const importer = await loadComposable();
+    await importer.parseFiles(files);
+    await importer.confirmImport('pvp');
+    expect(importer.importState.value).toBe('error');
+    expect(importer.importError.value).toContain('Some progress may already have been imported');
+    expect([...completed]).toEqual(['pvp']);
+    expect(currentMode).toBe('pvp');
+    tarkovStore.switchGameMode.mockImplementation(async (mode: GameMode) => {
+      currentMode = mode;
+    });
+    await importer.parseFiles(files);
+    await importer.confirmImport('pvp');
+    expect(importer.importState.value).toBe('success');
+    expect([...completed]).toEqual(['pvp', 'pve']);
+    expect(currentMode).toBe('pvp');
+    tarkovStore.setTaskComplete.mockReset();
+  });
+  it('rejects out-of-season unknown events before mutating Seasonal progress', async () => {
     const composable = await loadComposable();
     const file = new File([completionLog()], 'notifications.log', {
       type: 'text/plain',
     });
     await composable.parseFile(file);
     await (composable.confirmImport as (mode: string) => Promise<void>)('seasonal');
-    expect(composable.importState.value).toBe('error');
-    expect(composable.importError.value).toBe('Seasonal PvP imports are temporarily locked.');
+    expect(composable.importState.value).toBe('preview');
+    expect(composable.importError.value).toBe('Select logs from the active season.');
     expect(tarkovStore.switchGameMode).not.toHaveBeenCalled();
     expect(tarkovStore.setTaskComplete).not.toHaveBeenCalled();
+  });
+  it('imports completions when predecessor metadata is missing', async () => {
+    const taskId = '61604635c725987e815b1a46';
+    metadataStore.tasks = [{ id: taskId, predecessors: ['missing-prerequisite'] }];
+    const composable = await loadComposable();
+    await composable.parseFile(
+      new File([completionLog(taskId)], 'notifications.log', { type: 'text/plain' })
+    );
+    await composable.confirmImport('pvp');
+    expect(composable.importState.value).toBe('success');
+    expect(tarkovStore.setTaskComplete).toHaveBeenCalledExactlyOnceWith(taskId);
+    expect(tarkovStore.setTaskComplete).not.toHaveBeenCalledWith('missing-prerequisite');
+    expect(tarkovStore.setTraderLevel).not.toHaveBeenCalled();
   });
   it('backfills required prerequisite tasks when importing a later completed task', async () => {
     const prerequisiteTaskId = '5ac2426c86f774138762edfe';
@@ -243,6 +337,24 @@ describe('useEftLogsImport', () => {
     expect(tarkovStore.setTaskObjectiveComplete).toHaveBeenCalledWith('obj-prerequisite');
     expect(tarkovStore.setObjectiveCount).toHaveBeenCalledWith('obj-prerequisite', 2);
     expect(composable.importState.value).toBe('success');
+  });
+  it('does not infer a quest route from missing story progress', async () => {
+    const prerequisiteTaskId = '5ac2426c86f774138762edfe';
+    const completedTaskId = '61604635c725987e815b1a46';
+    metadataStore.tasks = [
+      { id: prerequisiteTaskId },
+      {
+        id: completedTaskId,
+        storyUnlocks: [{ id: 'chapter', name: 'Story route' }],
+        taskRequirements: [{ task: { id: prerequisiteTaskId }, status: ['Complete'] }],
+      },
+    ];
+    const composable = await loadComposable();
+    await composable.parseFile(
+      new File([completionLog(completedTaskId)], 'notifications.log', { type: 'text/plain' })
+    );
+    await composable.confirmImport('pvp');
+    expect(tarkovStore.setTaskComplete).toHaveBeenCalledExactlyOnceWith(completedTaskId);
   });
   it('applies failed-only prerequisite requirements when importing completed tasks', async () => {
     const failedPrerequisiteTaskId = '593aa4be86f77457f56379f8';
@@ -355,5 +467,228 @@ describe('useEftLogsImport', () => {
     composable.setIncludedVersions(['0.16.8.1.38114']);
     expect(composable.previewData.value?.includedVersions).toEqual(['0.16.8.1.38114']);
     expect(composable.previewData.value?.matchedTaskIds).toEqual(['61604635c725987e815b1a46']);
+  });
+});
+describe('expanded log import', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    metadataStore.tasks = [{ id: '61604635c725987e815b1a46' }];
+    tarkovStore.getCurrentGameMode.mockReturnValue('pvp');
+    tarkovStore.getCurrentProgressData.mockReturnValue({ taskCompletions: {} });
+    tarkovStore.switchGameMode.mockImplementation(async () => undefined);
+    tarkovStore.isTaskComplete.mockReturnValue(false);
+  });
+  it('does not write a notification replay into the mode active at replay time', async () => {
+    const importer = await loadComposable();
+    const original = completionLog(undefined, seasonDay);
+    const replay = original.replace(`${seasonDay} 10:14:24.222`, `${seasonDay} 12:00:00.000`);
+    await importer.parseFiles([
+      new File(
+        [
+          `${seasonDay} 09:00:00.000|Info|application|Session mode: Regular\n${seasonDay} 11:00:00.000|Info|application|Session mode: Pve`,
+        ],
+        'application.log'
+      ),
+      new File([replay], 'late notifications.log'),
+      new File([original], 'early notifications.log'),
+    ]);
+    await importer.confirmImport('pvp');
+    expect(tarkovStore.setTaskComplete).toHaveBeenCalledTimes(1);
+    expect(tarkovStore.switchGameMode).not.toHaveBeenCalled();
+  });
+  it('imports a current Seasonal notification and restores the original mode', async () => {
+    const importer = await loadComposable();
+    const session = `${seasonDay.replaceAll('-', '.')}_10-00-00_1.1.0.1.46911`;
+    const archive = zipSync({
+      [`Logs/log_${session}/application.log`]: strToU8(
+        `${seasonDay} 10:00:00.000|1.1.0.1.46911|Info|application|Session mode: PvpSeason`
+      ),
+      [`Logs/log_${session}/${session} push-notifications.log`]: strToU8(
+        completionLog(undefined, seasonDay)
+      ),
+    });
+    await importer.parseFile(new File([new Uint8Array(archive)], 'Logs.zip'));
+    expect(importer.previewData.value?.matchedTaskIdsByMode.seasonal).toEqual([
+      '61604635c725987e815b1a46',
+    ]);
+    await importer.confirmImport('pvp');
+    expect(tarkovStore.switchGameMode.mock.calls).toEqual([['seasonal'], ['pvp']]);
+    expect(tarkovStore.setTaskComplete).toHaveBeenCalledWith('61604635c725987e815b1a46');
+    expect(importer.importState.value).toBe('success');
+  });
+  it('allows current unresolved events to be assigned to Seasonal', async () => {
+    const importer = await loadComposable();
+    await importer.parseFile(new File([completionLog(undefined, seasonDay)], 'notifications.log'));
+    await importer.confirmImport('seasonal');
+    expect(importer.importState.value).toBe('success');
+    expect(tarkovStore.switchGameMode.mock.calls).toEqual([['seasonal'], ['pvp']]);
+  });
+  it('imports failure-only logs', async () => {
+    const importer = await loadComposable();
+    const failure = completionLog()
+      .replace('"type": 12', '"type": 11')
+      .replace('successMessageText', 'failMessageText');
+    await importer.parseFile(new File([failure], 'notifications.log'));
+    expect(importer.previewData.value?.matchedFailedTaskIds).toEqual(['61604635c725987e815b1a46']);
+    await importer.confirmImport('pvp');
+    expect(tarkovStore.setTaskFailed).toHaveBeenCalledWith('61604635c725987e815b1a46', {
+      manual: true,
+    });
+    expect(tarkovStore.setTaskComplete).not.toHaveBeenCalled();
+  });
+  it('preserves existing completions when old logs show a failure', async () => {
+    tarkovStore.isTaskComplete.mockReturnValue(true);
+    const importer = await loadComposable();
+    await importer.parseFile(
+      new File([completionLog().replace('"type": 12', '"type": 11')], 'notifications.log')
+    );
+    await importer.confirmImport('pvp');
+    expect(tarkovStore.setTaskFailed).not.toHaveBeenCalled();
+  });
+  it('reconciles unknown completions with known restarts after choosing a destination', async () => {
+    const importer = await loadComposable();
+    await importer.parseFiles([
+      new File([completionLog()], 'notifications.log'),
+      new File([backendLog()], 'backend.log'),
+      new File([startedLog(undefined, '2026-02-21', '10:14:30.000')], 'push-notifications_001.log'),
+    ]);
+    await importer.confirmImport('pvp');
+    expect(tarkovStore.setTaskUncompleted).toHaveBeenCalledWith('61604635c725987e815b1a46');
+    expect(tarkovStore.setTaskComplete).not.toHaveBeenCalled();
+  });
+  it('keeps a single folder-selected file version instead of dropping its relative path', async () => {
+    const importer = await loadComposable();
+    const file = new File([completionLog()], 'notifications.log');
+    Object.defineProperty(file, 'webkitRelativePath', {
+      value: 'Logs/log_2026.08.29_10-00-00_1.1.0.1.46911/notifications.log',
+    });
+    await importer.parseFiles([file]);
+    expect(importer.previewData.value?.availableVersions).toEqual(['1.1.0.1.46911']);
+  });
+});
+describe('destination catalog eligibility', () => {
+  const taskId = '61604635c725987e815b1a46';
+  beforeEach(() => {
+    vi.clearAllMocks();
+    metadataStore.tasks = [{ id: taskId }];
+    tarkovStore.getCurrentGameMode.mockReturnValue('seasonal');
+    tarkovStore.getCurrentProgressData.mockReturnValue({ taskCompletions: {} });
+    tarkovStore.switchGameMode.mockImplementation(async () => undefined);
+    tarkovStore.isTaskComplete.mockReturnValue(false);
+  });
+  it('does not let old unmatched daily quests block valid Seasonal imports', async () => {
+    const importer = await loadComposable();
+    await importer.parseFiles([
+      new File([completionLog('aaaaaaaaaaaaaaaaaaaaaaaa')], 'notifications.log'),
+      new File([completionLog(undefined, seasonDay)], 'push-notifications_001.log'),
+    ]);
+    await importer.confirmImport('seasonal');
+    expect(importer.importState.value).toBe('success');
+    expect(tarkovStore.setTaskComplete).toHaveBeenCalledWith(taskId);
+  });
+  it('checks season eligibility after reconciling older states of the same task', async () => {
+    const importer = await loadComposable();
+    await importer.parseFiles([
+      new File([startedLog()], 'notifications.log'),
+      new File([completionLog(undefined, seasonDay)], 'push-notifications_001.log'),
+    ]);
+    await importer.confirmImport('seasonal');
+    expect(importer.importState.value).toBe('success');
+  });
+  it('uses destination objectives rather than the currently selected mode metadata', async () => {
+    const { loadEftImportTaskCatalog } = await import('@/utils/eftLogImportCatalog');
+    vi.mocked(loadEftImportTaskCatalog).mockImplementationOnce(
+      async () =>
+        [
+          { id: taskId, objectives: [{ id: 'destination-objective', type: 'giveItem', count: 5 }] },
+        ] as Task[]
+    );
+    const importer = await loadComposable();
+    await importer.parseFiles([
+      new File([backendLog('gw-pve-01.escapefromtarkov.com')], 'backend.log'),
+      new File([completionLog()], 'notifications.log'),
+    ]);
+    await importer.confirmImport('seasonal');
+    expect(tarkovStore.setTaskObjectiveComplete).toHaveBeenCalledWith('destination-objective');
+    expect(tarkovStore.setObjectiveCount).toHaveBeenCalledWith('destination-objective', 5);
+  });
+  it('does not mutate progress when a required destination catalog fails', async () => {
+    const { loadEftImportTaskCatalog } = await import('@/utils/eftLogImportCatalog');
+    vi.mocked(loadEftImportTaskCatalog).mockRejectedValueOnce(new Error('metadata unavailable'));
+    const importer = await loadComposable();
+    await importer.parseFiles([
+      new File([backendLog('gw-pve-01.escapefromtarkov.com')], 'backend.log'),
+      new File([completionLog()], 'notifications.log'),
+    ]);
+    expect(importer.importState.value).toBe('error');
+    expect(tarkovStore.switchGameMode).not.toHaveBeenCalled();
+    expect(tarkovStore.setTaskComplete).not.toHaveBeenCalled();
+  });
+});
+describe('restart semantics', () => {
+  it('restarts the actual stored failed shape with both complete and failed flags set', async () => {
+    vi.clearAllMocks();
+    const id = '61604635c725987e815b1a46';
+    metadataStore.tasks = [{ id }];
+    tarkovStore.getCurrentGameMode.mockReturnValue('pvp');
+    tarkovStore.getCurrentProgressData.mockReturnValue({
+      taskCompletions: { [id]: { complete: true, failed: true } },
+    });
+    const importer = await loadComposable();
+    await importer.parseFile(new File([startedLog(id)], 'notifications.log'));
+    await importer.confirmImport('pvp');
+    expect(tarkovStore.setTaskUncompleted).toHaveBeenCalledWith(id);
+  });
+});
+describe('trader gating preference during import', () => {
+  it.each([false, true])('respects trader gating = %s in the destination', async (enabled) => {
+    vi.clearAllMocks();
+    preferences.getTasksRequireTraderLevels = enabled;
+    const id = '61604635c725987e815b1a46';
+    metadataStore.tasks = [
+      {
+        id,
+        minPlayerLevel: 5,
+        traderRequirements: [
+          {
+            id: 'll',
+            requirementType: 'level',
+            trader: { id: 'prapor' },
+            compareMethod: '>=',
+            value: 2,
+          },
+          {
+            id: 'rep',
+            requirementType: 'reputation',
+            trader: { id: 'prapor' },
+            compareMethod: '>=',
+            value: 0.2,
+          },
+        ],
+      },
+    ] as Task[];
+    let current: GameMode = 'pvp';
+    const writtenModes: GameMode[] = [];
+    tarkovStore.getCurrentGameMode.mockImplementation(() => current);
+    tarkovStore.switchGameMode.mockImplementation(async (mode) => {
+      current = mode;
+    });
+    tarkovStore.setTraderLevel.mockImplementation(() => {
+      writtenModes.push(current);
+    });
+    tarkovStore.getCurrentProgressData.mockReturnValue({ taskCompletions: {} });
+    const importer = await loadComposable();
+    await importer.parseFiles([
+      new File([backendLog('gw-pve-01.escapefromtarkov.com')], 'backend.log'),
+      new File([completionLog(id)], 'notifications.log'),
+    ]);
+    await importer.confirmImport('pvp');
+    expect(tarkovStore.setTaskComplete).toHaveBeenCalledWith(id);
+    expect(tarkovStore.setLevel).toHaveBeenCalledWith(5);
+    expect(tarkovStore.setTraderLevel).toHaveBeenCalledTimes(enabled ? 1 : 0);
+    expect(tarkovStore.setTraderReputation).toHaveBeenCalledTimes(enabled ? 1 : 0);
+    expect(writtenModes).toEqual(enabled ? ['pve'] : []);
+    expect(current).toBe('pvp');
+    preferences.getTasksRequireTraderLevels = true;
   });
 });

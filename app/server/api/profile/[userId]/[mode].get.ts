@@ -5,7 +5,9 @@ import {
   getRouterParam,
   setResponseHeader,
 } from 'h3';
+import { normalizeSupabaseUrl } from '@/server/utils/adminSupabase';
 import { fetchWithTimeout, isAbortError } from '@/server/utils/fetchWithTimeout';
+import { resolveGameModeSeason } from '@/server/utils/gameModeSeason';
 import { createLogger } from '@/server/utils/logger';
 import { getProxyAwareClientIdentifier } from '@/server/utils/requestIdentity';
 import {
@@ -17,12 +19,7 @@ import {
   type SharedCacheHandle,
 } from '@/server/utils/sharedEdgeStore';
 import { fetchTarkovJsonEndpoint, type JsonTasksPayload } from '@/server/utils/tarkov-json';
-import {
-  API_GAME_MODES,
-  getGameModeSeasonNumber,
-  isGameMode,
-  type GameMode,
-} from '@/utils/constants';
+import { API_GAME_MODES, isGameMode, type GameMode } from '@/utils/constants';
 import { getLegacyModeProgressField, resolveModeProgressData } from '@/utils/modeProgressFallback';
 import {
   isRecord,
@@ -545,7 +542,8 @@ export default defineEventHandler(async (event) => {
   }
   const typedConfig = useRuntimeConfig(event) as ReturnType<typeof useRuntimeConfig> &
     ApiProtectionConfig;
-  const { supabaseAnonKey, supabaseUrl } = typedConfig;
+  const { supabaseAnonKey } = typedConfig;
+  const supabaseUrl = normalizeSupabaseUrl(typedConfig.supabaseUrl);
   const supabaseServiceKey =
     typeof typedConfig.supabaseServiceKey === 'string' ? typedConfig.supabaseServiceKey : '';
   if (
@@ -600,7 +598,8 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 429, statusMessage: 'Too many requests' });
     }
   }
-  const sharedProfileCacheKey = `${userId}:${mode}:${requesterKey}`;
+  const seasonNumber = await resolveGameModeSeason(mode, { supabaseUrl, supabaseServiceKey });
+  const sharedProfileCacheKey = `${userId}:${mode}:${seasonNumber}:${requesterKey}`;
   if (!isTestEnvironment) {
     const cached = await getCachedProfile(sharedCacheHandle, sharedProfileCacheKey);
     if (cached) {
@@ -619,54 +618,40 @@ export default defineEventHandler(async (event) => {
   if (!restAuthorization) {
     throw createError({ statusCode: 401, statusMessage: 'Missing auth token' });
   }
-  const restFetch = async (path: string, signal?: AbortSignal) => {
-    const url = `${supabaseUrl}/rest/v1/${path}`;
-    return fetch(url, {
-      headers: {
-        Accept: 'application/json',
-        Authorization: restAuthorization,
-        'Content-Type': 'application/json',
-        apikey: restApiKey,
+  const resourcesController = new AbortController();
+  const restFetch = (path: string) =>
+    fetchWithTimeout(
+      `${supabaseUrl}/rest/v1/${path}`,
+      {
+        headers: {
+          Accept: 'application/json',
+          Authorization: restAuthorization,
+          'Content-Type': 'application/json',
+          apikey: restApiKey,
+        },
+        signal: resourcesController.signal,
       },
-      signal,
-    });
-  };
-  const progressController = new AbortController();
-  const modeProgressController = new AbortController();
-  const preferencesController = new AbortController();
-  const progressTimeout = setTimeout(() => {
-    progressController.abort();
-  }, REST_FETCH_TIMEOUT_MS);
-  const preferencesTimeout = setTimeout(() => {
-    preferencesController.abort();
-  }, REST_FETCH_TIMEOUT_MS);
-  const modeProgressTimeout = setTimeout(() => {
-    modeProgressController.abort();
-  }, REST_FETCH_TIMEOUT_MS);
+      REST_FETCH_TIMEOUT_MS,
+      'Timed out while loading shared profile data'
+    );
   let progressResponse: Response;
   let modeProgressResponse: Response;
   let preferencesResponse: Response;
   const legacyProgressField = getLegacyModeProgressField(mode);
-  const progressSelect = ['user_id', 'game_edition', legacyProgressField].filter(Boolean).join(',');
+  const progressSelect = 'user_id,game_edition';
   try {
     [progressResponse, modeProgressResponse, preferencesResponse] = await Promise.all([
+      restFetch(`user_progress?select=${progressSelect}&user_id=eq.${userId}&limit=1`),
       restFetch(
-        `user_progress?select=${progressSelect}&user_id=eq.${userId}&limit=1`,
-        progressController.signal
+        `user_game_mode_progress?select=user_id,progress_data,profile_public&user_id=eq.${userId}&game_mode=eq.${mode}&season_number=eq.${seasonNumber}&limit=1`
       ),
       restFetch(
-        `user_game_mode_progress?select=user_id,progress_data,profile_public&user_id=eq.${userId}&game_mode=eq.${mode}&season_number=eq.${getGameModeSeasonNumber(mode)}&limit=1`,
-        modeProgressController.signal
-      ),
-      restFetch(
-        `user_preferences?select=streamer_mode,profile_share_pvp_public,profile_share_pve_public&user_id=eq.${userId}&limit=1`,
-        preferencesController.signal
+        `user_preferences?select=streamer_mode,profile_share_pvp_public,profile_share_pve_public&user_id=eq.${userId}&limit=1`
       ),
     ]);
   } catch (error) {
-    progressController.abort();
-    modeProgressController.abort();
-    preferencesController.abort();
+    resourcesController.abort();
+    if (Object(error).statusCode === 504) throw error;
     if (isAbortError(error)) {
       throw createError({
         statusCode: 504,
@@ -678,10 +663,6 @@ export default defineEventHandler(async (event) => {
       statusCode: 502,
       statusMessage: 'Failed to load shared profile data',
     });
-  } finally {
-    clearTimeout(progressTimeout);
-    clearTimeout(modeProgressTimeout);
-    clearTimeout(preferencesTimeout);
   }
   if (!progressResponse.ok || !modeProgressResponse.ok) {
     throw createError({ statusCode: 500, statusMessage: 'Failed to load profile data' });
@@ -713,6 +694,27 @@ export default defineEventHandler(async (event) => {
   const isModePublic = modeProgressRow ? modeProgressRow.profile_public === true : legacyModePublic;
   if (!isOwner && !isModePublic) {
     throw createError({ statusCode: 403, statusMessage: 'Profile is private for this mode' });
+  }
+  if (legacyProgressField && !hasMaterializedProgress(modeProgressRow?.progress_data)) {
+    try {
+      const response = await restFetch(
+        `user_progress?select=${legacyProgressField}&user_id=eq.${userId}&limit=1`
+      );
+      if (!response.ok)
+        throw createError({ statusCode: 502, statusMessage: 'Failed to load legacy profile data' });
+      const rows = (await response.json()) as ProgressRow[];
+      progressRow[legacyProgressField] = rows[0]?.[legacyProgressField];
+    } catch (error) {
+      resourcesController.abort();
+      if (Object(error).statusCode === 504 || isAbortError(error)) {
+        throw createError({
+          statusCode: 504,
+          statusMessage: 'Timed out while loading shared profile data',
+        });
+      }
+      logger.error('Failed to load legacy profile resources', { error, userId });
+      throw createError({ statusCode: 502, statusMessage: 'Failed to load legacy profile data' });
+    }
   }
   const profileData = resolveModeProgressData(mode, modeProgressRow?.progress_data, progressRow);
   const hideDisplayName = !isOwner && preferencesRow?.streamer_mode === true;

@@ -4,6 +4,23 @@
     "error_title": "Connection Error",
     "load_error_description": "Failed to load admin data. Please refresh or contact support. Reference: {reference}",
     "no_reference": "N/A",
+    "error": {
+      "cache_purge_failed": "Não foi possível limpar o cache. Por favor tente novamente.",
+      "invalid_purge_type": "Selecione um tipo de limpeza de cache válido.",
+      "method_not_allowed": "Este método de pedido não é suportado.",
+      "admin_privileges_required": "Você não tem permissão para executar esta ação.",
+      "authentication_required": "Você precisa estar conectado para continuar.",
+      "invalid_channel": "Insira um nome de canal da Twitch válido.",
+      "invalid_display_name": "Informe um nome de exibição válido.",
+      "invalid_enabled_flag": "O valor habilitado é inválido",
+      "invalid_request_body": "O corpo da solicitação é inválido.",
+      "invalid_target_user_id": "Insira um ID de usuário válido.",
+      "invalid_tier": "Selecione um nível de su!supporter válido.",
+      "service_config_missing": "O serviço de administração não está configurado.",
+      "supabase_request_failed": "O serviço de administração não pôde completar a solicitação.",
+      "supporter_update_failed": "Não foi possível atualizar o acesso ao suporte.",
+      "twitch_config_update_failed": "Não foi possível atualizar as configurações da Twitch."
+    },
     "access_warning_title": "Admin Access",
     "access_warning_description": "Actions performed here affect all users. Logged in as {user}.",
     "cache_management_title": "Cache Management",
@@ -516,19 +533,6 @@
       "drag_to_resize": "Arraste para redimensionar o mapa",
       "switch_floor": "Trocar chão (Ctrl + Scroll)"
     },
-    "controls": {
-      "help": {
-        "pan": "ou arraste para pan",
-        "zoom": "para ampliar",
-        "reset": "para resetar visão",
-        "cycle_floors": "ciclo de andares",
-        "floor_panel": "ou use o painel do chão",
-        "click_at_cursor": "para clicar no cursor",
-        "click_marker": "Clique em um marcador para detalhes",
-        "fullscreen": "Use o botão de tela cheia nos controles do mapa",
-        "resize": "Arraste a borda inferior do mapa para redimensionar"
-      }
-    },
     "help": {
       "title": "Controles do mapa",
       "groups": {
@@ -536,13 +540,21 @@
         "floors": "Andares",
         "interact": "Interagir",
         "view": "Visualizar"
-      }
+      },
+      "pan": "{keys} ou arraste para subir",
+      "zoom": "{keys} para ampliar",
+      "reset": "{key} para redefinir a visão",
+      "cycle_floors": "{keys} para ciclo de andares",
+      "floor_panel": "Ou use o painel do chão.",
+      "click_at_cursor": "{key} para clicar no cursor",
+      "click_marker": "Clique em um marcador para detalhes.",
+      "fullscreen": "Use o botão de tela cheia nos controles do mapa.",
+      "resize": "Arraste a borda inferior do mapa para redimensionar."
     },
     "hint": {
       "title": "Controles rápidos de mapa",
-      "drag_to_pan": "Arrastar para virar",
-      "shift_scroll_zoom": "Shift + Rolar para ampliar",
-      "ctrl_scroll_floors": "Ctrl + Role para alterar os andares",
+      "summary": "Arraste para pan · Shift + Rolar para ampliar",
+      "summary_multi_floor": "Arraste para pan · Shift + Role para ampliar · Ctrl + Role para alterar os andares",
       "all_controls": "Todos os controles"
     },
     "aria": {
@@ -593,6 +605,7 @@
           "filter_hidden_other": "Your current filters hide {count} available tasks.",
           "blocked_level_one": "{task} is your closest unlock, but you still need 1 more level.",
           "blocked_level_other": "{task} is your closest unlock, but you still need {count} more levels.",
+          "blocked_requirement": "{task} é bloqueado por seus requisitos.",
           "blocked_prerequisite": "{task} is close, but it is still gated by prerequisite tasks.",
           "blocked_fence": "{task} is waiting on Fence reputation.",
           "blocked_trader_unlock": "{task} is locked behind another trader unlock task.",
@@ -880,13 +893,14 @@
         "none": "Default order",
         "impact": "Impact",
         "alphabetical": "Alphabetical",
-        "level": "Level Required",
+        "level": "Player level",
         "trader": "Trader Order",
         "teammates": "Available to Teammates",
         "xp": "XP Reward",
         "ascending": "Ascending",
         "descending": "Descending",
-        "aria_label": "Sort tasks"
+        "aria_label": "Sort tasks",
+        "progression": "Progresso"
       },
       "settings": {
         "title": "Task Settings",
@@ -912,7 +926,9 @@
           "experience_rewards": "Experience Rewards",
           "next_tasks": "Next Tasks",
           "previous_tasks": "Previous Tasks",
-          "collapse_completed_objectives": "Collapse Objectives on Completed Tasks"
+          "collapse_completed_objectives": "Collapse Objectives on Completed Tasks",
+          "collapse_by_default": "Recolher Missões por Padrão",
+          "hide_rewards": "Ocultar recompensas"
         },
         "filter_bar": {
           "hint": "Toggle task status filters on or off to control which tasks are visible.",
@@ -945,8 +961,11 @@
         "show_map": "Mostrar mapa",
         "hide_map": "Ocultar mapa",
         "fullscreen_label": "Tela cheia",
+        "required_items": "Itens obrigatórios",
+        "required_keys": "Chaves requeridas",
         "required_items_summary": "Required items for active tasks",
         "required_keys_summary": "Required keys for active tasks",
+        "active_tasks_group": "Tarefas ativas",
         "time_period": {
           "dawn": "Dawn",
           "day": "Day",
@@ -993,6 +1012,8 @@
         "available_button": "Mark Available",
         "uncomplete_button": "Mark Uncompleted",
         "reset_item_counts": "Reset item counts",
+        "collapse_task": "Recolher tarefa",
+        "expand_task": "Expandir tarefa",
         "reset_item_counts_disabled_complete": "Uncomplete this task to reset item counts",
         "reset_item_counts_disabled_failed": "Mark this task as available to reset item counts",
         "reset_item_counts_disabled_nothing_to_reset": "There are no item counts to reset",
@@ -1059,7 +1080,32 @@
         "previous_tasks": "Previous Task(s):",
         "progress": "Progress {completed}/{total}",
         "rewards": "Rewards",
-        "unlocks_count": "{count} unlocks"
+        "unlocks_count": "{count} unlocks",
+        "trader_requirement_badge": "{trader} {kind} {comparison} {value}",
+        "loyalty_level": "LL",
+        "reputation": "Reputação"
+      },
+      "blockers": {
+        "player_level": "{comparison} Nível do Jogador {required} necessário (atual: {current}).",
+        "trader_level": "{trader} Nível de Lealdade {comparison} {required} necessário (atual: {current}).",
+        "trader_reputation": "{trader} reputação {comparison} {required} necessária (atual: {current}).",
+        "prerequisite": "Conheça os status de tarefa necessários para: {tasks}.",
+        "story_route": "Conheça o status de tarefas necessárias para {tasks}, ou o progresso de um desses capítulos da história: {chapters}.",
+        "failed_branch": "Bloqueado por tarefas falhadas: {task}.",
+        "faction": "Disponível a {faction} caracteres.",
+        "trader_unlock": "Desbloqueie {trader} completando {task}.",
+        "prestige": "Requer Prestígio {required} (atual: {current}).",
+        "unknown": "Os dados do requisito não estão disponíveis ou não são suportados. Disponibilidade não pode ser confirmada.",
+        "cycle": "A cadeia de pré-requisitos contém um ciclo. A disponibilidade não pode ser confirmada.",
+        "complete": "Esta tarefa foi concluída.",
+        "failed": "A tarefa está com falha",
+        "disabled": "Esta tarefa está desabilitada.",
+        "task_status": "{task} ({status})",
+        "status_complete": "concluído",
+        "status_failed": "falha",
+        "status_active": "ativo ou aceito",
+        "status_unknown": "status desconhecido",
+        "status_or": " ou "
       }
     },
     "hideout": {
@@ -1200,6 +1246,51 @@
       "meta": {
         "description": "Collaborate with teammates on Escape from Tarkov progress. Share quest completions, hideout status, and coordinate item gathering."
       },
+      "page_title": "Equipe",
+      "page_description": "Convide colegas, escolha o progresso da equipe que você vê e acompanhe juntos.",
+      "invite": {
+        "title": "Link de convite",
+        "subtitle": "Compartilhe sua equipe com seus companheiros de equipe.",
+        "link_label": "Convite para equipe URL",
+        "helper": "Qualquer um com este link pode se juntar à sua equipe.",
+        "show": "Mostrar link",
+        "hide": "Ocultar link",
+        "copy": "Link de cópia",
+        "copied": "Copiado!"
+      },
+      "members": {
+        "title": "Membros ({count})",
+        "no_members": "Nenhum membro desta equipe ainda. Compartilhe seu link de convite para adicionar colegas de equipe.",
+        "alone": "Você está sozinho - compartilhe seu link de convite para adicionar colegas.",
+        "copy_invite": "Copiar link do convite",
+        "copied": "Copiado!"
+      },
+      "visibility": {
+        "title": "Configurações de visibilidade",
+        "description": "Controle qual o progresso dos colegas de equipe aparece no seu rastreador.",
+        "items_section": "itens",
+        "show_tasks": "Mostrar tarefas dos membros da equipe",
+        "show_items": "Mostrar itens necessários dos membros da equipe",
+        "show_non_fir": "Mostrar itens não-FIR necessários",
+        "show_hideout": "Mostrar itens necessários para esconder",
+        "show_maps": "Mostrar objetivos do mapa dos membros da equipe"
+      },
+      "danger_zone": {
+        "title": "Zona de perigo",
+        "disband_description": "A dissolução remove a equipe para todos os membros. Esta ação não pode ser desfeita.",
+        "leave_description": "Deixar o remove desta equipe. Seu progresso permanece na sua conta.",
+        "disband": "Dissolver equipe",
+        "leave": "Leave team",
+        "confirm_disband_title": "Dissolver equipe?",
+        "confirm_disband_description": "Isso remove a equipe e sua filiação para todos. Isso não pode ser desfeito.",
+        "confirm_leave_title": "Sair da equipe?",
+        "confirm_leave_description": "Você deixará esta equipe e deixará de compartilhar o progresso com seus membros.",
+        "confirm_disband": "Sim, dissolver a equipe",
+        "confirm_leave": "Sim, sair da equipe",
+        "disband_success": "Equipe dissolvida com sucesso.",
+        "disband_error": "Falha ao dissolver equipe.",
+        "action_error": "Não foi possível atualizar a associação da equipe."
+      },
       "card": {
         "manageteam": {
           "title": "Team Members",
@@ -1209,7 +1300,12 @@
             "owner": "Owner",
             "taskscomplete": "{completed}/{total} tasks completed",
             "kick_success": "Teammate kicked successfully.",
-            "kick_error": "Error kicking teammate."
+            "kick_error": "Error kicking teammate.",
+            "level_badge_alt": "Emblema de nível {level}",
+            "hide_progress": "Ocultar meu progresso de {name}",
+            "show_progress": "Mostrar progresso de {name}para mim",
+            "enable_team_tasks": "Exibir tarefas dos membros da equipe antes de alterar um membro individual",
+            "remove_member": "Remover {name} da equipe"
           }
         },
         "teamoptions": {
@@ -1815,7 +1911,8 @@
         "show_xp": "Show XP Rewards",
         "show_next": "Show Next Quests",
         "show_prev": "Show Previous Quests",
-        "density": "Card Density",
+        "collapse_by_default": "Recolher Missões por Padrão",
+        "hide_rewards": "Ocultar recompensas",
         "require_trader_levels": "Require Trader Loyalty Level and Reputation for Task Availability",
         "flags_section": "Exibição de tarefas",
         "availability_section": "Disponibilidade de tarefas",
@@ -2140,21 +2237,22 @@
       "xp_progress_value": "{percent}% em direção ao próximo nível"
     },
     "danger_zone": {
+      "confirm_instruction": "Digite {word} para confirmar a redefinição de todos os dados:",
       "confirm_word": "DELETE"
     },
     "log_import": {
-      "upload_hint": "Select your Escape from Tarkov Logs folder to import quest progress.",
+      "upload_hint": "Select your Escape from Tarkov Logs folder or a selection of session folders to import quest starts, completions, and failures.",
       "deleted_logs_hint": "If old log sessions were deleted, they cannot be imported.",
       "deleted_logs_hint_tooltip": "Log import only reads quest events still present in your current Logs folder.",
-      "logs_folder_required": "Select the top-level Logs folder, not an individual log_* session folder.",
+      "logs_folder_required": "Select your Logs folder or a session folder from the character history you want to restore.",
       "default_path_label": "Typical default path:",
       "default_path_value": "C:\\Battlestate Games\\Escape from Tarkov\\Logs",
       "find_in_launcher_hint": "Can't find it? Open the BSG Launcher -> Game Settings -> Logs and copy that path.",
-      "avoid_session_folder_label": "Do not select a session folder like:",
+      "avoid_session_folder_label": "Example session folder:",
       "session_folder_example_path": "C:\\Battlestate Games\\Escape from Tarkov\\Logs\\log_2026.02.19_13-14-36_1.0.2.0.43037",
       "version_filter_label": "Include Log Versions",
-      "version_filter_hint": "Latest major version is selected by default. Adjust to include older wipes.",
-      "version_filter_tooltip": "Logs are grouped by session version. Latest major is selected by default to avoid mixing old wipe data.",
+      "version_filter_hint": "Latest major version is selected by default. Include only logs from the character and wipe you want to restore.",
+      "version_filter_tooltip": "Versions do not identify account changes, wipes, or prestige resets. Select the appropriate session folders before importing. Seasonal events must fall within the active season.",
       "version_unknown": "Unknown Version",
       "source_file": "Source File",
       "selected_files": "Selected files",
@@ -2174,25 +2272,25 @@
       "matched_started_tasks": "Matched Active Tasks",
       "matched_started_tasks_tooltip": "Unique started quest IDs that match current tasks, excluding tasks already counted as completed.",
       "detected_mode": "Detected Mode",
-      "detected_mode_tooltip": "Detected from backend hosts in the same sessions. Unknown means no clear PvP or PvE signal.",
+      "detected_mode_tooltip": "Detected from session mode declarations and gateway or notification connections. PvP, PvE, and Seasonal PvP are supported; unresolved events require a destination.",
       "unknown_mode_events": "Unknown Mode Events",
-      "unknown_mode_events_tooltip": "Events from sessions where backend logs could not resolve PvP vs PvE mode.",
+      "unknown_mode_events_tooltip": "Quest states without a preceding, unambiguous game mode signal.",
       "unknown_mode_event_details": "Unknown Mode Event Details",
       "unknown_completion_events": "Completed Tasks (Unknown Mode)",
       "unknown_started_events": "Started Tasks (Unknown Mode)",
       "import_unknown_to_mode": "Import Unknown Mode Events To",
-      "import_unknown_to_mode_hint": "Known PvP/PvE events are auto-routed. This only applies to unresolved events.",
-      "auto_mode_hint": "Mode routing was detected from backend logs and will be applied automatically.",
+      "import_unknown_to_mode_hint": "Known PvP, PvE, and Seasonal events are routed automatically. Choose the destination only for unresolved events; Seasonal requires dates within the active season.",
+      "auto_mode_hint": "Known modes are routed automatically. Logs restore recorded quest states; they cannot reconstruct missing history, item handovers, XP, skills, or hideout progress.",
       "mode_summary_pvp": "PvP (auto)",
       "mode_summary_pve": "PvE (auto)",
       "mode_summary_both": "PvP + PvE (auto)",
       "success_title": "EFT Logs Imported",
-      "success_description": "Marked {complete_count} tasks completed and {active_count} tasks active from game logs.",
+      "success_description": "Processed {complete_count} completed, {active_count} active, and {failed_count} failed quest states from game logs. Existing completed tasks are preserved.",
       "error_title": "EFT Logs Import Failed",
       "cleared_logs_toast_title": "Old logs were likely cleared",
       "cleared_logs_toast_description": "Log import can only read quest history still in your Logs folder. Deleted sessions cannot be recovered.",
       "errors": {
-        "apply_import_failed": "Failed to apply imported task completion data.",
+        "apply_import_failed": "Import could not finish. Some progress may already have been imported. Select the same logs again to retry; completed progress is preserved.",
         "archive_log_file_too_large": "Log file is too large in archive: {path}",
         "archive_logs_too_large": "Archive contains too much log content (max {max_mb} MB).",
         "import_file_too_large": "Import file is too large (max {max_mb} MB).",
@@ -2202,10 +2300,22 @@
         "no_logs_in_archive": "No EFT logs were found in the archive.",
         "no_matching_tasks_found": "Quest events were found, but none match current TarkovTracker tasks.",
         "no_notification_logs_found": "No notification logs were found in the selected files.",
-        "no_quest_events_found": "No quest start/completion events were found in the selected logs.",
+        "no_quest_events_found": "No quest start, completion, or failure events were found in the selected logs.",
         "parse_failed": "Failed to parse EFT logs.",
         "selected_logs_too_large": "Selected logs contain too much content (max {max_mb} MB).",
-        "task_metadata_not_loaded": "Task metadata is not loaded yet. Please refresh and try again."
+        "task_metadata_not_loaded": "Task metadata is not loaded yet. Please refresh and try again.",
+        "invalid_mode": "Selecione um modo de jogo de destino válido.",
+        "outside_active_season": "Esses logs contêm eventos fora da temporada ativa ou sem data utilizável. Selecione sessões da temporada ativa antes de importar para o PvP sazonal."
+      },
+      "failed_tasks": "Tarefas com falha correspondida: {count}",
+      "unknown_failed_events": "Tarefas que falharam (Modo desconhecido)",
+      "skipped_malformed": {
+        "single": "Notificação {count} mal formada ignorada.",
+        "plural": "Notificações {count} ignoradas com malformação."
+      },
+      "skipped_seasonal": {
+        "single": "Skipped {count} Seasonal event outside the active season or without a valid date.",
+        "plural": "Ignorado eventos temporários {count} fora da temporada ativa ou sem datas válidas."
       }
     },
     "tarkov_dev_import": {

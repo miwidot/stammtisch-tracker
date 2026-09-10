@@ -204,14 +204,44 @@ Fetches prestige level requirements.
 
 **Query Parameters:**
 
-| Parameter | Type   | Default | Description   |
-| --------- | ------ | ------- | ------------- |
-| `lang`    | string | `en`    | Language code |
+| Parameter  | Type   | Default   | Description                                   |
+| ---------- | ------ | --------- | --------------------------------------------- |
+| `lang`     | string | `en`      | Language code                                 |
+| `gameMode` | string | `regular` | Game mode (`regular`, `pve`, or `pvp-season`) |
 
-Prestige is intentionally sourced from `regular/tasks` and cached by language only because
-`json.tarkov.dev` currently has no PvE prestige data.
+Prestige requirements come from the upstream task payload with overlay corrections applied, so the
+response is cached per language **and** game mode.
 
 **Cache TTL:** 24 hours
+
+---
+
+### GET /api/tarkov/editions
+
+Fetches game editions, story chapters, and seasonal perks projected from the overlay.
+
+**Query Parameters:**
+
+| Parameter  | Type   | Default   | Description                                   |
+| ---------- | ------ | --------- | --------------------------------------------- |
+| `lang`     | string | `en`      | Language code                                 |
+| `gameMode` | string | `regular` | Game mode (`regular`, `pve`, or `pvp-season`) |
+
+This endpoint is served directly from the overlay rather than through `edgeCache`, so it returns no
+`X-Cache-Status` header. It answers `503` when the overlay is unavailable.
+
+---
+
+### GET /api/tarkov/overlay-status
+
+Returns the precompute fleet manifest with the overlay identity recorded for each entry. Used by the
+`verify:overlay` release gate to confirm that published precompute entries were built from the
+currently published overlay.
+
+**Query Parameters:** none
+
+Responses are sent with `Cache-Control: no-store` and carry no `X-Cache-Status` header. The endpoint
+answers `503` when the manifest is missing or the precomputed store cannot be read.
 
 ---
 
@@ -291,6 +321,20 @@ Authorization: Bearer <supabase_jwt_token>
 | 401    | Missing auth token | No Authorization header  |
 | 401    | Invalid token      | Invalid or expired JWT   |
 | 403    | Not a team member  | User not in team         |
+
+### Team mutation Edge Functions
+
+Team mutations are invoked with an authenticated Supabase JWT through the client composable. The
+`team-disband` operation is owner-only and removes the team, memberships, and team-owned records in
+one database transaction after confirmation in the UI.
+
+| Function       | Purpose                                |
+| -------------- | -------------------------------------- |
+| `team-create`  | Create a team and its owner membership |
+| `team-join`    | Join a team with an invite code        |
+| `team-leave`   | Leave a team as a non-owner            |
+| `team-kick`    | Remove a member as the owner           |
+| `team-disband` | Atomically remove an owned team        |
 
 ---
 
@@ -420,7 +464,7 @@ Polling integrators (TarkovMonitor, tarkov.dev, RatScanner) should poll read end
 
 ### Active Token Cap
 
-Each account may have at most **3 active API tokens**. This is enforced by a database trigger, so token rotation cannot bypass it. The `token-create` Edge Function returns `409` with `error: "Token limit reached (3 active)"` when the cap is reached. Revoke an existing token before creating a new one. Token creation is only allowed through the `token-create` Edge Function (authenticated clients cannot insert into `api_tokens` directly) and is rate-limited to 3 creates per hour per account.
+Each account may have at most **3 active API tokens**. This is enforced by a database trigger, so token rotation cannot bypass it. The `token-create` Edge Function returns `409` with `error: "Token limit reached (3 active)"` when the cap is reached. Revoke an existing token before creating a new one. Token creation is only allowed through the `token-create` Edge Function (authenticated clients cannot insert into `api_tokens` directly) and is rate-limited to 3 creates per hour per account. The `permissions` field must be a non-empty array of `GP`/`TP`/`WP`; any other shape or value is rejected with `400` before insertion.
 
 Token names can be changed from Settings → API Tokens without rotating the token. Renaming updates
 only the token's optional `note`: authenticated users receive column-level `UPDATE (note)` permission,
@@ -457,6 +501,13 @@ Nuxt/Pages `/api/*` routes return errors in this format:
   "statusMessage": "Internal Server Error"
 }
 ```
+
+Admin routes also include a stable machine-readable code in `data.code`. The English serialized
+`statusMessage` fallback remains for API clients that do not localize responses; the admin UI maps these codes to
+locale keys instead of rendering server text. Current admin codes are `admin_privileges_required`,
+`authentication_required`, `invalid_channel`, `invalid_display_name`, `invalid_enabled_flag`, `invalid_request_body`,
+`invalid_target_user_id`, `invalid_tier`, `service_config_missing`, `supabase_request_failed`,
+`supporter_update_failed`, and `twitch_config_update_failed`.
 
 The public API gateway (`api.tarkovtracker.org`) uses its own envelope,
 `{"success": false, "error": "..."}`. Unexpected gateway failures always return `500` with the fixed

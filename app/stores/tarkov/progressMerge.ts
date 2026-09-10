@@ -7,7 +7,12 @@ import {
 } from '@/stores/progressState';
 import { GAME_MODES, type GameMode } from '@/utils/constants';
 import { logger } from '@/utils/logger';
-import { sanitizeOwnedProgressData } from '@/utils/progressSanitizers';
+import {
+  sanitizeManualActivityEpoch,
+  sanitizeManualActivityHistory,
+  sanitizeOwnedProgressData,
+} from '@/utils/progressSanitizers';
+import type { ManualActivityEntry } from '@/types/progress';
 import type { RawTaskCompletion } from '@/utils/taskStatus';
 const API_UPDATE_HISTORY_LIMIT = 50;
 type CountableEntry = { count?: number; complete?: boolean; timestamp?: number };
@@ -26,6 +31,8 @@ export const hasProgress = (data: unknown): boolean => {
     (mode.level > 1 ||
       (mode.prestigeLevel ?? 0) > 0 ||
       (mode.progressEpoch ?? 0) > 0 ||
+      (mode.manualActivityHistory?.length ?? 0) > 0 ||
+      sanitizeManualActivityEpoch(mode.manualActivityEpoch) > 0 ||
       Object.keys(mode.taskCompletions || {}).length > 0 ||
       Object.keys(mode.taskObjectives || {}).length > 0 ||
       Object.keys(mode.hideoutParts || {}).length > 0 ||
@@ -166,7 +173,8 @@ const mergeHideoutModules = (
 };
 const mergeCountableObjects = <T extends Record<string, CountableEntry>>(
   local: T | undefined,
-  remote: T | undefined
+  remote: T | undefined,
+  preferNewerCount = false
 ): T => {
   const merged = { ...local, ...remote } as T;
   for (const id of Object.keys(merged)) {
@@ -181,7 +189,9 @@ const mergeCountableObjects = <T extends Record<string, CountableEntry>>(
       const olderHasComplete = typeof older.complete === 'boolean';
       merged[id as keyof T] = {
         complete: newerHasComplete ? newer.complete : olderHasComplete ? older.complete : false,
-        count: Math.max(l.count || 0, r.count || 0),
+        count: preferNewerCount
+          ? (newer.count ?? older.count ?? 0)
+          : Math.max(l.count || 0, r.count || 0),
         timestamp: Math.max(localTs, remoteTs) || undefined,
       } as T[keyof T];
     }
@@ -286,9 +296,30 @@ const mergeApiUpdateHistory = (
     ...buildApiUpdateHistory(remote),
   ]);
 };
-export function mergeProgressData(
+const manualActivityEntries = (data: UserProgressData | undefined): ManualActivityEntry[] =>
+  Array.isArray(data?.manualActivityHistory) ? data.manualActivityHistory : [];
+const manualActivityEpoch = (data: UserProgressData | undefined): number =>
+  sanitizeManualActivityEpoch(data?.manualActivityEpoch);
+/** A clear advances only the history epoch; stale devices cannot restore cleared rows. */
+export const mergeManualActivityHistory = (
   local: UserProgressData | undefined,
   remote: UserProgressData | undefined
+): Pick<UserProgressData, 'manualActivityHistory' | 'manualActivityEpoch'> => {
+  const localEpoch = manualActivityEpoch(local);
+  const remoteEpoch = manualActivityEpoch(remote);
+  const epoch = Math.max(localEpoch, remoteEpoch);
+  return {
+    manualActivityEpoch: epoch,
+    manualActivityHistory: sanitizeManualActivityHistory([
+      ...(localEpoch === epoch ? manualActivityEntries(local) : []),
+      ...(remoteEpoch === epoch ? manualActivityEntries(remote) : []),
+    ]),
+  };
+};
+export function mergeProgressData(
+  local: UserProgressData | undefined,
+  remote: UserProgressData | undefined,
+  preferNewerCount = false
 ): UserProgressData {
   if (!local && !remote) return {} as UserProgressData;
   if (!local) return structuredClone(remote!);
@@ -357,6 +388,7 @@ export function mergeProgressData(
     xpOffset: remote.xpOffset !== undefined ? remote.xpOffset : local.xpOffset,
     lastApiUpdate: resolveApiUpdate(local.lastApiUpdate, remote.lastApiUpdate),
     apiUpdateHistory: mergeApiUpdateHistory(local, remote),
+    ...mergeManualActivityHistory(local, remote),
     taskCompletions: (() => {
       const allKeys = new Set([
         ...Object.keys(local.taskCompletions || {}),
@@ -374,9 +406,13 @@ export function mergeProgressData(
       }
       return merged;
     })(),
-    taskObjectives: mergeCountableObjects(local.taskObjectives, remote.taskObjectives),
+    taskObjectives: mergeCountableObjects(
+      local.taskObjectives,
+      remote.taskObjectives,
+      preferNewerCount
+    ),
     hideoutModules: mergeHideoutModules(local.hideoutModules, remote.hideoutModules),
-    hideoutParts: mergeCountableObjects(local.hideoutParts, remote.hideoutParts),
+    hideoutParts: mergeCountableObjects(local.hideoutParts, remote.hideoutParts, preferNewerCount),
     storyChapters: mergeStoryChapterProgress(local.storyChapters, remote.storyChapters),
     traders: {
       ...local.traders,

@@ -1,7 +1,13 @@
 <script setup lang="ts">
   import { usePromotedTwitch, type PromotedTwitchConfig } from '@/composables/usePromotedTwitch';
   import { useSystemStoreWithSupabase } from '@/stores/useSystemStore';
+  import {
+    ADMIN_ERROR_CODES,
+    ADMIN_ERROR_LOCALE_KEYS,
+    getAdminErrorCode,
+  } from '@/utils/adminErrors';
   import { logger } from '@/utils/logger';
+  import { refreshSupabaseSession } from '@/utils/supabaseAuth';
   const { $supabase } = useNuxtApp();
   const { t } = useI18n({ useScope: 'global' });
   const toast = useToast();
@@ -51,19 +57,16 @@
     const sessionResp = await $supabase.client.auth.getSession();
     const token = sessionResp.data.session?.access_token;
     if (token) return token;
-    const refreshed = await $supabase.client.auth.refreshSession();
-    return refreshed.data.session?.access_token;
-  };
-  const serverDetail = (error: unknown): unknown => {
-    const data = (error as { data?: { message?: unknown; statusMessage?: unknown } }).data;
-    return data?.message ?? data?.statusMessage;
-  };
-  const serverMessage = (error: unknown): string | undefined => {
-    const detail = serverDetail(error);
-    return typeof detail === 'string' && detail.trim() ? detail : undefined;
+    // A failed refresh means no usable token; report that rather than throwing a
+    // generic error past the caller's authentication-required handling.
+    const refreshed = await refreshSupabaseSession($supabase.client).catch(() => null);
+    return refreshed?.access_token;
   };
   const errorMessage = (error: unknown): string => {
-    if (error instanceof Error) return serverMessage(error) ?? error.message;
+    const code = getAdminErrorCode(error);
+    if (code) {
+      return t(ADMIN_ERROR_LOCALE_KEYS[code], 'Could not update Twitch config.');
+    }
     return t('admin.twitch_config_failed_description', 'Could not update Twitch config.');
   };
   const showSaveResult = (saved: TwitchConfigSaveResult): void => {
@@ -96,9 +99,16 @@
     try {
       const token = await getAuthToken();
       if (!token) {
-        throw new Error(
-          t('admin.twitch_config_login_required', 'You must be signed in to update Twitch config.')
-        );
+        toast.add({
+          title: t('common.update_failed', 'Update failed'),
+          description: t(
+            ADMIN_ERROR_LOCALE_KEYS[ADMIN_ERROR_CODES.AUTHENTICATION_REQUIRED],
+            'You must be signed in to continue.'
+          ),
+          color: 'error',
+          icon: 'i-mdi-alert-circle',
+        });
+        return;
       }
       const saved = await $fetch<TwitchConfigSaveResult>('/api/admin/twitch-config', {
         method: 'POST',

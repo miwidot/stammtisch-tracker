@@ -17,22 +17,15 @@
       class="relative z-10 flex h-full flex-col"
       :class="{ 'opacity-80': isComplete && !isFailed }"
     >
-      <!-- 1) Identity + Header (Padded) -->
-      <div
-        class="flex flex-col"
-        :class="[
-          compactClasses.header,
-          onMapView
-            ? 'hover:bg-surface-700/20 focus-visible:ring-primary-500/40 focus-visible:ring-offset-surface-900 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2'
-            : '',
-        ]"
-        :aria-expanded="onMapView ? taskExpanded : undefined"
-        :aria-controls="onMapView ? `task-content-${task.id}` : undefined"
-        :role="onMapView ? 'button' : undefined"
-        :tabindex="onMapView ? 0 : undefined"
-        @click="onTaskHeaderClick"
-        @keydown="onTaskHeaderKeydown"
+      <ul
+        v-if="isLocked && taskBlockerTexts.length"
+        class="text-surface-300 px-3 pt-2 text-xs"
+        data-testid="task-blockers"
       >
+        <li v-for="(text, index) in taskBlockerTexts" :key="`${index}-${text}`">{{ text }}</li>
+      </ul>
+      <!-- 1) Identity + Header (Padded) -->
+      <div data-testid="task-card-header" class="flex flex-col" :class="compactClasses.header">
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
           <div class="flex min-w-0 items-center justify-between gap-2 sm:flex-1">
             <TaskCardHeader
@@ -57,9 +50,7 @@
               :task="task"
               :is-pinned="isPinned"
               :is-our-faction="isOurFaction"
-              :fence-rep-requirement="fenceRepRequirement"
-              :meets-fence-rep-requirement="meetsFenceRepRequirement"
-              :trader-level-reqs="traderLevelReqs"
+              :trader-requirements="traderRequirements"
               :location-tooltip="locationTooltip"
               :is-failed="isFailed"
               :is-invalid="isInvalid"
@@ -82,13 +73,25 @@
                 />
               </template>
             </TaskCardBadges>
-            <UIcon
-              v-if="onMapView"
-              name="i-mdi-chevron-down"
-              aria-hidden="true"
-              class="pointer-events-none h-4 w-4 shrink-0 self-center transition-transform duration-200"
-              :class="{ 'rotate-180': taskExpanded }"
-            />
+            <button
+              type="button"
+              class="focus-visible:ring-primary-500 focus-visible:ring-offset-surface-900 flex h-7 w-7 shrink-0 items-center justify-center rounded transition-colors hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+              :aria-label="
+                taskExpanded
+                  ? t('page.tasks.questcard.collapse_task', 'Collapse task')
+                  : t('page.tasks.questcard.expand_task', 'Expand task')
+              "
+              :aria-expanded="taskExpanded"
+              :aria-controls="`task-content-${task.id}`"
+              @click="toggleTaskVisibility"
+            >
+              <UIcon
+                name="i-mdi-chevron-down"
+                aria-hidden="true"
+                class="pointer-events-none h-4 w-4 transition-transform duration-200"
+                :class="{ 'rotate-180': taskExpanded }"
+              />
+            </button>
           </div>
         </div>
         <!-- Extra Info Strips (padded area) -->
@@ -247,52 +250,47 @@
           :id="`task-content-${task.id}`"
           class="border-surface-700/50 border-t"
         >
-          <div
-            class="hover:bg-surface-700/20 focus-visible:ring-primary-500/40 focus-visible:ring-offset-surface-900 flex cursor-pointer items-center justify-between rounded-sm transition-colors select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-            :class="compactClasses.objectivesToggle"
-            role="button"
-            tabindex="0"
-            :aria-expanded="objectivesVisible"
-            :aria-controls="`objectives-content-${task.id}`"
-            @click="toggleObjectivesVisibility"
-            @keydown.enter.prevent="toggleObjectivesVisibility"
-            @keydown.space.prevent="toggleObjectivesVisibility"
-          >
-            <div class="text-surface-400 text-[10px] font-bold tracking-wider uppercase">
-              {{ t('common.objectives', 'Objectives') }}
-            </div>
-            <div class="flex items-center gap-2">
-              <AppTooltip
-                v-if="taskItemObjectives.length > 0"
-                :text="resetItemCountsDisabledReason"
-                :disabled="!resetItemCountsDisabledReason"
-              >
-                <span class="inline-flex" @click.stop>
-                  <UButton
-                    size="xs"
-                    color="neutral"
-                    variant="soft"
-                    class="text-surface-300 hover:text-surface-100 cursor-pointer text-[10px] tracking-normal normal-case"
-                    :disabled="!canResetTaskItemCounts"
-                    :aria-label="t('page.tasks.questcard.reset_item_counts', 'Reset item counts')"
-                    @click.stop="confirmResetTaskItemCounts"
-                    @keydown.enter.stop
-                    @keydown.space.stop
-                  >
-                    <UIcon name="i-mdi-restore" aria-hidden="true" class="h-3.5 w-3.5" />
-                    <span class="hidden sm:inline">
-                      {{ t('page.tasks.questcard.reset_item_counts', 'Reset item counts') }}
-                    </span>
-                  </UButton>
-                </span>
-              </AppTooltip>
+          <div class="flex items-center justify-between rounded-sm transition-colors select-none">
+            <button
+              type="button"
+              class="hover:bg-surface-700/20 focus-visible:ring-primary-500/40 focus-visible:ring-offset-surface-900 flex min-w-0 flex-1 cursor-pointer items-center justify-between rounded-sm text-left transition-colors select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+              :class="compactClasses.objectivesToggle"
+              :aria-expanded="objectivesVisible"
+              :aria-controls="`objectives-content-${task.id}`"
+              @click="toggleObjectivesVisibility"
+            >
+              <div class="text-surface-400 text-[10px] font-bold tracking-wider uppercase">
+                {{ t('common.objectives', 'Objectives') }}
+              </div>
               <UIcon
                 name="i-mdi-chevron-down"
                 aria-hidden="true"
                 class="pointer-events-none h-4 w-4 transition-transform duration-200"
                 :class="{ 'rotate-180': objectivesVisible }"
               />
-            </div>
+            </button>
+            <AppTooltip
+              v-if="taskItemObjectives.length > 0"
+              :text="resetItemCountsDisabledReason"
+              :disabled="!resetItemCountsDisabledReason"
+            >
+              <span class="inline-flex" @click.stop>
+                <UButton
+                  size="xs"
+                  color="neutral"
+                  variant="soft"
+                  class="text-surface-300 hover:text-surface-100 cursor-pointer text-[10px] tracking-normal normal-case"
+                  :disabled="!canResetTaskItemCounts"
+                  :aria-label="t('page.tasks.questcard.reset_item_counts', 'Reset item counts')"
+                  @click.stop="confirmResetTaskItemCounts"
+                >
+                  <UIcon name="i-mdi-restore" aria-hidden="true" class="h-3.5 w-3.5" />
+                  <span class="hidden sm:inline">
+                    {{ t('page.tasks.questcard.reset_item_counts', 'Reset item counts') }}
+                  </span>
+                </UButton>
+              </span>
+            </AppTooltip>
           </div>
           <Transition
             :css="false"
@@ -305,7 +303,7 @@
             <div
               v-if="objectivesVisible"
               :id="`objectives-content-${task.id}`"
-              :class="[isCompact ? 'space-y-1.5' : 'space-y-3', compactClasses.objectivesBody]"
+              :class="['space-y-1.5', compactClasses.objectivesBody]"
             >
               <QuestObjectivesSkeleton
                 v-if="showObjectivesSkeleton"
@@ -327,8 +325,7 @@
     <!-- 3) Rewards Summary Section (Fixed to bottom, Full Width) -->
     <template #footer>
       <TaskCardRewards
-        v-if="taskExpanded"
-        :is-compact="isCompact"
+        v-if="taskExpanded && !rewardsHidden"
         :trader-standing-rewards="traderStandingRewards"
         :skill-rewards="skillRewards"
         :trader-unlock-reward="traderUnlockReward"
@@ -392,9 +389,11 @@
   import ContextMenuItem from '@/components/ui/ContextMenuItem.vue';
   import { useSharedBreakpoints } from '@/composables/useSharedBreakpoints';
   import { useTaskActions, type TaskActionPayload } from '@/composables/useTaskActions';
+  import { useTaskBlockerText } from '@/composables/useTaskBlockerText';
   import { useTaskCardLinks } from '@/composables/useTaskCardLinks';
   import { useTaskFiltering } from '@/composables/useTaskFiltering';
   import { isTaskSuccessful, useTaskState } from '@/composables/useTaskState';
+  import { useTaskCardExpansion } from '@/features/tasks/composables/useTaskCardExpansion';
   import QuestObjectives from '@/features/tasks/QuestObjectives.vue';
   import QuestObjectivesSkeleton from '@/features/tasks/QuestObjectivesSkeleton.vue';
   import { impactEligibleTaskIdsKey } from '@/features/tasks/task-context';
@@ -415,14 +414,17 @@
     resolveTaskObjectives,
   } from '@/features/tasks/taskCardHelpers';
   import TaskCardRewards from '@/features/tasks/TaskCardRewards.vue';
+  import { hasStoryUnlockProgress } from '@/stores/taskAvailability';
   import { useMetadataStore } from '@/stores/useMetadata';
   import { usePreferencesStore } from '@/stores/usePreferences';
   import { useProgressStore } from '@/stores/useProgress';
   import { useTarkovStore } from '@/stores/useTarkov';
   import { HOT_WHEELS_TASK_ID } from '@/utils/constants';
   import { getExclusiveEditionsForTask } from '@/utils/editionHelpers';
+  import { getQueryString } from '@/utils/routeHelpers';
   import { countIncompleteSuccessors, resolveImpactTeamIds } from '@/utils/taskImpact';
   import { isFailedOnlyRequirement } from '@/utils/taskProgress';
+  import { compareRequirement, getTaskTraderRequirements } from '@/utils/taskRequirements';
   import { buildTaskTypeFilterOptions, filterTasksByTypeSettings } from '@/utils/taskTypeFilters';
   import type { ActionButtonState } from '@/features/tasks/types';
   import type { GameEdition, Task } from '@/types/tarkov';
@@ -494,30 +496,7 @@
   const toggleObjectivesVisibility = () => {
     objectivesExpanded.value = !objectivesExpanded.value;
   };
-  const taskToggle = ref(true);
-  const taskExpanded = computed(() => {
-    return !onMapView.value || taskToggle.value;
-  });
-  const shouldIgnoreTaskHeaderToggle = (event: MouseEvent): boolean => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return false;
-    const interactiveAncestor = target.closest('a,button,input,select,textarea,[role="button"]');
-    return Boolean(interactiveAncestor && interactiveAncestor !== event.currentTarget);
-  };
-  const toggleTaskVisibility = () => {
-    if (!onMapView.value) return;
-    taskToggle.value = !taskToggle.value;
-  };
-  const onTaskHeaderClick = (event: MouseEvent) => {
-    if (shouldIgnoreTaskHeaderToggle(event)) return;
-    toggleTaskVisibility();
-  };
-  const onTaskHeaderKeydown = (event: KeyboardEvent) => {
-    if (event.target !== event.currentTarget) return;
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    event.preventDefault();
-    toggleTaskVisibility();
-  };
+  const route = useRoute();
   const OBJECTIVES_ENTER_MS = 150;
   const OBJECTIVES_LEAVE_MS = 120;
   const onObjectivesBeforeEnter = (el: Element) => {
@@ -649,36 +628,22 @@
     const minLevel = props.task.minPlayerLevel ?? 0;
     return minLevel <= 0 || tarkovStore.playerLevel() >= minLevel;
   });
-  const fenceTrader = computed(() =>
-    metadataStore.traders.find((t) => t.normalizedName === 'fence')
+  const blockerText = useTaskBlockerText();
+  const taskBlockerTexts = computed(() =>
+    (progressStore.taskEvaluations?.[props.task.id]?.self?.blockers ?? [])
+      .filter((blocker) => blocker.type !== 'complete' && blocker.type !== 'failed')
+      .map(blockerText)
   );
-  const fenceRepRequirement = computed(() => {
-    if (!props.task.traderRequirements?.length || !fenceTrader.value) return null;
-    const fenceReq = props.task.traderRequirements.find(
-      (req) => req.trader.id === fenceTrader.value!.id
-    );
-    return fenceReq ?? null;
-  });
-  const meetsFenceRepRequirement = computed(() => {
-    if (!fenceRepRequirement.value || !fenceTrader.value) return true;
-    const userRep = tarkovStore.getTraderReputation(fenceTrader.value.id);
-    const reqValue = fenceRepRequirement.value.value;
-    if (reqValue >= 0) {
-      return userRep >= reqValue;
-    } else {
-      return userRep <= reqValue;
-    }
-  });
-  const traderLevelReqs = computed(() => {
-    if (!props.task.traderLevelRequirements?.length) return [];
-    return props.task.traderLevelRequirements.map((req) => {
-      const userLevel = tarkovStore.getTraderLevel(req.trader.id);
-      return {
-        ...req,
-        met: userLevel >= req.level,
-      };
-    });
-  });
+  const traderRequirements = computed(() =>
+    getTaskTraderRequirements(props.task).flatMap((req) => {
+      if (req.requirementType === 'unknown') return [];
+      const current =
+        req.requirementType === 'level'
+          ? tarkovStore.getTraderLevel(req.trader.id)
+          : tarkovStore.getTraderReputation(req.trader.id);
+      return [{ ...req, met: compareRequirement(current, req.compareMethod, req.value) }];
+    })
+  );
   const locationTooltip = computed(() => {
     if (isGlobalTask.value) {
       return t('page.tasks.questcard.global_task_tooltip');
@@ -718,11 +683,10 @@
     }
     return '';
   });
-  const isCompact = computed(() => preferencesStore.getTaskCardDensity === 'compact');
   const compactClasses = computed(() => ({
-    header: isCompact.value ? 'gap-2 px-3 py-2' : 'gap-3 px-4 py-3',
-    objectivesToggle: isCompact.value ? 'px-3 py-1.5' : 'px-4 py-3',
-    objectivesBody: isCompact.value ? 'px-3 pt-1 pb-2' : 'px-4 py-4',
+    header: 'gap-2 px-3 py-2',
+    objectivesToggle: 'px-3 py-1.5',
+    objectivesBody: 'px-3 pt-1 pb-2',
   }));
   const neededBy = computed(() => props.task.neededBy ?? []);
   const showNeededBy = computed(
@@ -853,6 +817,11 @@
     isFailed.value ? failureSources.value : blockedSources.value
   );
   const pendingParentTasks = computed<PendingParentTask[]>(() => {
+    const modeProgress = tarkovStore.getCurrentProgressData();
+    if (
+      props.task.storyUnlocks?.some((chapter) => hasStoryUnlockProgress(chapter.id, modeProgress))
+    )
+      return [];
     return parentTasks.value
       .map((parent) => {
         const completion = taskCompletions.value[parent.id];
@@ -938,6 +907,13 @@
     return 'available';
   });
   const onMapView = computed(() => preferencesStore.getTaskPrimaryView === 'maps');
+  const { rewardsHidden, taskExpanded, toggleTaskVisibility } = useTaskCardExpansion({
+    taskId: () => props.task.id,
+    onMapView,
+    collapseByDefault: () => preferencesStore.getTaskCollapseDefault,
+    hideTaskRewards: () => preferencesStore.getHideTaskRewards,
+    routeTaskId: () => getQueryString(route.query.task),
+  });
   const selectedMapIds = computed(() => {
     return resolveSelectedMapIds(
       preferencesStore.getTaskMapView,
