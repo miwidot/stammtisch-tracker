@@ -1,3 +1,10 @@
+## [1.1.2](https://github.com/miwidot/stammtisch-tracker/compare/v1.1.1...v1.1.2) (2026-09-10)
+
+
+### Bug Fixes
+
+* **i18n:** align the card display settings on one verb each ([86b13e1](https://github.com/miwidot/stammtisch-tracker/commit/86b13e1602632972c07f15dbd86ac1025743516a))
+
 ## [1.1.1](https://github.com/miwidot/stammtisch-tracker/compare/v1.1.0...v1.1.1) (2026-09-10)
 
 
