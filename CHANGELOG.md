@@ -1,3 +1,11 @@
+## [1.1.1](https://github.com/miwidot/stammtisch-tracker/compare/v1.1.0...v1.1.1) (2026-09-10)
+
+
+### Bug Fixes
+
+* **i18n:** keep the Lightkeeper trader name in the menu entry ([15c69b7](https://github.com/miwidot/stammtisch-tracker/commit/15c69b70baaa0df3187913a4b2ea6631a208340b))
+* **i18n:** translate the Kappa page header into German ([efbcf18](https://github.com/miwidot/stammtisch-tracker/commit/efbcf18d97c08f5a89e33b7f1bc3686f48b6fb63))
+
 # [1.1.0](https://github.com/miwidot/stammtisch-tracker/compare/v1.0.0...v1.1.0) (2026-09-10)
 
 
