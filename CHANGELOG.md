@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/miwidot/stammtisch-tracker/compare/v1.0.0...v1.1.0) (2026-09-10)
+
+
+### Features
+
+* **app:** disable the supporter sales surface on this instance ([08608e0](https://github.com/miwidot/stammtisch-tracker/commit/08608e08c59a0ac29d68385b21613200f5488ea5))
+
 # 1.0.0 (2026-09-10)
 
 
