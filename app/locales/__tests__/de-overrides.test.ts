@@ -106,6 +106,25 @@ describe('reported translation defects', () => {
     );
     expect(crowdin.get('page.tasks.questcard.lightkeeper_tooltip')).toContain('Lightkeeper');
   });
+  // The Kappa page header shipped as raw English in the German bundle — both
+  // the title and a full English sentence underneath it. The translation keeps
+  // Kappa and Lightkeeper as proper nouns and follows the storyline page, which
+  // renders the same "Track your progress…" opening as "Verfolge deinen
+  // Fortschritt…" with the proper noun carried into the compound.
+  it('translates the Kappa page header instead of shipping English', () => {
+    expect(crowdin.get('page.kappa.title')).toBe(source.get('page.kappa.title'));
+    expect(crowdin.get('page.kappa.subtitle')).toBe(source.get('page.kappa.subtitle'));
+    expect(overrides.get('page.kappa.title')).toBe('Kappa- & Lightkeeper-Tracker');
+    expect(overrides.get('page.kappa.subtitle')).toBe(
+      'Verfolge deinen Fortschritt beim Kappa-Container und den Lightkeeper-Aufgaben.'
+    );
+  });
+  // The phrasing the translation above follows.
+  it('opens the way the storyline page already does', () => {
+    expect(crowdin.get('page.storyline.subtitle')).toBe(
+      'Verfolge deinen Fortschritt durch die Tarkov-Story-Kapitel.'
+    );
+  });
   // The sibling buttons upstream already got right — these anchor the pattern
   // the two corrections above follow.
   it('matches the phrasing of the buttons that were already correct', () => {

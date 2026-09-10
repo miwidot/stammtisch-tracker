@@ -18,7 +18,9 @@
     "kappa": {
       "row": {
         "action_reset_failed": "Fehlgeschlagen zurücksetzen"
-      }
+      },
+      "subtitle": "Verfolge deinen Fortschritt beim Kappa-Container und den Lightkeeper-Aufgaben.",
+      "title": "Kappa- & Lightkeeper-Tracker"
     },
     "tasks": {
       "questcard": {
