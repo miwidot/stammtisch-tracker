@@ -24,24 +24,38 @@
     },
     "tasks": {
       "questcard": {
-        "level_badge": "Stufe {count}",
-        "trader_level_badge": "{trader} LL{level}",
-        "failed_because_status_tooltip": "Automatisch fehlgeschlagen, als „{name}\" {status} war",
+        "alternatives_badge": "{count} Alt.",
+        "alternatives_tooltip": "Diese Quest hat {count} alternative Wege — du musst nur einen davon abschließen",
         "blocked_because": "Blockiert durch",
         "blocked_because_status_tooltip": "Dauerhaft blockiert — „{name}\" war {status}",
         "blocked_because_unknown": "Durch Voraussetzungen blockiert",
+        "expand_task": "Aufgabe ausklappen",
+        "failed_because_status_tooltip": "Automatisch fehlgeschlagen, als „{name}\" {status} war",
+        "level_badge": "Stufe {count}",
         "requirement_status_active": "angenommen",
         "requirement_status_available": "verfügbar",
         "requirement_status_not_started": "nicht begonnen",
-        "requires_must_be": "muss {status} sein",
         "requires_currently": "aktuell {status}",
-        "requires_tooltip_action": "{action} „{name}\", um diese Aufgabe freizuschalten",
-        "requires_tooltip_conflict": "„{name}\" ist {current}, benötigt wird aber {expected} — diese Aufgabe ist möglicherweise dauerhaft gesperrt",
+        "requires_must_be": "muss {status} sein",
         "requires_progress": "{completed} von {total} Voraussetzungen erfüllt",
         "requires_progress_tooltip": "Als Nächstes: {tasks}",
         "requires_progress_tooltip_overflow": "Als Nächstes: {tasks} und {count} weitere",
-        "alternatives_tooltip": "Diese Quest hat {count} alternative Wege — du musst nur einen davon abschließen",
-        "alternatives_badge": "{count} Alt."
+        "requires_tooltip_action": "{action} „{name}\", um diese Aufgabe freizuschalten",
+        "requires_tooltip_conflict": "„{name}\" ist {current}, benötigt wird aber {expected} — diese Aufgabe ist möglicherweise dauerhaft gesperrt",
+        "trader_level_badge": "{trader} LL{level}"
+      },
+      "settings": {
+        "appearance": {
+          "collapse_completed_objectives": "Ziele abgeschlossener Aufgaben einklappen",
+          "hide_rewards": "Belohnungen ausblenden"
+        }
+      }
+    }
+  },
+  "settings": {
+    "interface": {
+      "tasks": {
+        "hide_rewards": "Belohnungen ausblenden"
       }
     }
   }

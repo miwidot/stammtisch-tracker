@@ -125,6 +125,34 @@ describe('reported translation defects', () => {
       'Verfolge deinen Fortschritt durch die Tarkov-Story-Kapitel.'
     );
   });
+  // The compact-cards settings panel disagreed with itself: one row said
+  // "Quests standardmäßig einklappen", the row above it "Reduzieren Sie Ziele"
+  // — a different verb for the same action, in the formal register the sibling
+  // does not use. "Verstecke Belohnungen" was an imperative where every other
+  // hide label in this bundle reads "X ausblenden" (13 of them).
+  it('uses one verb per action across the card display settings', () => {
+    expect(crowdin.get('page.tasks.settings.appearance.collapse_completed_objectives')).toBe(
+      'Reduzieren Sie Ziele für abgeschlossene Aufgaben'
+    );
+    expect(overrides.get('page.tasks.settings.appearance.collapse_completed_objectives')).toBe(
+      'Ziele abgeschlossener Aufgaben einklappen'
+    );
+    expect(overrides.get('page.tasks.settings.appearance.hide_rewards')).toBe(
+      'Belohnungen ausblenden'
+    );
+    expect(overrides.get('settings.interface.tasks.hide_rewards')).toBe('Belohnungen ausblenden');
+  });
+  // Collapse and expand are one pair; "erweitern" means extend, not unfold.
+  it('pairs the card collapse and expand labels', () => {
+    expect(crowdin.get('page.tasks.questcard.expand_task')).toBe('Aufgabe erweitern');
+    expect(crowdin.get('page.tasks.questcard.collapse_task')).toBe('Aufgabe einklappen');
+    expect(overrides.get('page.tasks.questcard.expand_task')).toBe('Aufgabe ausklappen');
+  });
+  // The wording the corrections above follow.
+  it('follows the hide and expand verbs the bundle already uses', () => {
+    expect(crowdin.get('hideout.expand')).toBe('Ausklappen');
+    expect(crowdin.get('settings.account_data.hide_username')).toContain('ausblenden');
+  });
   // The sibling buttons upstream already got right — these anchor the pattern
   // the two corrections above follow.
   it('matches the phrasing of the buttons that were already correct', () => {
