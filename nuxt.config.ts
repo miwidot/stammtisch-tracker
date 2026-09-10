@@ -67,7 +67,18 @@ const IS_CI = process.env.CI === 'true';
 // Skip Stripe env validation in CI: GitHub Actions builds run with placeholder/test keys
 // and shouldn't fail the production build guard. Real production builds run on Cloudflare
 // Pages (CF_PAGES=1), where IS_CI is false and the keys must be present.
-if (IS_PRODUCTION_BUILD && IS_BUILD_COMMAND && !IS_CF_PREVIEW && !IS_CI) {
+// This fork disables the supporter sales page and the Stripe endpoints
+// (app/middleware/no-supporter-sales.global.ts, app/server/middleware/no-stripe-endpoints.ts),
+// so there is no payment surface for these keys to protect. Requiring them
+// would only force every build through the CI escape hatch.
+const SUPPORTER_SALES_DISABLED = true;
+if (
+  IS_PRODUCTION_BUILD &&
+  IS_BUILD_COMMAND &&
+  !IS_CF_PREVIEW &&
+  !IS_CI &&
+  !SUPPORTER_SALES_DISABLED
+) {
   const missingKeys = ['STRIPE_SECRET_KEY', ...STRIPE_PRICE_KEYS].filter(
     (key) => !process.env[key]?.trim()
   );
