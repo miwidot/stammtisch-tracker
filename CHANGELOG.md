@@ -7,6 +7,9 @@
 * **i18n:** translate the Kappa page header into German ([efbcf18](https://github.com/miwidot/stammtisch-tracker/commit/efbcf18d97c08f5a89e33b7f1bc3686f48b6fb63))
 
 # [1.1.0](https://github.com/miwidot/stammtisch-tracker/compare/v1.0.0...v1.1.0) (2026-09-10)
+## [1.78.1](https://github.com/tarkovtracker-org/TarkovTracker/compare/v1.78.0...v1.78.1) (2026-09-10)
+
+# [1.78.0](https://github.com/tarkovtracker-org/TarkovTracker/compare/v1.77.6...v1.78.0) (2026-09-10)
 
 
 ### Features
@@ -14,6 +17,9 @@
 * **app:** disable the supporter sales surface on this instance ([08608e0](https://github.com/miwidot/stammtisch-tracker/commit/08608e08c59a0ac29d68385b21613200f5488ea5))
 
 # 1.0.0 (2026-09-10)
+* **about:** split team directory out of credits into /about ([#839](https://github.com/tarkovtracker-org/TarkovTracker/issues/839)) ([0948142](https://github.com/tarkovtracker-org/TarkovTracker/commit/09481428d18cea3831ee19ed055ce1ab3b50a5fd)), closes [#707](https://github.com/tarkovtracker-org/TarkovTracker/issues/707)
+
+## [1.77.6](https://github.com/tarkovtracker-org/TarkovTracker/compare/v1.77.5...v1.77.6) (2026-09-10)
 
 
 ### Bug Fixes
@@ -836,6 +842,15 @@
 * Revert "chore(deps): move dev tools from dependencies to devDependencies" ([b2950dc](https://github.com/miwidot/stammtisch-tracker/commit/b2950dc22d75a5172a96495a4de3a8c25539b994))
 * Revert "feat(ci): add CI/CD automation, git hooks, and dev tooling ([#142](https://github.com/miwidot/stammtisch-tracker/issues/142))" ([#154](https://github.com/miwidot/stammtisch-tracker/issues/154)) ([fb38b32](https://github.com/miwidot/stammtisch-tracker/commit/fb38b32f91bd5a30a4b13d6b959a407f128c4461))
 * Revert "Revert "feat(ci): add CI/CD automation, git hooks, and dev tooling (#…" ([#155](https://github.com/miwidot/stammtisch-tracker/issues/155)) ([dab55c6](https://github.com/miwidot/stammtisch-tracker/commit/dab55c6aa4c79d41967079b509783c8ae77b14ee))
+* stream large EFT log folders and archives ([#834](https://github.com/tarkovtracker-org/TarkovTracker/issues/834)) ([9b96d7f](https://github.com/tarkovtracker-org/TarkovTracker/commit/9b96d7ff59d852a167275ac74bdfa2f4487a96ab))
+* **ci:** use valid Codecov comment layout separators ([#836](https://github.com/tarkovtracker-org/TarkovTracker/issues/836)) ([15920d2](https://github.com/tarkovtracker-org/TarkovTracker/commit/15920d2f139fe270ebfa0d2c437a3e3e98c17f4c))
+
+## [1.77.5](https://github.com/tarkovtracker-org/TarkovTracker/compare/v1.77.4...v1.77.5) (2026-09-10)
+
+
+### Bug Fixes
+
+* **tasks:** block tasks whose declared gate cannot be interpreted ([#835](https://github.com/tarkovtracker-org/TarkovTracker/issues/835)) ([3879e95](https://github.com/tarkovtracker-org/TarkovTracker/commit/3879e952294fdb02c1eee892ef3f3a48b39fcf96)), closes [#727](https://github.com/tarkovtracker-org/TarkovTracker/issues/727)
 
 ## [1.77.4](https://github.com/tarkovtracker-org/TarkovTracker/compare/v1.77.3...v1.77.4) (2026-09-10)
 

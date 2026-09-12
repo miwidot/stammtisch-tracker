@@ -377,6 +377,16 @@ sequenceDiagram
   `traderRequirements` (reputation-only) for compatibility, and regenerates the canonical
   `normalizedTraderRequirements` consumed by availability, badges and progress implications
   (section 15). A patch's `traderRequirements` replaces the whole requirement set.
+- Overlay corrections and `tasksAdd` entries merge into already-adapted tasks, so `applyOverlay`
+  re-normalizes the declared prerequisite and prestige gates it can reach. A corrected task is
+  re-normalized only when the patch touches `taskRequirements` or `requiredPrestige`, and a
+  recomputation clears only the diagnostic for the field that patch rewrote: the adapter already
+  dropped the other malformed value, so its diagnostic is retained rather than recomputed away. Every
+  injected task is re-normalized because additions never pass through the adapter. `taskRequirements`
+  stays a list and a resolvable `requiredPrestige` becomes a normalized `{ id }` reference. The
+  overlay keeps an id-less `{ name, prestigeLevel }` reference verbatim, so it is not a loss and gets
+  no diagnostic; only a declared gate the normalization had to drop becomes a
+  `requirementDiagnostics` entry (section 15).
 - On fetch failure, serves the last good overlay (stale) rather than failing the request.
 - Overlay supports mode-specific corrections under `modes[gameMode]` plus global corrections.
 - Per-locale corrections under `locales[locale]` patch `tasks`, `items`, `traders` and `maps`
@@ -755,10 +765,25 @@ flowchart LR
    `docs/eft-log-reference/` for the audited format inventory (through `1.1.0.1.46911`) and
    [TarkovMonitor's message type contract](https://github.com/the-hideout/TarkovMonitor/blob/master/TarkovMonitor/GameWatcher.cs).
    The importer accepts legacy/rotated notification and backend filenames, and application/output
-   context, in folders, individual files, and ZIPs. Inputs are limited to 512 MiB per selected file,
-   32 MiB per log, and 256 MiB of combined log bytes across raw files and ZIPs. Readers count
-   bytes against the remaining combined budget before decoding raw files or decompressing ZIP
-   entries; preview assembly reuses those totals without re-encoding log text.
+   context, in folders, individual files, and ZIPs. Folder files and ZIP members are read incrementally without fixed file-count,
+   file-size, archive-size, or combined-byte limits. Raw reads use 256 KiB slices; compressed ZIP
+   input uses 16 KiB slices to bound each inflation step. These are buffer sizes, not import limits.
+   Supported members are consumed immediately; unsupported members use a discard decoder so
+   fflate cannot retain deferred compressed contents. Declared ZIP sizes never drive allocation;
+   synchronous decoders reject incomplete streams on final input; supported entries must match
+   their declared expanded size when present. A bounded
+   ZIP-tail read validates the end record and comment length before streaming, rejecting empty or
+   truncated input while accepting valid empty archives.
+   UTF-8 decoding and timestamp-delimited record framing preserve split characters, headers,
+   multiline JSON, and final records without a trailing newline. An individual unfinished record
+   is limited to 8 Mi characters to reject malformed/unbounded records; this fails the selection
+   explicitly instead of silently skipping history. No progress is applied on reading errors.
+   Completed text is discarded after extracting quest events and mode signals. Version selection
+   rebuilds previews from that evidence without rereading files. Memory still scales with meaningful
+   events, mode evidence, and selected-file metadata, not total source bytes; browser resources and
+   processing time remain practical limits. Progress reports selected source bytes (compressed bytes
+   for ZIPs). Cancel or reselection aborts between slices and invalidates pending catalog/preview
+   work; stale requests cannot update progress or restore cancelled results.
    Arena is excluded. Multiline JSON is bounded
    by log records so a truncated event cannot consume the next notification.
    Mode routing uses preceding explicit session declarations or gateway/WebSocket connections;
@@ -896,7 +921,9 @@ flowchart LR
   cleanup, so their channel lifetime is independent of the route that first created them.
 - Every channel is stored with the client that created it and removed through that client, because
   `$supabase.client` starts as an offline stub and is replaced once background initialization
-  completes. Removal is awaited before the same topic is rejoined: `RealtimeClient.channel()` returns
+  completes. Team subscription callbacks also check suspension on that owning client’s transport,
+  so replacing the current client cannot hide failures or tear down a deliberately suspended channel.
+  Removal is awaited before the same topic is rejoined: `RealtimeClient.channel()` returns
   the existing channel until its `phx_leave` settles and `subscribe()` only rejoins a closed channel,
   so rejoining early yields a channel that never joins and never reports an error. An unclean leave
   skips the rejoin rather than binding to an occupied topic.
@@ -905,10 +932,14 @@ flowchart LR
   invalidates older work at each asynchronous boundary and rejects progress and metadata callbacks
   from the superseded listener, including while its channel is leaving. A different user's topic may
   proceed while the previous user's topic is leaving, while a same-topic rejoin still waits for its leave.
+  Publishing channel ownership and starting the subscription share one synchronous segment: an
+  asynchronous boundary between them would let a teardown remove the published channel before it
+  joined, and the resulting subscription could no longer be attributed to this setup for cleanup.
 - The team channel records itself as bound only after `SUBSCRIBED`, so a silently failed join is never
   mistaken for a live one. Membership events rebuild it only when the topic or teammate-progress
   filter changed, and any non-subscribed status drops the binding so the next event rebuilds.
-- Subscribe callbacks log every status that is not `SUBSCRIBED` or `CLOSED`. Five consecutive failures
+- Subscribe callbacks log every status that is not `SUBSCRIBED` or `CLOSED`; an own-progress
+  `CLOSED` before the first join still fails that join. Five consecutive failures
   tear the team channel down and schedule one rebuild a minute later, replacing Realtime's unbounded
   rejoin loop with a bounded retry cycle.
 - `user_system` is included in `supabase_realtime`, and sign-out tears down all client channels.
@@ -917,6 +948,8 @@ flowchart LR
   an outstanding disconnect before reconnecting once. Auth, local persistence, and outbound saves
   remain active. Rejoined consumers refresh authoritative snapshots; owner progress uses existing
   merge/epoch rules, and snapshot responses cannot overwrite newer live events or another session.
+  Pending snapshots omit non-serializable fields, including functions and symbols, while retaining
+  explicit `undefined` fields. Removing transient state must not become a persisted field deletion.
   A three-way merge compares each field with its acknowledged baseline, retaining only locally
   changed paths while accepting unrelated remote changes, including changes in other modes.
   Live mode rows and startup snapshots resolve counts by entry timestamp rather than maximum,
@@ -1650,6 +1683,34 @@ become diagnostic unknown requirements, not reputation guesses. A missing compar
 legacy requirement defaults to `>=`. Declared `>=`, `>`, `<=`, `<`, `=`, `==` and `!=` are evaluated
 literally. Neither trader identity nor the sign of a value selects its meaning.
 
+Declared prerequisite collections and prestige references follow the same rule. `null` and
+`undefined` mean the optional gate is absent; every other value is a gate the source declared, so it
+either survives normalization or is recorded in `Task.requirementDiagnostics` as `task_requirement`
+or `prestige_reference`. `tarkov-json.ts` models `requiredPrestige` as an id reference only, so it
+drops anything else and records the diagnostic; `overlay.ts` reports exactly the gates its own
+normalization dropped; `taskAvailability.ts` turns each diagnostic into an unknown blocker. Supported
+source shapes are unaffected: a bare prerequisite task id, a bare prestige id string, and a prestige
+object reference all still resolve, an absent or empty collection still leaves the task available,
+and the overlay keeps the id-less `{ name, prestigeLevel }` gate of an injected New Beginning task
+verbatim (its level comes from `buildPrestigeTaskMap`'s task id/wikiLink inference, not from the
+reference). A satisfied story route continues to unlock a task whose quest group is uninterpretable,
+because that route is an alternative to the group rather than a bypass of an independent gate. The
+evaluator additionally treats a non-list `taskRequirements` as the same diagnostic rather than as an
+empty list, so an older payload cannot make availability read a broken collection as no collection.
+That guard covers the evaluator only: other task consumers still assume a list, and a pre-fix payload
+that dropped a gate without recording a diagnostic stays unlocked until the refresh below replaces it.
+
+A `prestige_reference` diagnostic blocks independently of `prestigeTaskMap`, including entries
+inferred from a New Beginning task id or wikiLink: inference cannot repair a malformed declared gate.
+Without a diagnostic, the map continues to govern supported prestige references and inferred tasks.
+The overlay's supported id-less prestige shape is retained without a diagnostic. Two adjacent paths keep
+the diagnostic intact rather than losing it: task patches are normalized using their original id,
+and retain pre-merge diagnostics rather than accepting a patch-supplied diagnostic array,
+including locale patches after they merge,
+because locale corrections are applied last, and `useProfileTaskMetadata.mergeProfileTasks` takes only
+objective data from the objectives catalog, so a stray gate field an overlay patch merged into that
+response cannot replace the core catalog's gates.
+
 `app/stores/taskAvailability.ts` evaluates each task/user with memoization and cycle protection.
 The result carries availability and blockers for levels, loyalty, reputation, quest statuses,
 failed branches, faction, trader unlocks, prestige and unsupported data. `useProgress.taskEvaluations`
@@ -1705,6 +1766,18 @@ not import quest completions and therefore has no trader/task backfill path.
 - Canonical requirements, blockers, status comparisons and story alternatives are shared by UI and
   recommendations; no new dependency on the removed upstream task `alternatives` is introduced.
 - Known trader gates may be disabled by preference; unknown data never silently unlocks a task.
+- A declared gate that cannot be interpreted never reads as an absent gate. An absent optional gate
+  leaves the task available; a malformed explicit prerequisite collection or prestige reference keeps
+  it blocked behind an unknown blocker.
+- `requirementDiagnostics` is additive to the `tasks-core-json-v3` contract, so recording it does not
+  bump the precompute or browser cache versions and adds no new rollout requirement. The
+  `tasks-core-json-v3` operator rollout in the next invariant is unchanged and still applies on its
+  own terms. A payload without the field behaves exactly as it did before, the evaluator
+  independently blocks a non-list `taskRequirements` from any payload vintage. Successful precompute
+  refreshes run every 12 hours, after which edge and browser caches must also refresh. This is not
+  a strict 12-hour recovery bound: failed runs can leave older KV entries serving for their seven-day
+  TTL. Verify a successful precompute from the deployed fix before claiming production diagnostics
+  are active; already-discarded gates cannot be recovered by the evaluator alone.
 - PvP, PvE and Seasonal evaluate only their own progress and mode-specific task metadata.
 - `tasks-core-json-v3` keys invalidate incompatible edge/precompute payloads together. Browser
   IndexedDB schema 8 clears the old task contract. Missing new KV entries fall back to the normal
