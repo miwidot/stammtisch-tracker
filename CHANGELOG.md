@@ -1,3 +1,17 @@
+# [1.2.0](https://github.com/miwidot/stammtisch-tracker/compare/v1.1.2...v1.2.0) (2026-09-12)
+
+
+### Bug Fixes
+
+* **tasks:** block tasks whose declared gate cannot be interpreted ([#835](https://github.com/miwidot/stammtisch-tracker/issues/835)) ([3879e95](https://github.com/miwidot/stammtisch-tracker/commit/3879e952294fdb02c1eee892ef3f3a48b39fcf96)), closes [#727](https://github.com/miwidot/stammtisch-tracker/issues/727)
+* stream large EFT log folders and archives ([#834](https://github.com/miwidot/stammtisch-tracker/issues/834)) ([9b96d7f](https://github.com/miwidot/stammtisch-tracker/commit/9b96d7ff59d852a167275ac74bdfa2f4487a96ab))
+* **ci:** use valid Codecov comment layout separators ([#836](https://github.com/miwidot/stammtisch-tracker/issues/836)) ([15920d2](https://github.com/miwidot/stammtisch-tracker/commit/15920d2f139fe270ebfa0d2c437a3e3e98c17f4c))
+
+
+### Features
+
+* **about:** split team directory out of credits into /about ([#839](https://github.com/miwidot/stammtisch-tracker/issues/839)) ([0948142](https://github.com/miwidot/stammtisch-tracker/commit/09481428d18cea3831ee19ed055ce1ab3b50a5fd)), closes [#707](https://github.com/miwidot/stammtisch-tracker/issues/707)
+
 ## [1.1.2](https://github.com/miwidot/stammtisch-tracker/compare/v1.1.1...v1.1.2) (2026-09-10)
 
 
