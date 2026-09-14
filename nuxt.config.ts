@@ -17,6 +17,7 @@ import {
   resolveClientLogSinkUrl,
   resolvePublicAppUrl,
   resolveSupabaseRuntimeConfig,
+  resolveTrackerHandoffUrl,
   TARKOV_IMAGE_DOMAINS,
   YOUTUBE_IMAGE_DOMAINS,
 } from './app/utils/runtimeConfig';
@@ -221,9 +222,7 @@ export default defineNuxtConfig({
       adminWatchTimeoutMs: Number(process.env.ADMIN_WATCH_TIMEOUT_MS || '5000') || 5000,
       githubOwner: process.env.GITHUB_OWNER || 'tarkovtracker-org',
       githubRepo: process.env.GITHUB_REPO || 'TarkovTracker',
-      trackerHandoffUrl:
-        process.env.NUXT_PUBLIC_TRACKER_HANDOFF_URL ||
-        'https://dev.tarkov-stammtisch.de/api/tracker/handoff',
+      trackerHandoffUrl: resolveTrackerHandoffUrl(process.env),
       promotedTwitch: {
         channel: process.env.NUXT_PUBLIC_PROMOTED_TWITCH_CHANNEL || 'honeyxxo',
         displayName: process.env.NUXT_PUBLIC_PROMOTED_TWITCH_DISPLAY_NAME || 'honeyxxo',

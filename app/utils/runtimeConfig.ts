@@ -59,6 +59,26 @@ export const resolveCanonicalSiteUrl = (appUrl?: string): string => {
 export const resolveClientLogSinkUrl = (env: NodeJS.ProcessEnv): string => {
   return resolveEnvValue(env.NUXT_PUBLIC_CLIENT_LOG_SINK_URL);
 };
+const DEFAULT_TRACKER_HANDOFF_URL = 'https://dev.tarkov-stammtisch.de/api/tracker/handoff';
+export const resolveTrackerHandoffUrl = (env: NodeJS.ProcessEnv): string => {
+  const configuredUrl = resolveEnvValue(env.NUXT_PUBLIC_TRACKER_HANDOFF_URL);
+  if (env.NODE_ENV !== 'production') {
+    return configuredUrl || DEFAULT_TRACKER_HANDOFF_URL;
+  }
+  if (!configuredUrl) {
+    throw new Error(
+      '[Config] Missing NUXT_PUBLIC_TRACKER_HANDOFF_URL: the production tracker login handoff URL ' +
+        'must be set explicitly (it carries an auth token and must never fall back to a dev/default host).'
+    );
+  }
+  if (!/^https:\/\//i.test(configuredUrl)) {
+    throw new Error(
+      '[Config] Invalid NUXT_PUBLIC_TRACKER_HANDOFF_URL: must be an https:// URL in production ' +
+        '(the tracker login handoff carries an auth token and must not be sent over plain http).'
+    );
+  }
+  return configuredUrl;
+};
 export const isPagesPreviewHostname = (hostname?: string): boolean => {
   const normalizedHostname = resolveHostname(hostname);
   return normalizedHostname.endsWith('.pages.dev');

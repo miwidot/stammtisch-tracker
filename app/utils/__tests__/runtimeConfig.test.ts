@@ -7,6 +7,7 @@ import {
   resolveCanonicalSiteUrl,
   resolvePublicAppUrl,
   resolveSupabaseRuntimeConfig,
+  resolveTrackerHandoffUrl,
   shouldEnableAnalyticsIntegrations,
   shouldUseOfflineSupabaseFallback,
   TARKOV_IMAGE_DOMAINS,
@@ -174,5 +175,54 @@ describe('shouldEnableAnalyticsIntegrations', () => {
       })
     ).toBe(true);
     expect(isPrimaryAppHostname('www.tarkovtracker.org:443')).toBe(true);
+  });
+});
+describe('resolveTrackerHandoffUrl', () => {
+  it('throws in production when the env var is missing', () => {
+    expect(() => resolveTrackerHandoffUrl({ NODE_ENV: 'production' })).toThrow(
+      /NUXT_PUBLIC_TRACKER_HANDOFF_URL/
+    );
+  });
+  it('throws in production when the env var is an empty string', () => {
+    expect(() =>
+      resolveTrackerHandoffUrl({ NODE_ENV: 'production', NUXT_PUBLIC_TRACKER_HANDOFF_URL: '' })
+    ).toThrow(/NUXT_PUBLIC_TRACKER_HANDOFF_URL/);
+  });
+  it('throws in production when the env var is whitespace only', () => {
+    expect(() =>
+      resolveTrackerHandoffUrl({ NODE_ENV: 'production', NUXT_PUBLIC_TRACKER_HANDOFF_URL: '   ' })
+    ).toThrow(/NUXT_PUBLIC_TRACKER_HANDOFF_URL/);
+  });
+  it('throws in production when the env var is not https', () => {
+    expect(() =>
+      resolveTrackerHandoffUrl({
+        NODE_ENV: 'production',
+        NUXT_PUBLIC_TRACKER_HANDOFF_URL: 'http://tarkov-stammtisch.de/api/tracker/handoff',
+      })
+    ).toThrow(/https/);
+  });
+  it('returns the configured value unchanged in production when it is a valid https url', () => {
+    expect(
+      resolveTrackerHandoffUrl({
+        NODE_ENV: 'production',
+        NUXT_PUBLIC_TRACKER_HANDOFF_URL: 'https://tarkov-stammtisch.de/api/tracker/handoff',
+      })
+    ).toBe('https://tarkov-stammtisch.de/api/tracker/handoff');
+  });
+  it('falls back to the dev default outside production when unset', () => {
+    expect(resolveTrackerHandoffUrl({ NODE_ENV: 'development' })).toBe(
+      'https://dev.tarkov-stammtisch.de/api/tracker/handoff'
+    );
+    expect(resolveTrackerHandoffUrl({})).toBe(
+      'https://dev.tarkov-stammtisch.de/api/tracker/handoff'
+    );
+  });
+  it('returns the configured value outside production when set', () => {
+    expect(
+      resolveTrackerHandoffUrl({
+        NODE_ENV: 'test',
+        NUXT_PUBLIC_TRACKER_HANDOFF_URL: 'http://localhost:3001/api/tracker/handoff',
+      })
+    ).toBe('http://localhost:3001/api/tracker/handoff');
   });
 });
