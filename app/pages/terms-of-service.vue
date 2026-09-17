@@ -6,7 +6,7 @@
     title: 'Terms of Service',
     description: 'TarkovTracker terms of service and usage guidelines.',
   });
-  const lastUpdated = 'June 30, 2026';
+  const lastUpdated = 'September 16, 2026';
   const ACTIVE_SECTION_OFFSET = 160;
   const toc = [
     { id: 'acceptance', title: '1. Acceptance of Terms' },
@@ -115,14 +115,18 @@
       </aside>
       <section class="w-full min-w-0 xl:flex-1">
         <UCard
-          class="prose prose-lg prose-invert prose-headings:text-primary-100 prose-a:text-link prose-strong:text-primary-200 max-w-none"
+          class="prose prose-lg prose-invert prose-headings:text-primary-100 prose-a:text-link prose-strong:text-primary-200 light:prose-headings:text-primary-800 light:prose-strong:text-surface-50 max-w-none"
         >
           <div class="terms-content space-y-12 [&>section]:scroll-mt-28">
             <div
               id="top"
               class="border-surface-700/50 mb-8 flex items-center justify-between border-b pb-4"
             >
-              <p class="text-primary-400 mb-0 text-sm tracking-[0.2em] uppercase">Legal Document</p>
+              <p
+                class="text-primary-400 light:text-primary-700 mb-0 text-sm tracking-[0.2em] uppercase"
+              >
+                Legal Document
+              </p>
               <p class="text-surface-400 mb-0 text-sm">Last Updated: {{ lastUpdated }}</p>
             </div>
             <!-- 1. ACCEPTANCE OF TERMS -->
@@ -826,11 +830,10 @@
                 <li class="leading-relaxed">
                   For recurring supporter subscriptions, an additional tier-specific Discord role
                   reflecting your tier (for example, "Scav Tier," "Timmy Tier," or "Chad Tier").
-                  This feature is under development and may not yet be available
                 </li>
                 <li class="leading-relaxed">
-                  Higher API rate limits than standard accounts (recurring supporter subscriptions
-                  only)
+                  Higher daily API read and write quotas than standard accounts while supporter
+                  status is active, including one-time contributors
                 </li>
                 <li class="leading-relaxed">
                   If and when we delete inactive accounts, a longer data-retention window than

@@ -13,7 +13,7 @@
     >
       <template #header>
         <div class="flex flex-col items-center px-8 pt-8 pb-6 text-center">
-          <h1 class="mb-4 text-4xl font-bold tracking-tight text-white">
+          <h1 class="light:text-surface-50 mb-4 text-4xl font-bold tracking-tight text-white">
             {{ $t('common.login') }}
           </h1>
           <p class="text-surface-200 text-lg">
@@ -22,11 +22,40 @@
         </div>
       </template>
       <div class="px-8 pb-8">
+        <div
+          v-if="isOfflineMode"
+          class="mb-6 rounded-lg bg-amber-500/10 p-4 ring-1 ring-amber-500/30"
+        >
+          <div class="flex items-start gap-3">
+            <UIcon
+              name="i-heroicons-information-circle"
+              class="light:text-amber-600 mt-0.5 h-5 w-5 shrink-0 text-amber-400"
+            />
+            <div>
+              <p class="light:text-amber-800 font-medium text-amber-200">
+                {{ $t('page.login.offline_mode_title', 'Running in Offline Mode') }}
+              </p>
+              <p class="light:text-amber-700 mt-1 text-sm text-amber-300/80">
+                {{
+                  $t(
+                    'page.login.offline_mode_description',
+                    'Supabase is not configured. Login and sync features are disabled, but you can still use all tracking features locally. See'
+                  )
+                }}
+                <code class="light:text-amber-800 rounded bg-amber-500/20 px-1 text-amber-200">
+                  .env.example
+                </code>
+                {{ $t('page.login.offline_mode_suffix', 'to enable login.') }}
+              </p>
+            </div>
+          </div>
+        </div>
         <UButton
           block
           size="xl"
           variant="solid"
           class="flex h-12 w-full items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+          :disabled="isOfflineMode"
           :aria-label="$t('app_bar.login_aria', 'Log in to your account')"
           @click="redirectToHandoff"
         >
@@ -64,6 +93,8 @@
   </div>
 </template>
 <script setup lang="ts">
+  const { $supabase } = useNuxtApp();
+  const isOfflineMode = computed(() => $supabase.isOfflineMode === true);
   const { t } = useI18n({ useScope: 'global' });
   useSeoMeta({
     title: () => t('common.login', 'Login'),

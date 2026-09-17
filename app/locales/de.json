@@ -96,7 +96,9 @@
     "community_section": "Community",
     "keyboard_shortcuts": "Keyboard shortcuts",
     "report_problem": "Report a problem",
-    "login_aria": "Log in to your account"
+    "login_aria": "Log in to your account",
+    "switch_to_light_theme": "Zum hellen Theme wechseln",
+    "switch_to_dark_theme": "Zum dunklen Theme wechseln"
   },
   "omnibar": {
     "title": "Search",
@@ -262,6 +264,7 @@
     "maps": "Karten",
     "clear_search": "Suche löschen",
     "settings": "Einstellungen",
+    "about": "Über",
     "credits": "Credits",
     "support": "Unterstützung",
     "privacy_policy": "Datenschutzerklärung",
@@ -742,6 +745,17 @@
       "no_data": "Keine Story-Kapiteldaten verfügbar.",
       "mark_incomplete": "Als unvollständig markieren",
       "endings": "Endings",
+      "ending_progress": "{completed}/{total} bekannte Ziele",
+      "ending_evidence_pending": "Diesem Ende noch keine Ziele zugeordnet.",
+      "partial_data": "Teildaten",
+      "partial_data_hint": "Upstream Story-Daten für dieses Kapitel sind unvollständig, so dass mehr Ziele existieren können als aufgelistet sind.",
+      "quest_route_exclusive": "Die Beendigung einer dieser Routen regelt die andere aus.",
+      "quest_route_known_steps_done": "Alle bekannten Schritte erledigt",
+      "quest_route_evidence_pending": "Noch keine Schritte erfasst",
+      "quest_route_conflict": "Mehr als eine Route liest sich wie erledigt; nur eine ist im Spiel möglich.",
+      "quest_route_progress": "{completed}/{total} Schritte",
+      "stale_progress_one": "1 gespeichertes Objektivzeichen entspricht nicht mehr den aktuellen Daten und muss erneut überprüft werden.",
+      "stale_progress_other": "{count} gespeicherte Objektivmarkierungen entsprechen nicht mehr den aktuellen Daten und müssen erneut überprüft werden.",
       "route_choice": "Route choice",
       "route_chosen": "Route selected",
       "route_blocks": "Blocks: {objectives}",
@@ -1347,8 +1361,6 @@
     "credits": {
       "sections": {
         "original_creator": "Ursprünglicher Ersteller des Projekts:",
-        "staff": "TarkovTracker.org Team:",
-        "support_members": "Support-Mitglieder:",
         "beta_testers": "Nuxt - Geschlossene Beta-Tester:",
         "contributors": "Open-Source-Mitwirkende:"
       },
@@ -1363,7 +1375,44 @@
         "contributions": "{count} Beiträge",
         "total": "{count} Mitwirkender | {count} Mitwirkende"
       },
-      "description": "Treffen Sie die Schöpfer, Mitarbeiter, Unterstützungsmitglieder, Beta-Tester und Open-Source-Mitwirkenden hinter Tarkov Tracker."
+      "description": "Treffen Sie die Schöpfer, Mitarbeiter, Unterstützungsmitglieder, Beta-Tester und Open-Source-Mitwirkenden hinter Tarkov Tracker.",
+      "team_link": "Vom TarkovTracker Team betreut — trifft sie auf der Über Seite"
+    },
+    "about": {
+      "title": "Über TarkovTracker",
+      "description": "Treffen Sie das Team, das TarkovTracker.org unterhält, die Partner, die hinter seinen Spieldaten stehen, und wie Sie Hilfe von der Community erhalten.",
+      "intro": "TarkovTracker ist ein kostenloser Open-Source-Fortschritts-Tracker für Escape aus Tarkov. Es hält deine Quest und den Fortschritt deiner Geschichten, versteckt Upgrades und Gegenstandsanforderungen an einem Ort und hält mit den von der Community verwalteten Spieldaten auf dem Laufenden. Das Projekt wird von einem kleinen freiwilligen Team mit Hilfe von Open-Source-Mitwirkenden geleitet.",
+      "team": {
+        "heading": "Team",
+        "summary": "TarkovTracker.org wird von einem kleinen Freiwilligen-Team betreut. Die Leute unten halten die Seite am Laufen und unterstützen die Discord Community.",
+        "core_heading": "Kern-Team",
+        "support_heading": "Discord Unterstützung"
+      },
+      "partners": {
+        "heading": "Partner & Ökosystem",
+        "summary": "TarkovTracker baut auf Community-Projekten auf."
+      },
+      "help": {
+        "heading": "Wie man Hilfe bekommt",
+        "routing": "Benutzen Sie für die schnellste Antwort die kanalspezifischen Support-Workflows in unserem Discord anstatt direkte Nachrichten an Teammitglieder. Reproduzierbare Fehler und Feature-Ideen gehören auf GitHub und Sicherheitsberichte durchlaufen unsere privaten Sicherheitsrichtlinien.",
+        "discord": "Community-Unterstützung auf Discord",
+        "github_issues": "Einen Fehler melden oder ein Feature auf GitHub anfordern",
+        "security": "Sicherheitsproblem melden (privat)",
+        "credits_link": "Beta-Tester und Open-Source-Mitwirkende — siehe Credits"
+      },
+      "github_profile": "GitHub profile",
+      "roles": {
+        "core_owner": "Kernbesitzer, Maintainer & Entwickler",
+        "discord_owner_developer": "Discord Server Besitzer, TrackerBot Entwickler & Maintainer",
+        "core_support": "Kern-Support-Mitarbeiter",
+        "discord_support": "Discord allgemeine Unterstützung",
+        "tarkov_dev_maintainer": "Betreuer von Tarkov.dev",
+        "ratscanner_maintainer": "Besitzer und Betreuer von RatScanner"
+      },
+      "projects": {
+        "tarkov_dev": "Tarkov.dev",
+        "ratscanner": "Ratenscanner"
+      }
     },
     "login": {
       "subtitle": "Melde dich an, um auf dein Konto zuzugreifen",
@@ -1903,6 +1952,13 @@
       "title": "Allgemeine Einstellungen",
       "privacy_mode": "Streamer-Modus",
       "privacy_mode_hint": "Verbirgt sensible Informationen während du streamst."
+    },
+    "appearance": {
+      "title": "Erscheinung",
+      "theme": "Thema",
+      "theme_hint": "Wählen Sie zwischen der dunklen und hellen Schnittstelle. Ihre Wahl wird auf diesem Gerät gespeichert.",
+      "theme_dark": "Dunkel",
+      "theme_light": "Hell"
     },
     "interface": {
       "tasks": {

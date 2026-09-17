@@ -2,7 +2,7 @@
   <footer class="border-surface-800 border-t">
     <div class="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 md:grid-cols-3 lg:px-8">
       <div class="min-w-0">
-        <div class="flex items-center gap-2 text-base font-medium text-white">
+        <div class="light:text-surface-50 flex items-center gap-2 text-base font-medium text-white">
           <UIcon name="i-mdi-shield" class="text-primary-400 h-5 w-5 shrink-0" />
           <span>Tarkov Stammtisch</span>
         </div>
