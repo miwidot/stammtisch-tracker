@@ -67,3 +67,39 @@ describe('light theme accent foreground remap', () => {
     expect(remap('accent', 400)).toBe(remap('primary', 400));
   });
 });
+/**
+ * The dark tactical background stack (`body::before` grid/vignette/grunge JPG,
+ * `body::after` scanlines) paints straight onto the page canvas and is the only
+ * thing behind `#__nuxt > .bg-military-background`, which is made transparent on
+ * purpose so this stack shows through. Without a light override, the light theme's
+ * dark ink text tokens land on that dark canvas and become unreadable wherever
+ * content sits directly on the page background (e.g. the /herkunft heading).
+ */
+describe('light theme background stack', () => {
+  const findRule = (selector: string) => {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`${escaped}\\s*\\{([^}]*)\\}`).exec(withoutComments)?.[1];
+  };
+  it('keeps the dark-theme default body::before painting the tactical grunge stack', () => {
+    const rule = findRule('body::before');
+    expect(rule, 'default body::before rule must exist').toBeDefined();
+    expect(rule).toContain("url('/textures/tarkov-grunge.jpg')");
+  });
+  it('overrides body::before to a flat parchment fill in light theme, not the dark grunge stack', () => {
+    const rule = findRule(":root[data-theme='light'] body::before");
+    expect(rule, 'light body::before override must exist').toBeDefined();
+    // The wrapper transparency trick still relies on this pseudo-element as the
+    // canvas-colour carrier, so it must stay present and resolve to the light
+    // parchment token, not just disappear (content: none would drop the canvas
+    // colour and let an unstyled body background show through instead).
+    expect(rule).toContain('var(--color-surface-950)');
+    expect(rule).not.toContain('tarkov-grunge.jpg');
+    expect(rule).not.toContain('linear-gradient');
+  });
+  it('drops the scanline body::after entirely in light theme', () => {
+    const rule = findRule(":root[data-theme='light'] body::after");
+    expect(rule, 'light body::after override must exist').toBeDefined();
+    expect(rule).toContain('content: none');
+    expect(rule).not.toContain('repeating-linear-gradient');
+  });
+});

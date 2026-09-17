@@ -54,6 +54,21 @@ body::after {
     rgba(105, 122, 58, 0.015) 4px
   );
 }
+/* `#__nuxt > .bg-military-background` below is made transparent so this pseudo-element
+   shows through as the actual page canvas colour — it is not purely decorative. The grid,
+   edge-darkening vignette and grunge JPG above are authored for the dark canvas and have no
+   light-safe counterpart: the grunge texture is a dark bitmap and the vignette gradients
+   paint straight onto the page surface, so there is no low-opacity or blend-mode tweak that
+   reads as "subtle paper grain" instead of "dirty grey film" on the parchment canvas.
+   Rather than fake a light texture, light mode flattens `body::before` to a solid parchment
+   fill (still the canvas-colour carrier the transparent wrapper relies on) and drops
+   `body::after`, which is pure scanline decoration with no structural role. */
+:root[data-theme='light'] body::before {
+  background: var(--color-surface-950);
+}
+:root[data-theme='light'] body::after {
+  content: none;
+}
 @layer utilities {
   /* Beveled corners for large panels (modals, dialogs, dashboard hero/section panels) - not for small/repeated list items */
   .clip-corners {
