@@ -116,7 +116,7 @@ describe('AppFooter', () => {
     const wrapper = await mountFooter('de');
     const originLink = wrapper.findAll('a').find((link) => link.attributes('href') === '/herkunft');
     expect(originLink).toBeDefined();
-    expect(originLink?.text()).toBe('Herkunft');
+    expect(originLink?.text()).toBe('TarkovTracker.org');
     expect(originLink?.attributes('target')).toBeUndefined();
     expect(originLink?.attributes('rel')).toBeUndefined();
   });
@@ -151,7 +151,7 @@ describe('AppFooter', () => {
     );
     expect(sourceLink?.text()).toBe('Source code');
     const originLink = wrapper.findAll('a').find((link) => link.attributes('href') === '/herkunft');
-    expect(originLink?.text()).toBe('Origin');
+    expect(originLink?.text()).toBe('TarkovTracker.org');
   });
   it('never renders the raw translation key when locale content is missing', async () => {
     const wrapper = await mountFooter('de');

@@ -53,21 +53,21 @@ describe('de.overrides.json', () => {
     // A trader's name. The override restores the English spelling on purpose —
     // see the Lightkeeper case below.
     'common.kappa_lightkeeper',
-    // Project names, a license identifier, and GitHub PR references — none of
-    // these have a German form, so the /herkunft page and footer attribution
-    // line intentionally reuse the English label.
+    // Project names and a license identifier — none of these have a German
+    // form, so the /herkunft page and footer attribution line intentionally
+    // reuse the English label.
     'footer.attribution.tracker_label',
     'footer.attribution.license_label',
+    // The upstream project's domain name, used as the footer quick-link
+    // label pointing at our own /herkunft page — a proper noun, not text to
+    // translate.
+    'footer.origin_link',
     'page.herkunft.origin.tracker_label',
     'page.herkunft.origin.license_label',
     'page.herkunft.origin.license_file_label',
     // "Credits" is the loanword this app already uses in German
     // (common.credits carries the same English spelling).
     'page.herkunft.origin.credits_label',
-    'page.herkunft.contributions.pr_280_label',
-    'page.herkunft.contributions.pr_281_label',
-    'page.herkunft.contributions.pr_overlay_label',
-    'page.herkunft.contributions.pr_bugfix_label',
     'page.herkunft.related.tarkovtracker',
     'page.herkunft.related.tarkov_data_overlay',
     'page.herkunft.related.tarkov_dev',

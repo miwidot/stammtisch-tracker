@@ -63,6 +63,15 @@ describe('require-auth global middleware', () => {
     expect(result).toBeUndefined();
     expect(readyMock).not.toHaveBeenCalled();
   });
+  it.each(['/herkunft', '/credits', '/about'])(
+    'does not redirect unauthenticated users on the public attribution page %s',
+    async (path) => {
+      const result = await runMiddleware(path);
+      expect(navigateToMock).not.toHaveBeenCalled();
+      expect(result).toBeUndefined();
+      expect(readyMock).not.toHaveBeenCalled();
+    }
+  );
   it('redirects unauthenticated users away from public profile pages', async () => {
     const result = await runMiddleware('/profile/abc/pvp');
     expect(navigateToMock).toHaveBeenCalledWith('/login');

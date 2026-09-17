@@ -1740,16 +1740,6 @@
         "source": "Our source code is available at {source}.",
         "source_label": "Source code"
       },
-      "contributions": {
-        "heading": "Contributions back to the original project",
-        "translation": "German translations ({pr_280} and {pr_281}, merged)",
-        "pr_280_label": "PR #280",
-        "pr_281_label": "PR #281",
-        "overlay": "Game data overlay corrections ({pr_overlay})",
-        "pr_overlay_label": "PR #388",
-        "bugfix": "Fixed a missing import in the profile route ({pr_bugfix})",
-        "pr_bugfix_label": "PR #848"
-      },
       "related": {
         "heading": "Related projects",
         "tarkovtracker": "TarkovTracker",
@@ -1767,7 +1757,7 @@
       "github": "GitHub"
     },
     "analytics_preferences": "Analytics Preferences",
-    "origin_link": "Origin",
+    "origin_link": "TarkovTracker.org",
     "game_attribution": "Escape from Tarkov and related game content and materials are trademarks and copyrighted works of Battlestate Games Limited and its licensors. All rights reserved. TarkovTracker is an unofficial fan project and is not affiliated with or endorsed by Battlestate Games.",
     "tagline": "Track your Escape from Tarkov quests, hideout upgrades, and item requirements in one place.",
     "sections": {

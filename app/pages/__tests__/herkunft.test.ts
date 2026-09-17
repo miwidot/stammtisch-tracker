@@ -56,16 +56,17 @@ const mountHerkunft = async (locale: 'de' | 'en' = 'de') => {
   });
 };
 describe('herkunft page', () => {
-  it('renders the origin, changes, contributions, and related-projects sections', async () => {
+  it('renders the origin, changes, and related-projects sections', async () => {
     const wrapper = await mountHerkunft('de');
     expect(wrapper.get('h1').text()).toBe('Herkunft');
     const headings = wrapper.findAll('h2').map((h) => h.text());
-    expect(headings).toEqual([
-      'Herkunft',
-      'Unsere Änderungen',
-      'Beiträge zurück ans Original',
-      'Verwandte Projekte',
-    ]);
+    expect(headings).toEqual(['Herkunft', 'Unsere Änderungen', 'Verwandte Projekte']);
+  });
+  it('contains no PR references back to the upstream project', async () => {
+    const wrapper = await mountHerkunft('de');
+    const hrefs = wrapper.findAll('a').map((link) => link.attributes('href') ?? '');
+    expect(hrefs.some((href) => /\/pull\/\d+/.test(href))).toBe(false);
+    expect(wrapper.text()).not.toMatch(/PR #\d+/);
   });
   it('gives every external link a safe rel and target, and keeps internal links plain', async () => {
     const wrapper = await mountHerkunft('de');
@@ -93,10 +94,6 @@ describe('herkunft page', () => {
       'https://github.com/tarkovtracker-org/TarkovTracker/blob/main/LICENSE.md'
     );
     expect(hrefs).toContain('https://github.com/miwidot/stammtisch-tracker');
-    expect(hrefs).toContain('https://github.com/tarkovtracker-org/TarkovTracker/pull/280');
-    expect(hrefs).toContain('https://github.com/tarkovtracker-org/TarkovTracker/pull/281');
-    expect(hrefs).toContain('https://github.com/tarkovtracker-org/tarkov-data-overlay/pull/388');
-    expect(hrefs).toContain('https://github.com/tarkovtracker-org/TarkovTracker/pull/848');
   });
   it('renders real, distinct German copy — not a passed-through translation key', async () => {
     const wrapper = await mountHerkunft('de');
@@ -105,7 +102,6 @@ describe('herkunft page', () => {
     expect(text).toContain('Diese Seite ist eine geänderte Fassung von');
     expect(text).toContain('Betrieben und angepasst vom Tarkov Stammtisch');
     expect(text).toContain('Deutsche Übersetzung und Lokalisierung');
-    expect(text).toContain('Fehlerbehebung fehlender Import in der Profil-Route');
   });
   it('renders real, distinct English copy — not a passed-through translation key', async () => {
     const wrapper = await mountHerkunft('en');
@@ -114,7 +110,6 @@ describe('herkunft page', () => {
     expect(text).toContain('This site is a modified version of');
     expect(text).toContain('Operated and adapted by Tarkov Stammtisch');
     expect(text).toContain('German translation and localization');
-    expect(text).toContain('Fixed a missing import in the profile route');
     // The two locales must actually differ, not just both fall back to English.
     const deWrapper = await mountHerkunft('de');
     expect(deWrapper.text()).not.toBe(text);

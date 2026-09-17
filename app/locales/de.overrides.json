@@ -7,7 +7,7 @@
     "reset_failed": "Fehlgeschlagen zurücksetzen"
   },
   "footer": {
-    "origin_link": "Herkunft",
+    "origin_link": "TarkovTracker.org",
     "attribution": {
       "line": "Basiert auf {tracker} · {license} · {source}",
       "tracker_label": "TarkovTracker",
@@ -47,16 +47,6 @@
         "item_hosting": "Selbst gehostete Supabase-Instanz",
         "source": "Unser Quelltext ist verfügbar unter {source}.",
         "source_label": "Quelltext"
-      },
-      "contributions": {
-        "heading": "Beiträge zurück ans Original",
-        "translation": "Deutsche Übersetzungen ({pr_280} und {pr_281}, gemerged)",
-        "pr_280_label": "PR #280",
-        "pr_281_label": "PR #281",
-        "overlay": "Spieldaten-Overlay-Korrekturen ({pr_overlay})",
-        "pr_overlay_label": "PR #388",
-        "bugfix": "Fehlerbehebung fehlender Import in der Profil-Route ({pr_bugfix})",
-        "pr_bugfix_label": "PR #848"
       },
       "related": {
         "heading": "Verwandte Projekte",
