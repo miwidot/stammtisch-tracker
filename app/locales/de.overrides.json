@@ -6,6 +6,15 @@
     "mark_complete": "Als abgeschlossen markieren",
     "reset_failed": "Fehlgeschlagen zurücksetzen"
   },
+  "footer": {
+    "origin_link": "Herkunft",
+    "attribution": {
+      "line": "Basiert auf {tracker} · {license} · {source}",
+      "tracker_label": "TarkovTracker",
+      "license_label": "GPLv3",
+      "source_label": "Quelltext"
+    }
+  },
   "navigation_drawer": {
     "brand_name": "Tarkov Stammtisch"
   },
@@ -15,6 +24,50 @@
     "view_accepted_items": "Alle {count} akzeptierten Gegenstände anzeigen"
   },
   "page": {
+    "herkunft": {
+      "title": "Herkunft",
+      "description": "Woher dieser Fork kommt, was wir geändert haben und unter welcher Lizenz er steht.",
+      "origin": {
+        "heading": "Herkunft",
+        "intro": "Diese Seite ist eine geänderte Fassung von {tracker}.",
+        "tracker_label": "TarkovTracker",
+        "operator": "Betrieben und angepasst vom Tarkov Stammtisch für die deutschsprachige Community.",
+        "license": "Lizenz: {license} ({license_file}).",
+        "license_label": "GPLv3",
+        "license_file_label": "LICENSE.md",
+        "attribution": "Die ursprüngliche Arbeit stammt von DysektAI und den Mitwirkenden des TarkovTracker-Projekts sowie dessen Vorläufer tarkovtracker.io. Die vollständige Liste findest du unter {credits}.",
+        "credits_label": "Credits"
+      },
+      "changes": {
+        "heading": "Unsere Änderungen",
+        "intro": "Wie von GPLv3 Abschnitt 5(a) gefordert, hier unsere Änderungen:",
+        "item_translation": "Deutsche Übersetzung und Lokalisierung",
+        "item_auth": "Anbindung an die Tarkov-Stammtisch-Anmeldung",
+        "item_branding": "Eigenes Branding",
+        "item_hosting": "Selbst gehostete Supabase-Instanz",
+        "source": "Unser Quelltext ist verfügbar unter {source}.",
+        "source_label": "Quelltext"
+      },
+      "contributions": {
+        "heading": "Beiträge zurück ans Original",
+        "translation": "Deutsche Übersetzungen ({pr_280} und {pr_281}, gemerged)",
+        "pr_280_label": "PR #280",
+        "pr_281_label": "PR #281",
+        "overlay": "Spieldaten-Overlay-Korrekturen ({pr_overlay})",
+        "pr_overlay_label": "PR #388",
+        "bugfix": "Fehlerbehebung fehlender Import in der Profil-Route ({pr_bugfix})",
+        "pr_bugfix_label": "PR #848"
+      },
+      "related": {
+        "heading": "Verwandte Projekte",
+        "tarkovtracker": "TarkovTracker",
+        "tarkov_data_overlay": "tarkov-data-overlay",
+        "tarkov_dev": "tarkov.dev",
+        "tarkov_monitor": "TarkovMonitor",
+        "ratscanner": "RatScanner",
+        "our_fork": "Unser Fork"
+      }
+    },
     "kappa": {
       "row": {
         "action_reset_failed": "Fehlgeschlagen zurücksetzen"

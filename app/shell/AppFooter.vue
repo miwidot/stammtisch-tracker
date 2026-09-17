@@ -25,6 +25,14 @@
               {{ link.label }}
             </a>
           </li>
+          <li>
+            <NuxtLink
+              to="/herkunft"
+              class="text-surface-400 hover:text-primary-400 transition-colors"
+            >
+              {{ t('footer.origin_link') }}
+            </NuxtLink>
+          </li>
         </ul>
       </div>
       <div class="min-w-0">
@@ -51,11 +59,46 @@
           Escape from Tarkov ist eine eingetragene Marke von Battlestate Games Limited. Diese
           Website steht in keiner Verbindung zu Battlestate Games.
         </p>
+        <p class="text-surface-500 mt-1 text-xs">
+          <i18n-t keypath="footer.attribution.line" scope="global">
+            <template #tracker>
+              <a
+                href="https://github.com/tarkovtracker-org/TarkovTracker"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="hover:text-primary-400 underline transition-colors"
+              >
+                {{ t('footer.attribution.tracker_label') }}
+              </a>
+            </template>
+            <template #license>
+              <a
+                href="https://www.gnu.org/licenses/gpl-3.0.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="hover:text-primary-400 underline transition-colors"
+              >
+                {{ t('footer.attribution.license_label') }}
+              </a>
+            </template>
+            <template #source>
+              <a
+                href="https://github.com/miwidot/stammtisch-tracker"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="hover:text-primary-400 underline transition-colors"
+              >
+                {{ t('footer.attribution.source_label') }}
+              </a>
+            </template>
+          </i18n-t>
+        </p>
       </div>
     </div>
   </footer>
 </template>
 <script setup lang="ts">
+  const { t } = useI18n({ useScope: 'global' });
   const currentYear = new Date().getFullYear();
   const quickLinks = [
     { href: 'https://tarkov-stammtisch.de/community', label: 'Über uns' },

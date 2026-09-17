@@ -1715,6 +1715,50 @@
         "play": "Play video: {title}"
       },
       "official_guide_label": "TarkovTracker.org Guide"
+    },
+    "herkunft": {
+      "title": "Origin",
+      "description": "Where this fork comes from, what changed, and the license it ships under.",
+      "origin": {
+        "heading": "Origin",
+        "intro": "This site is a modified version of {tracker}.",
+        "tracker_label": "TarkovTracker",
+        "operator": "Operated and adapted by Tarkov Stammtisch for the German-speaking community.",
+        "license": "Licensed under {license} ({license_file}).",
+        "license_label": "GPLv3",
+        "license_file_label": "LICENSE.md",
+        "attribution": "The original work was created by DysektAI and the contributors to the TarkovTracker project, along with its predecessor tarkovtracker.io. See {credits} for the full list.",
+        "credits_label": "Credits"
+      },
+      "changes": {
+        "heading": "Our changes",
+        "intro": "As required by GPLv3 section 5(a), here is what we changed:",
+        "item_translation": "German translation and localization",
+        "item_auth": "Integration with the Tarkov Stammtisch login",
+        "item_branding": "Custom branding",
+        "item_hosting": "Self-hosted Supabase instance",
+        "source": "Our source code is available at {source}.",
+        "source_label": "Source code"
+      },
+      "contributions": {
+        "heading": "Contributions back to the original project",
+        "translation": "German translations ({pr_280} and {pr_281}, merged)",
+        "pr_280_label": "PR #280",
+        "pr_281_label": "PR #281",
+        "overlay": "Game data overlay corrections ({pr_overlay})",
+        "pr_overlay_label": "PR #388",
+        "bugfix": "Fixed a missing import in the profile route ({pr_bugfix})",
+        "pr_bugfix_label": "PR #848"
+      },
+      "related": {
+        "heading": "Related projects",
+        "tarkovtracker": "TarkovTracker",
+        "tarkov_data_overlay": "tarkov-data-overlay",
+        "tarkov_dev": "tarkov.dev",
+        "tarkov_monitor": "TarkovMonitor",
+        "ratscanner": "RatScanner",
+        "our_fork": "Our fork"
+      }
     }
   },
   "footer": {
@@ -1723,12 +1767,19 @@
       "github": "GitHub"
     },
     "analytics_preferences": "Analytics Preferences",
+    "origin_link": "Origin",
     "game_attribution": "Escape from Tarkov and related game content and materials are trademarks and copyrighted works of Battlestate Games Limited and its licensors. All rights reserved. TarkovTracker is an unofficial fan project and is not affiliated with or endorsed by Battlestate Games.",
     "tagline": "Track your Escape from Tarkov quests, hideout upgrades, and item requirements in one place.",
     "sections": {
       "explore": "Explore",
       "project": "Project",
       "legal": "Legal"
+    },
+    "attribution": {
+      "line": "Based on {tracker} · {license} · {source}",
+      "tracker_label": "TarkovTracker",
+      "license_label": "GPLv3",
+      "source_label": "Source code"
     }
   },
   "navigation_drawer": {
