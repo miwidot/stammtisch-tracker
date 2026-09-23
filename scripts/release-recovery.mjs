@@ -52,7 +52,7 @@ function releaseNotes(oldLog, newLog, version) {
   return notes;
 }
 /** Require successful latest CI from the configured provider on the promoted version SHA. */
-async function validatedVersion(github, repo, sha) {
+async function validatedCi(github, repo, sha) {
   const checks = await github.paginate(github.rest.checks.listForRef, {
     ...repo,
     ref: sha,
@@ -64,6 +64,77 @@ async function validatedVersion(github, repo, sha) {
     .filter((item) => item.app.id === 15368 && item.head_sha === sha)
     .sort((left, right) => right.id - left.id)[0];
   return check?.status === 'completed' && check.conclusion === 'success';
+}
+/** The controller path only the trusted preview workflow may report from. */
+const PREVIEW_CONTROLLER_PATH = '.github/workflows/preview.yml';
+/** Controller runs are only trusted when executed from the default-branch workflow revision. */
+const TRUSTED_CONTROLLER_REF = 'main';
+/** Authorize a run as the trusted controller: exact path and the default-branch workflow ref. */
+function trustedControllerRun(run) {
+  if (typeof run.path !== 'string') return false;
+  const at = run.path.indexOf('@');
+  return (
+    run.path.slice(0, at) === PREVIEW_CONTROLLER_PATH &&
+    run.path.slice(at + 1) === TRUSTED_CONTROLLER_REF
+  );
+}
+/** The controller job that publishes authoritative `Preview Result` statuses. */
+const PREVIEW_RESULT_JOB = 'Publish preview result';
+/** Extract the controller run id from a `Preview Result` target; null when it points elsewhere. */
+function controllerRunId(status) {
+  const match = /\/actions\/runs\/(\d+)(?:\?|$)/.exec(status.target_url ?? '');
+  return match ? Number(match[1]) : null;
+}
+/** The newest `Preview Result` on the SHA; later reports supersede earlier ones. */
+function newestPreviewStatus(statuses) {
+  return statuses
+    .filter((item) => item.context === 'Preview Result')
+    .sort((left, right) => right.id - left.id)[0];
+}
+/** The evidence is a success reported on the exact version SHA. */
+function previewSuccessOnSha(status, sha) {
+  return status.state === 'success' && status.sha === sha;
+}
+/** Fetch the run behind the status target; unresolvable runs fail closed like any other gate. */
+async function controllerRun(github, repo, runId) {
+  if (!runId) return null;
+  const run = await optionalResource(() =>
+    github.rest.actions.getWorkflowRun({ ...repo, run_id: runId })
+  );
+  if (!run || !trustedControllerRun(run)) return null;
+  return run;
+}
+/** The controller must have finished its authoritative result publication for this evidence. */
+async function resultJobCompleted(github, repo, run) {
+  if (run.conclusion !== 'success') return false;
+  const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+    ...repo,
+    run_id: run.id,
+    per_page: 100,
+  });
+  const result = jobs.find((job) => job.name === PREVIEW_RESULT_JOB);
+  return result?.conclusion === 'success';
+}
+/**
+ * Require the newest `Preview Result` to bind to a successful controller result publication:
+ * the status must succeed on the exact SHA and point at a run of the trusted preview workflow
+ * whose result job completed successfully for a candidate (never an `ignore` no-op).
+ */
+async function validatedPreview(github, repo, sha) {
+  const statuses = await github.paginate(github.rest.repos.listCommitStatusesForRef, {
+    ...repo,
+    ref: sha,
+    per_page: 100,
+  });
+  const status = newestPreviewStatus(statuses);
+  if (!status || !previewSuccessOnSha(status, sha)) return false;
+  const run = await controllerRun(github, repo, controllerRunId(status));
+  if (!run) return false;
+  return resultJobCompleted(github, repo, run);
+}
+/** Interrupted recovery requires both gates on the exact version commit, like staging did. */
+async function validatedVersion(github, repo, sha) {
+  return (await validatedCi(github, repo, sha)) && (await validatedPreview(github, repo, sha));
 }
 /** On explicit reruns, recover only a validated version child of the original main CI commit. */
 export async function findReleaseRecovery({ github, context, baseSha, sha }) {

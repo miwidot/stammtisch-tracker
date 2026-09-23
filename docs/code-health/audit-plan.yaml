@@ -50,10 +50,10 @@ queue:
       - app/server/utils/streamerKappa.ts
       - shared/utils/__tests__/progressInvalidation.test.ts
       - workers/api-gateway/src/__tests__/transform.test.ts
-    status: pr_open
+    status: completed
     priority: P0
     dependencies: []
-    last_reviewed_commit: ade5cf112ef5a23a604fd5f3cd01575ad727e70f
+    last_reviewed_commit: 0daf56cc6d84bdfa121efc52bf528ae58f68abcf
     findings_summary: >-
       Review follow-up confirmed terminal tasks could be marked invalid: the recursive entry point
       protected only successful completions, while faction invalidation bypassed that guard entirely.
@@ -90,7 +90,116 @@ queue:
         old copies reported invalidateTaskRecursive at CRAP 132 (app) / 31.6 (worker); the shared
         function has no Fallow complexity finding. Repo duplicate clone groups 7 -> 3.
     pr: 876
+    post_merge_verification:
+      date: '2026-09-17'
+      implementation_merge: 0daf56cc6d84bdfa121efc52bf528ae58f68abcf
+      current_main: 8a37e1b407b25da1d4c2b5cdc61c47e8d411504c
+      audited_paths_changed_since_merge: false
+      implementation_checks: { successful_check_runs: 22, successful_status_contexts: 2 }
+      current_main_checks: { successful_check_runs: 20, successful_status_contexts: 2 }
+      implementation_ci: https://github.com/tarkovtracker-org/TarkovTracker/actions/runs/35175683566
+      implementation_security: https://github.com/tarkovtracker-org/TarkovTracker/actions/runs/35175683473
+      release: https://github.com/tarkovtracker-org/TarkovTracker/actions/runs/35175897242
+      current_main_ci: https://github.com/tarkovtracker-org/TarkovTracker/actions/runs/35189385311
+      current_main_security: https://github.com/tarkovtracker-org/TarkovTracker/actions/runs/35189385365
+      current_main_release: https://github.com/tarkovtracker-org/TarkovTracker/actions/runs/35189622270
+      review_threads: { inspected: 12, unresolved: 0 }
+      local_reverification:
+        shared_tests: 21
+        app_consumer_tests: 31
+        api_gateway_tests: 193
+        api_gateway_test_files: 12
+        repository_duplicate_clone_groups: 3
+        repository_duplicated_lines: 93
+        invalidation_duplicate_clone_groups: 0
+        shared_complexity_findings: 0
+        shared_large_function_lines: 100
+        fallow_new_only_gate: pass
+        systems_check: pass
+      ledger_branch: duo/docs/ch-001-post-merge-ledger
+      ledger_pr: 878
+      ledger_url: https://github.com/tarkovtracker-org/TarkovTracker/pull/878
+      ledger_status: merged
+      ledger_merge: a62ba5a33b72222eadc89a5537117d56ab05ea44
+      ledger_merged_at: '2026-09-17T04:13:39Z'
+      ledger_validated_head: a0744702ca8113561f94abc7feb7e9c61ffa6847
+      ledger_ci: https://github.com/tarkovtracker-org/TarkovTracker/actions/runs/35180642171
+      ledger_review: https://github.com/tarkovtracker-org/TarkovTracker/pull/878#discussion_r4033036063
+      ledger_main_ci: https://github.com/tarkovtracker-org/TarkovTracker/actions/runs/35181125592
+      ledger_main_security: https://github.com/tarkovtracker-org/TarkovTracker/actions/runs/35181125490
+      ledger_main_release: https://github.com/tarkovtracker-org/TarkovTracker/actions/runs/35181328497
+      ledger_main_checks_reread: '2026-09-17T06:26Z'
+      ledger_main_checks:
+        { ci: success, security: success, release: success, check_runs: 20, status_contexts: 2 }
     notes: >-
+      CURRENT HANDOFF (2026-09-17, completion repair): implementation #876 and ledger #878
+      are merged. The #878 merge checks on a62ba5a3 that the historical ledger-merge handoff
+      below recorded as queued/in-progress/UNVERIFIED (CI 35181125592, Security 35181125490,
+      Release 35181328497) were re-read after completion at 2026-09-17T06:26Z: each concluded
+      success, and all 20 check runs plus both status contexts on a62ba5a3 succeeded. Current
+      main 8a37e1b4 (the #875 merge) was verified separately: 20/20 check runs and both status
+      contexts succeeded (CI 35189385311, Security 35189385365, Release 35189622270). These are
+      revision-specific check observations, not a live production smoke test.
+      None of the 9 audited paths changed from implementation merge 0daf56cc to current main.
+      Existing metrics_after and local_reverification measurements are preserved historical
+      evidence, not new measurements from this documentation-only repair. pr and
+      last_reviewed_commit continue to identify implementation #876, not its bookkeeping PRs.
+      The proposed completed status records verified implementation completion; it does not
+      assert that this correction has passed PR gates or authorize another slice.
+      Codex's linked P2 on #878 arrived after merge and correctly identified the stale ledger.
+      This repair corrects that record and the README lifecycle. Check the live linked review
+      for resolution rather than relying on the historical pre-review snapshot below.
+      NEXT RUN: finish the focused completion correction through normal review/CI and authorized
+      merge, address and resolve the linked ledger feedback, then verify the completion record
+      on main and resulting checks. Keep this correction's live branch/PR/check state in the
+      session handoff and GitHub; do not add another pending-merge field to this ledger.
+      No next slice until that gate passes and no outstanding ledger PR or actionable feedback
+      remains. Finish that run without starting CH-002; CH-028, CH-049 and CH-050 stay deferred.
+      Do not regenerate the inventory or re-audit unchanged implementation paths.
+      ALL FOLLOWING HANDOFFS ARE HISTORICAL, including pending checks and zero-thread snapshots;
+      they do not supersede this CURRENT HANDOFF or constitute current blockers.
+      HISTORICAL HANDOFF (2026-09-17, ledger merge): PR #878 was promoted from the program's
+      draft after successful exact-head checks, no requested changes and zero review threads.
+      Authorized squash merge succeeded at a62ba5a3; strict CI Result policy was not bypassed.
+      The merge tree exactly matches tested head a0744702. Re-ran 52 shared/app tests and all
+      193 gateway tests, Fallow new-only audit (zero introduced findings), and duplication analysis
+      (3 repository groups / 93 lines, no invalidation clones). Implementation merge and prior
+      main checks were independently re-read: all 22+2 and 20+3 checks/statuses succeeded.
+      No production files changed, no new slice or queue item was started. Existing CH-028,
+      CH-049 and CH-050 remain deferred. Full-suite/build/typecheck results below are historical.
+      Ledger-merge main CI 35181125592 is in progress; Security 35181125490 is queued, with
+      Pages and Supabase also in progress. These newly dispatched checks are UNVERIFIED;
+      do not confuse the successful PR checks with successful post-merge main checks.
+      Keep pr_open pending this gate. Local durable completion handoff is on
+      duo/docs/ch-001-completion-handoff in .wt/code-health, based on the ledger merge.
+      NEXT RUN: fetch main; verify exact ledger-merge checks and current-main checks, inspect
+      any newly posted actionable feedback on #878, and address failures before proceeding.
+      Once those checks succeed, record completed through the README ledger-only transition
+      using this handoff branch, normal CI/review, and no direct main push. Do not regenerate
+      the audit inventory or re-audit unchanged production code. CH-002 remains the next slice
+      only after the completion handoff is resolved; split its loading responsibility when selected.
+      The following handoffs are historical and do not supersede this CURRENT HANDOFF.
+      PREVIOUS HANDOFF (2026-09-17): implementation #876 is merged and its post-merge CI,
+      Security, release, Pages, API gateway build, Supabase and status contexts all succeeded.
+      Current main e38cb247 also has successful CI and all returned checks/statuses; only
+      CHANGELOG.md and package.json version changed after the implementation merge.
+      Re-verified 52 shared/app tests (4 files) and all 193 API gateway tests (12 files), including
+      5 transform cases. Fallow new-only audit against origin/main passes with zero introduced
+      findings; this ledger-only diff is not a fresh whole-repository audit. Separate full Fallow
+      dupes measurement confirms 3 groups / 93 duplicated lines, none in invalidation; health
+      complexity has no finding on the shared module, but separately lists computeInvalidProgress
+      as a 100-line large function. Keep that explicit size signal rather than claiming every
+      metric is clean: its nested passes share per-call graph/visited/output state, and arbitrary
+      file splitting would not improve that boundary. Deferred semantics remain CH-028/CH-050.
+      Reviewed all 12 implementation PR threads: none unresolved; no requested changes.
+      Local systems:check passed. Earlier full-suite/build/typecheck results below are historical,
+      not rerun in this documentation-only session; exact merge/current-main CI was verified now.
+      Resume this ledger-only branch/PR before selecting any new slice. Retain pr_open until this
+      completion handoff passes normal review/CI and is merged; the verified merge SHA above
+      records actual reviewed code, not a claim that the ledger PR has passed. On the next run,
+      resolve its feedback, finalize completed status only with the required evidence, merge
+      without bypass and verify resulting main. CH-002 remains next, not started this run.
+      The following handoffs are historical; this CURRENT HANDOFF supersedes pending-main notes.
       Consolidated into shared/utils/progressInvalidation.ts typed against a minimal structural task
       shape (InvalidationTask); both copies deleted; worker adopts the app's (correct) behavior —
       intentional behavior change for the public /progress API: tasks whose requirement status
@@ -144,12 +253,36 @@ queue:
       at hand-off. Merge authorization: repo admin, squash allowed, ruleset requires `CI Result`
       (strict); auto-merge disabled.
       PR: https://github.com/tarkovtracker-org/TarkovTracker/pull/876
-      NEXT RUN: confirm `CI Result` SUCCESS on the final head of #876 and 0 unresolved threads,
-      then `gh pr merge 876 --squash` (no bypass). Then follow the README post-merge ledger
-      transition: verify main checks at the merge SHA, re-verify metrics_after, and open the
-      ledger-only completion PR marking CH-001 completed. Only after that select the next slice
-      (CH-002 is the highest queued P1; split its loading responsibility into bounded dependent
-      slices at selection).
+      MERGE HAND-OFF (2026-09-17): PR #876 merged by authorized squash without bypass at
+      2026-09-17T02:46:28Z, merge SHA 0daf56cc6d84bdfa121efc52bf528ae58f68abcf.
+      Final head 7d827fa15925d06e56448a0a3dab47bead2d0b0c had all 31 checks successful or
+      intentionally skipped, CI Result SUCCESS in run 35175269747, and zero unresolved threads
+      (all review-thread pages inspected). No requested changes or human hold. Strict CI Result
+      freshness was verified from the effective main rules; admin/maintain permission and squash
+      availability were verified. No production code changed in this run.
+      Re-verified locally on final head: shared tests 21, app consumer tests 31 across progress store,
+      profile and streamer, API gateway 193 tests across 12 files. Root Vitest excludes worker tests;
+      those were verified separately with the gateway configuration. Fallow new-only gate passed:
+      zero introduced dead-code, complexity, duplication or styling findings; 33 inherited complexity
+      findings and 2 inherited styling findings remain outside scope. Fallow dupes: 3 groups / 93
+      duplicated lines repository-wide, no invalidation clones. git diff --check passed.
+      Fetched main at the merge SHA and verified its entire tree equals the tested PR head.
+      Post-merge checks observed: CI in progress
+      https://github.com/tarkovtracker-org/TarkovTracker/actions/runs/35175683566;
+      Security in progress https://github.com/tarkovtracker-org/TarkovTracker/actions/runs/35175683473;
+      Link Check succeeded https://github.com/tarkovtracker-org/TarkovTracker/actions/runs/35175683637.
+      Cloudflare Pages, Workers Builds api-gateway, and Supabase Preview were also in progress.
+      No waiting or polling loop: the multi-stage main pipeline had just started.
+      Post-merge main CI/release/deployment checks are NOT yet verified; retain pr_open and the
+      audited base last_reviewed_commit until the completion gate is satisfied.
+      Local durable handoff branch: duo/docs/ch-001-post-merge-ledger in .wt/code-health, based on
+      the merge SHA. This ledger-only handoff is not a new audit slice. No follow-up PR is opened
+      until post-merge evidence exists, per README; resume this local branch without discarding it.
+      NEXT RUN: fetch main, inspect exact-merge-SHA checks and current main checks plus release
+      outcomes, resolve any failures before proceeding. Reconcile any material changes to audited
+      paths, then complete the README ledger-only transition in a focused PR through normal gates.
+      Only after that is merged and verified may a later run select CH-002, the highest queued P1;
+      split its loading responsibility into bounded dependent slices at selection.
   - id: CH-002
     area: Tarkov store data loading (useTarkov.loadData)
     paths: [app/stores/useTarkov.ts]
