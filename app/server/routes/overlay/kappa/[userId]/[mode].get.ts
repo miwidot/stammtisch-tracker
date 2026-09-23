@@ -241,31 +241,71 @@ const buildCustomTokens = (hex: string): { bar: string; glow: string; text: stri
     text: `#${toHex(lightR)}${toHex(lightG)}${toHex(lightB)}`,
   };
 };
-const FONT_CONFIG: Record<OverlayFont, { family: string; href: string }> = {
+// Self-hosted under public/fonts/overlay/ (see the OFL.txt license there) rather than loaded
+// from fonts.googleapis.com/fonts.gstatic.com: a Google-hosted <link> would leak the streamer's
+// IP address to Google on every OBS browser-source render, which is the exact pattern German
+// courts (LG München I, 20.01.2022) found to violate GDPR for third-party font loading. Inter,
+// Oswald, Outfit and Roboto Mono ship a single variable-weight woff2 covering their whole range;
+// Poppins and Rajdhani have no variable axis on Google Fonts, so each weight is a separate file.
+// Only the resolved font's @font-face rule(s) are inlined per request (see buildFontFaceCss),
+// not all six, keeping the per-request payload proportional to what that overlay actually uses.
+const FONT_CONFIG: Record<
+  OverlayFont,
+  { faces: Array<{ src: string; weight: string }>; family: string }
+> = {
   inter: {
+    faces: [{ src: '/fonts/overlay/inter-variable.woff2', weight: '400 800' }],
     family: "'Inter', 'Segoe UI', sans-serif",
-    href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap',
   },
   oswald: {
+    faces: [{ src: '/fonts/overlay/oswald-variable.woff2', weight: '400 700' }],
     family: "'Oswald', sans-serif",
-    href: 'https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&display=swap',
   },
   outfit: {
+    faces: [{ src: '/fonts/overlay/outfit-variable.woff2', weight: '400 800' }],
     family: "'Outfit', sans-serif",
-    href: 'https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap',
   },
   poppins: {
+    faces: [
+      { src: '/fonts/overlay/poppins-400.woff2', weight: '400' },
+      { src: '/fonts/overlay/poppins-500.woff2', weight: '500' },
+      { src: '/fonts/overlay/poppins-600.woff2', weight: '600' },
+      { src: '/fonts/overlay/poppins-700.woff2', weight: '700' },
+      { src: '/fonts/overlay/poppins-800.woff2', weight: '800' },
+    ],
     family: "'Poppins', sans-serif",
-    href: 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap',
   },
   rajdhani: {
+    faces: [
+      { src: '/fonts/overlay/rajdhani-400.woff2', weight: '400' },
+      { src: '/fonts/overlay/rajdhani-500.woff2', weight: '500' },
+      { src: '/fonts/overlay/rajdhani-600.woff2', weight: '600' },
+      { src: '/fonts/overlay/rajdhani-700.woff2', weight: '700' },
+    ],
     family: "'Rajdhani', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-    href: 'https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap',
   },
   'roboto-mono': {
+    faces: [{ src: '/fonts/overlay/roboto-mono-variable.woff2', weight: '400 700' }],
     family: "'Roboto Mono', monospace",
-    href: 'https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&display=swap',
   },
+};
+const buildFontFaceCss = (font: OverlayFont): string => {
+  const { faces, family } = FONT_CONFIG[font];
+  // family is one of the fixed, code-defined FONT_CONFIG entries above, never derived from the
+  // request; strip the fallback stack (e.g. "'Inter', 'Segoe UI', sans-serif") down to the bare
+  // family name @font-face needs.
+  const bareFamily = family.split(',')[0]?.trim() ?? family;
+  return faces
+    .map(
+      ({ src, weight }) => `@font-face {
+        font-family: ${bareFamily};
+        font-style: normal;
+        font-weight: ${weight};
+        font-display: swap;
+        src: url('${src}') format('woff2');
+      }`
+    )
+    .join('\n');
 };
 export default defineEventHandler((event) => {
   const userId = (getRouterParam(event, 'userId') || '').trim();
@@ -343,7 +383,7 @@ export default defineEventHandler((event) => {
     trackColor,
     trackOpacity,
   };
-  const fontHref = resolvedFont.href;
+  const fontFaceCss = buildFontFaceCss(font);
   setHeader(event, 'Content-Type', 'text/html; charset=utf-8');
   setResponseHeader(event, 'Cache-Control', 'no-store, max-age=0');
   setResponseHeader(
@@ -357,10 +397,9 @@ export default defineEventHandler((event) => {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>TarkovTracker Stream Overlay</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="${fontHref}" rel="stylesheet" />
     <style>
+      ${fontFaceCss}
+
       :root {
         color-scheme: dark;
       }

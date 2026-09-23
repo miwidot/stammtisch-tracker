@@ -56,12 +56,16 @@ describe('Overlay Kappa Route', () => {
     );
     expect(cspHeader).toContain("script-src 'unsafe-inline'");
     expect(cspHeader).toContain("frame-ancestors 'self'");
-    expect(cspHeader).toContain('https://fonts.googleapis.com');
+    // Fonts are self-hosted (see public/fonts/overlay/): no Google Fonts host may appear in the
+    // CSP or the served HTML, or the streamer's IP leaks to Google on every OBS render.
+    expect(cspHeader).not.toContain('fonts.googleapis.com');
+    expect(cspHeader).not.toContain('fonts.gstatic.com');
+    expect(cspHeader).toContain("font-src 'self'");
     expect(html).toContain('<title>TarkovTracker Stream Overlay</title>');
-    expect(html).toContain('<link rel="preconnect" href="https://fonts.googleapis.com" />');
-    expect(html).toContain(
-      '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />'
-    );
+    expect(html).not.toContain('fonts.googleapis.com');
+    expect(html).not.toContain('fonts.gstatic.com');
+    expect(html).toContain('@font-face');
+    expect(html).toContain("src: url('/fonts/overlay/rajdhani-400.woff2') format('woff2')");
     expect(html).toContain('"align":"bottom-left"');
     expect(html).toContain('"container":"canvas"');
     expect(html).toContain('"trackOpacity":20');
@@ -101,6 +105,50 @@ describe('Overlay Kappa Route', () => {
     expect(html).toContain('"background":"custom"');
     expect(html).toContain('"trackOpacity":55');
     expect(html).toContain('"font":"inter"');
-    expect(html).toContain('family=Inter:wght@400;500;600;700;800&display=swap');
+    expect(html).toContain("font-family: 'Inter'");
+    expect(html).toContain("src: url('/fonts/overlay/inter-variable.woff2') format('woff2')");
+    expect(html).not.toContain('fonts.googleapis.com');
+  });
+  it('never references a Google Fonts host for any selectable font, and inlines only the requested font', async () => {
+    const fonts = ['inter', 'oswald', 'outfit', 'poppins', 'rajdhani', 'roboto-mono'];
+    for (const font of fonts) {
+      mockGetQuery.mockReturnValue({ font });
+      const { default: handler } =
+        await import('@/server/routes/overlay/kappa/[userId]/[mode].get');
+      const html = await handler(mockEvent as H3Event);
+      expect(html).not.toContain('fonts.googleapis.com');
+      expect(html).not.toContain('fonts.gstatic.com');
+      expect(html).not.toContain('google');
+      const faceCount = html.match(/@font-face/g)?.length ?? 0;
+      expect(faceCount).toBeGreaterThan(0);
+    }
+  });
+  it('falls back to the default font for an unknown/invalid font query value', async () => {
+    mockGetQuery.mockReturnValue({ font: '<script>alert(1)</script>' });
+    const { default: handler } = await import('@/server/routes/overlay/kappa/[userId]/[mode].get');
+    const html = await handler(mockEvent as H3Event);
+    expect(html).toContain('"font":"rajdhani"');
+    expect(html).toContain("font-family: 'Rajdhani'");
+    expect(html).not.toContain('<script>alert(1)</script>');
+  });
+  it('every self-hosted font file referenced by an @font-face src actually exists under public/', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const fonts = ['inter', 'oswald', 'outfit', 'poppins', 'rajdhani', 'roboto-mono'];
+    const referencedPaths = new Set<string>();
+    for (const font of fonts) {
+      mockGetQuery.mockReturnValue({ font });
+      const { default: handler } =
+        await import('@/server/routes/overlay/kappa/[userId]/[mode].get');
+      const html = await handler(mockEvent as H3Event);
+      for (const match of html.matchAll(/src: url\('(\/fonts\/overlay\/[^']+)'\)/g)) {
+        referencedPaths.add(match[1] as string);
+      }
+    }
+    expect(referencedPaths.size).toBeGreaterThan(0);
+    for (const referencedPath of referencedPaths) {
+      const absolutePath = path.resolve(process.cwd(), 'public', referencedPath.replace(/^\//, ''));
+      await expect(fs.access(absolutePath)).resolves.toBeUndefined();
+    }
   });
 });

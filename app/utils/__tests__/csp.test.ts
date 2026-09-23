@@ -115,8 +115,11 @@ describe('nuxt.config CSP', () => {
     expect(getDirectiveSources(csp, 'default-src')).toEqual(["'none'"]);
     expect(getDirectiveSources(csp, 'script-src')).toEqual(["'none'"]);
     expect(getDirectiveSources(csp, 'connect-src')).toEqual(["'self'"]);
-    expect(getDirectiveSources(csp, 'style-src')).toContain('https://fonts.googleapis.com');
-    expect(getDirectiveSources(csp, 'font-src')).toContain('https://fonts.gstatic.com');
+    // Overlay fonts are self-hosted (public/fonts/overlay/): the overlay CSP must never allow a
+    // Google Fonts host, unlike the main app's style-src/font-src above.
+    expect(getDirectiveSources(csp, 'style-src')).not.toContain('https://fonts.googleapis.com');
+    expect(getDirectiveSources(csp, 'font-src')).not.toContain('https://fonts.gstatic.com');
+    expect(getDirectiveSources(csp, 'font-src')).toEqual(["'self'"]);
     expect(getDirectiveSources(csp, 'frame-ancestors')).toEqual(["'self'"]);
     const inlineCsp = buildOverlayContentSecurityPolicy({ allowUnsafeInlineScripts: true });
     expect(getDirectiveSources(inlineCsp, 'script-src')).toEqual(["'unsafe-inline'"]);
