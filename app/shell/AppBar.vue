@@ -66,7 +66,7 @@
         </div>
         <!-- Group 1: Utilities (Theme + Bell + Help) -->
         <div class="flex items-center gap-1">
-          <AppTooltip :text="themeToggleLabel">
+          <AppTooltip v-if="LIGHT_THEME_ENABLED" :text="themeToggleLabel">
             <UButton
               color="neutral"
               variant="ghost"
@@ -189,6 +189,7 @@
   import { usePreferencesStore } from '@/stores/usePreferences';
   import { useTarkovStore } from '@/stores/useTarkov';
   import { GAME_MODES, isGameMode } from '@/utils/constants';
+  import { LIGHT_THEME_ENABLED } from '@/utils/forkConfig';
   import { DEFAULT_KEYBINDS } from '@/utils/keybinds';
   import { logger } from '@/utils/logger';
   import { SHELL_DESKTOP_BREAKPOINT_PX } from '@/utils/shellConfig';
@@ -312,13 +313,17 @@
   ]);
   const moreMenuItems = computed<DropdownMenuItem[][]>(() => [
     [
-      {
-        icon: isLightTheme.value ? 'i-heroicons-moon' : 'i-heroicons-sun',
-        label: themeToggleLabel.value,
-        onSelect: () => {
-          toggleThemeMode();
-        },
-      },
+      ...(LIGHT_THEME_ENABLED
+        ? [
+            {
+              icon: isLightTheme.value ? 'i-heroicons-moon' : 'i-heroicons-sun',
+              label: themeToggleLabel.value,
+              onSelect: () => {
+                toggleThemeMode();
+              },
+            },
+          ]
+        : []),
       {
         icon: 'i-mdi-translate',
         label: t('settings.locale'),

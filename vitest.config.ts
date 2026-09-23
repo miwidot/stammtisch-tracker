@@ -10,7 +10,7 @@ export default defineVitestConfig({
   test: {
     environment: 'nuxt',
     globals: true,
-    setupFiles: ['./tests/test-setup.ts'],
+    setupFiles: ['./tests/test-setup.ts', './tests/fork-test-setup.ts'],
     exclude: [
       ...configDefaults.exclude,
       'workers/**',

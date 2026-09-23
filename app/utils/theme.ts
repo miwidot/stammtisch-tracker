@@ -6,12 +6,18 @@
  * store) so the boot script in nuxt.config can apply `data-theme` and
  * `color-scheme` before first paint and avoid a wrong-theme flash.
  */
+// LIGHT_THEME_ENABLED is deliberately NOT re-exported here: Nuxt's auto-import scanner treats
+// every export under app/utils/*.ts as a global, and a name exported from two files in that
+// directory is an auto-import ambiguity (see the `imports:extend` collision guards in
+// nuxt.config.ts for prior instances of this). Import it from '@/utils/forkConfig' directly.
+import { LIGHT_THEME_ENABLED } from './forkConfig';
 export const THEME_STORAGE_KEY: string = 'tt_theme';
 export const THEME_MODES = ['dark', 'light'] as const;
 export type ThemeMode = (typeof THEME_MODES)[number];
 export const DEFAULT_THEME_MODE: ThemeMode = 'dark';
 /** Normalize any persisted/unknown value to a supported theme mode. */
 export const normalizeThemeMode = (value: unknown): ThemeMode => {
+  if (!LIGHT_THEME_ENABLED) return DEFAULT_THEME_MODE;
   return value === 'light' ? 'light' : DEFAULT_THEME_MODE;
 };
 const resolveStorage = <T>(custom?: T): T | Storage | undefined => {
@@ -60,14 +66,25 @@ export const applyThemeMode = (
  * Synchronous boot script inlined into the document head by nuxt.config. Runs
  * before first paint so returning light-theme users never see a dark flash.
  * Keep in sync with readStoredThemeMode/applyThemeMode.
+ *
+ * With the light theme disabled, a value stored before this fork decision
+ * (e.g. `tt_theme=light` from a trackerdev session under upstream's toggle)
+ * is deliberately never read here, so those users see dark immediately with
+ * no flash. The stale key is left in localStorage rather than actively wiped
+ * on every boot; it is inert everywhere it is read (this script and
+ * normalizeThemeMode both ignore it while LIGHT_THEME_ENABLED is false).
  */
 export const THEME_BOOT_SCRIPT: string = [
   '(function(){',
   `var t=${JSON.stringify(DEFAULT_THEME_MODE)};`,
-  'try{',
-  `var s=window.localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});`,
-  'if(s==="light"||s==="dark"){t=s;}',
-  '}catch(e){}',
+  ...(LIGHT_THEME_ENABLED
+    ? [
+        'try{',
+        `var s=window.localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});`,
+        'if(s==="light"||s==="dark"){t=s;}',
+        '}catch(e){}',
+      ]
+    : []),
   'var e=document.documentElement;',
   'e.setAttribute("data-theme",t);',
   'e.style.colorScheme=t;',

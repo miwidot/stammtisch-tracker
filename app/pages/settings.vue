@@ -99,7 +99,7 @@
               role="tabpanel"
               :aria-label="$t('common.preferences')"
             >
-              <AppearanceCard />
+              <AppearanceCard v-if="LIGHT_THEME_ENABLED" />
               <GeneralPreferencesCard />
               <TaskDisplayCard />
               <MapSettingsCard />
@@ -172,6 +172,7 @@
   import { useSystemStore, useSystemStoreWithSupabase } from '@/stores/useSystemStore';
   import { useTarkovStore } from '@/stores/useTarkov';
   import { GAME_MODES } from '@/utils/constants';
+  import { LIGHT_THEME_ENABLED } from '@/utils/forkConfig';
   import type { TabsProps } from '@nuxt/ui';
   definePageMeta({
     alias: ['/progression', '/prestige', '/preferences'],
