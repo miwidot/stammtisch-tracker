@@ -1649,7 +1649,8 @@ The checkout stays pinned to the validated SHA. The production build still runs 
   check remain the final safeguards if main advances after the last eligibility check.
 - Dispatched CI publishes the aggregate validator outcome as a `CI Result` commit status on the
   exact workflow-run SHA. GitHub excludes dispatch-created job checks from branch rules; the
-  status uses the GitHub Actions job token with job-scoped `statuses: write`. That job checks out
+  status uses the GitHub Actions job token with job-scoped `statuses: write` and
+  `pull-requests: read` for Crowdin merge attestation. That job checks out
   the trusted default branch for aggregation and reporting, never candidate branch code. Only aggregate
   success publishes success; failed, cancelled, skipped, or missing validation publishes failure.
   Validation jobs unknown to the trusted aggregator also fail the result, so a new job must land in
@@ -1661,19 +1662,22 @@ The checkout stays pinned to the validated SHA. The production build still runs 
   CI Result job, so automation cannot promote the commit.
 - Release version commits pass explicitly dispatched CI on a temporary `wip/release-*` branch and
   receive an Actions-owned preview (§18) before the identical SHA advances main; the embedded
-  version makes them deployable changes. `scripts/github-ci-gate.sh` waits for both `CI Result`
-  and the authoritative `Preview Result` on the exact SHA (`wait_for_validated_head`), each bounded
-  to 60 minutes; the containing Release and Crowdin workflows are bounded to 90 minutes. Ordinary
+  version makes them deployable changes. `scripts/github-ci-gate.sh` waits for the exact dispatched
+  CI run and its `CI Result`, requests one preview, then waits for the authoritative `Preview Result`
+  on the same SHA; gate waits are bounded to 60 minutes, and the containing Release and Crowdin
+  workflows are bounded to 90 minutes. Ordinary
   `wip/**` push CI no longer exists. The main ruleset requires successful GitHub Actions
   `CI Result`, strict freshness, and no bypass actors. Non-fast-forward promotion fails if main advances.
 - If publication fails after version promotion, an explicit rerun can recover only the direct
   version-only child of the original CI revision, with successful exact-head `CI Result` **and**
   `Preview Result` and unchanged manifest/changelog history. The `Preview Result` evidence is
-  authenticated, not merely present: the newest status on the SHA must be a success reported on
-  that exact SHA and its `target_url` must resolve to a run of `.github/workflows/preview.yml@main`
-  (the trusted workflow definition on the default branch — a dispatch of the workflow from any
-  other ref is rejected) whose `Publish preview result` job concluded successfully, proving a candidate was planned,
-  deployed, smoke-tested, and authoritatively reported (never an `ignore` no-op run).
+  authenticated, not merely present: the newest status returned by the exact-SHA commit endpoint
+  must be a success, and its `target_url` must resolve to a completed `workflow_dispatch` run of
+  `.github/workflows/preview.yml` whose branch is `main` and whose head repository matches this
+  repository (GitHub reports path and branch separately). Its `Publish preview result` job must
+  conclude successfully, and the run must retain `preview-deployment-<sha>` evidence for the exact
+  version commit. These checks prove a candidate was deployed, smoke-tested, and authoritatively
+  reported (never an `ignore` no-op run).
   Recovery creates missing tags/releases
   idempotently, rejects tag conflicts, and never advances main or bumps another version.
 - The staging push uses `GITHUB_TOKEN` and explicitly dispatches CI; main promotion uses it to
@@ -1693,13 +1697,22 @@ behind branch, explicitly dispatches candidate CI, and performs the final merge;
 - Behind translation branches first receive a GitHub branch update guarded by the expected head.
   Only afterward does the workflow capture and validate a candidate. Conflicts fail closed.
 - Candidates contain captured main. Preflight checks reject observed main/head changes and
-  non-clean merge states. Only unknown calculations retry.
+  non-clean merge states. Unknown calculations and a temporary `BLOCKED` state after preview
+  success retry for up to 60 seconds; only `MERGEABLE / CLEAN` may merge.
 - The gate awaits successful GitHub Actions `CI Result` and then the `Preview Result` commit status
   on the exact head (the explicit `locales` dispatch produces the preview even though job-token
-  actions suppress ordinary pull-request events) and verifies the effective
+  PR updates leave ordinary `pull_request` runs approval-required) and verifies the effective
   repository rule requires the CI check with strict freshness. The administrator verifies the deployed
   ruleset has no bypass actors; automation does not receive ruleset write access to read that list.
   GitHub enforces the base requirement at merge time; missing/weakened required checks fail closed.
+- The trusted dispatched CI result job also reports `CI Result` on GitHub's test-merge commit only
+  when exactly one eligible same-repository `locales` PR has the validated head, its base equals
+  current main on both reads, its merge SHA stays unchanged, and the head and test-merge Git trees
+  are identical. This attests the same fully tested files without running candidate code in the
+  status-writing job. A missing test-merge SHA is fetched from the selected PR with a bounded retry.
+  A changed revision or different tree fails the result job before preview and leaves the merge
+  status absent. A later failed dispatch publishes failure to the same PR's current test-merge SHA
+  as well as the head, superseding any earlier success on that merge commit.
 - The server-side `--match-head-commit` guard must use the SHA that passed all validation.
 - Merges use `GITHUB_TOKEN`, then explicitly dispatch main CI for the release gate. No personal
   GitHub token is needed. CI dispatch failures fail the workflow; candidate failures prevent merging.
@@ -2122,7 +2135,7 @@ the loader never reaches a real import.
 
 ## 18. Actions-owned Cloudflare previews
 
-**Summary.** Pull requests and eligible non-main dispatches no longer rely on Cloudflare's
+**Summary.** Pull requests and eligible non-main dispatches do not rely on Cloudflare's
 automatic Git previews. The candidate `Validate` job builds the actual Pages output once with the
 anonymous preview profile (`scripts/preview/profile.mjs`), records a versioned manifest
 (`scripts/preview/manifest.mjs`, `scripts/preview/write-manifest.mjs`) inside the output, and
@@ -2138,17 +2151,19 @@ smoke suite (`scripts/preview/smoke/preview.smoke.mjs`) without Cloudflare crede
 publishes the authoritative `Preview Result` commit status. Downstream consumers (the release
 gate and interrupted-release recovery) must not trust the status in isolation: commit statuses
 are forgeable by write collaborators, so the evidence binds to the controller run behind its
-`target_url` with a successful `Publish preview result` job on the exact SHA, and the bound run
-must execute the `.github/workflows/preview.yml@main` definition (default-branch ref only).
+`target_url`. That run must report path `.github/workflows/preview.yml`, event
+`workflow_dispatch`, branch `main`, and this repository; its `Publish preview result` job must
+succeed and it must retain a `preview-deployment-<sha>` artifact for the exact candidate.
 
 ### Flow
 
 ```text
 PR update → CI (selected validation + security + preview build + manifest + artifact)
           → CI Result succeeds
-          → controller (workflow_run / pull_request_target / manual rerun) resolves candidate
+          → controller (workflow_run / pull_request_target) resolves candidate and publishes pending
+          → maintainer (or trusted merge automation) dispatches Preview for the successful CI run
           → ready PR + current head/base/test-merge + attempt + artifact claims verified
-          → environment `preview` (auto) or `preview-fork` (maintainer approval per revision)
+          → environment `preview` or `preview-fork` (maintainer approval for forks)
           → recheck → wrangler pages deploy --branch preview-* → deployment record verified
           → smoke tests on the unique deployment URL (5-minute startup window)
           → freshness recheck → Preview Result success [preview <digest12> v<profile>]
@@ -2159,6 +2174,7 @@ PR update → CI (selected validation + security + preview build + manifest + ar
 | Situation                                                          | `Preview Result`                           |
 | ------------------------------------------------------------------ | ------------------------------------------ |
 | Validation running, deployable draft, fork awaiting approval       | pending, with reason                       |
+| Preview-required PR has successful CI but no dispatch yet          | pending, waiting for a maintainer request  |
 | Successful CI and verified documentation-only scope                | success: not applicable                    |
 | Current deployment and smoke tests succeed                         | success, with digest/profile marker        |
 | Validation, artifact verification, deployment, or smoke tests fail | failure                                    |
@@ -2172,8 +2188,9 @@ records action, revision, digest, deployment URL, and validation-to-preview dura
 
 - Candidate builds receive no deployment credentials. The controller never checks out, installs,
   or executes candidate code and never consumes candidate Wrangler configuration; the uploader
-  passes `--config wrangler.toml` from the default branch, a fixed project name, and a generated
-  `preview-*` branch. The configured production branch is rejected at every layer.
+  discovers `wrangler.toml` from the default-branch checkout at the repository root, uses a fixed
+  project name and generated `preview-*` branch, and rejects the configured production branch at
+  every layer.
 - Every manifest field is a claim: repository, pull request, head SHA, base SHA, checked-out
   test-merge SHA, tree SHA, run id, run attempt, build-profile version, preview branch, app URL,
   and digest are compared with live GitHub state and the recomputed digest before planning and
@@ -2182,7 +2199,18 @@ records action, revision, digest, deployment URL, and validation-to-preview dura
 - Archives are parsed from the central directory before extraction; symbolic links, special
   files, traversal, absolute paths, duplicates, encryption, and checksum mismatches are rejected.
 - Successful deployments are deduplicated by revision, artifact digest, and profile version through
-  the status marker; `ready_for_review` reuses matching evidence instead of redeploying.
+  the status marker. Before `ready_for_review` reuses a result, the controller authenticates the
+  original run and its exact-SHA deployment artifact, then keeps that run URL on the new success.
+- Pull-request and CI-completion events never upload to Cloudflare. Only a trusted
+  `workflow_dispatch` from `main` can deploy, and it repeats the exact-SHA, CI, artifact, and
+  freshness checks. Crowdin and release staging dispatch once after their own exact-SHA CI passes;
+  allowlisted Dependabot auto-merge candidates dispatch from a trusted post-CI `workflow_run` after
+  all checks pass. Ordinary PR pushes
+  never request deployment. Cloudflare automatic preview builds are disabled while production Git
+  deployments for `main` remain enabled.
+- The Pages-only deployment token is stored only in the protected `preview` and `preview-fork`
+  environments, whose branch policy allows `main`; remove the repository-scoped copy. This prevents
+  a manually dispatched workflow selected from another ref from reading the deployment credential.
 - Fork candidates deploy only through the protected `preview-fork` environment; the exact revision
   is shown before approval and rechecked afterward, so approval never carries to another head.
 - The Pages preview environment has no production KV or Durable Object bindings and empty Supabase,
@@ -2199,16 +2227,40 @@ records action, revision, digest, deployment URL, and validation-to-preview dura
   `Preview Result` on the intended revision (§14). Production deployment remains Cloudflare's Git
   integration for `main` and is unchanged.
 
-Gates consume only results that the trusted workflows publish: `CI Result` and `Preview Result`
-are GitHub Actions commit statuses and check runs (app id 15368) on the exact validated revision,
-and waiting automation re-reads them from the API rather than trusting `target_url` or any payload
-snapshot. When an aggregate accepts a job during a documented compatibility window, the window
+Current gates consume `CI Result` and `Preview Result` from GitHub Actions (app id 15368) on the
+exact validated revision, and waiting automation re-reads them from the API rather than trusting
+`target_url` or a payload snapshot. The app id does not authenticate a workflow definition: a
+same-repository PR can edit its `pull_request` workflow and request `statuses: write`. The opt-in
+shadow below never publishes a merge result; a separate trusted publisher boundary is required
+before moving the ordinary preview build out of CI. When an aggregate accepts a job during a
+documented compatibility window, the window
 applies only to that job's absence; a reported non-success outcome still fails the aggregate, and
 the accepting aggregator version ships in the same change that activates the job.
+
+### Opt-in finalization shadow
+
+`.github/workflows/finalization-shadow.yml` is a non-authoritative rehearsal of a late build.
+A maintain/admin actor dispatches it from `main` with an open non-draft PR number and its successful
+exact-head CI run id. The trusted planner checks the live head/base/test-merge parents and tree,
+the CI run's PR snapshot, and the attempt-specific `CI Result` job. Docs-only changes skip build.
+The `github-script` handoff passes the repository explicitly because spreading its context drops
+the computed `repo` property; missing repository identity fails planning before any build.
+Docs-only runs still receive a terminal revision recheck. GitHub's workflow-run API may omit the
+PR/base snapshot for fork runs; the shadow rejects those runs until an authenticated historical
+base source is available. This does not change the existing approved fork-preview path.
+Deployable changes build the test merge in a digest-pinned Node container without repository
+write credentials, Actions runtime/cache token, OIDC, deployment secrets, or Docker socket. A
+trusted host step rejects links, special files, and oversized output before the artifact uploader
+can read it. A separate clean runner treats the candidate build artifact as hostile, safely extracts it, rechecks
+the live revision, and seals `pages-preview-shadow` with a digest and versioned manifest. Competing
+same-PR dispatches cancel; pushes and base changes invalidate the old request. The shadow neither
+deploys nor publishes required statuses. Ordinary CI still builds/uploads `pages-preview`.
 
 ### Files
 
 - `.github/workflows/preview.yml` — trusted controller: plan, deploy, smoke, result jobs
+- `.github/workflows/finalization-shadow.yml`, `scripts/preview/finalization-shadow.mjs`,
+  `scripts/preview/shadow-container.sh` — opt-in late-build rehearsal, no deployment or required result
 - `.github/workflows/ci.yml` — `Validate` build profile, manifest, `pages-preview` artifact; `security` call
 - `.github/workflows/security.yml` — reusable audit/Gitleaks/CodeQL workflow plus weekly schedule
 - `scripts/preview/profile.mjs` — project identity, branch alias derivation, anonymous build env
