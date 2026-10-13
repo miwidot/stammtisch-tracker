@@ -29,31 +29,21 @@ const mockToast = {
 const mockSkillCalculation = {
   migrateLegacySkillOffsets: vi.fn(),
 };
-const supporterTierRef = ref<string | null>(null);
-const mockUseSupporter = vi.fn(() => ({
-  activeTier: supporterTierRef,
-}));
 const mockMetadataStore = reactive({
   loading: false,
   hideoutLoading: false,
   updateLanguageAndGameMode: vi.fn(),
   fetchAllData: vi.fn(async () => {}),
+  hasCriticalLocaleCache: vi.fn(async () => true),
 });
 const mockPreferencesStore = {
   getStreamerMode: false,
   getLocaleOverride: 'en' as string | null,
   setLocaleOverride: vi.fn(),
 };
-const routeState = reactive({
-  name: 'tasks',
-  params: {} as Record<string, unknown>,
-});
 const mockTarkovStore = {
   getCurrentGameMode: vi.fn(() => 'pvp'),
   getDisplayName: vi.fn(() => ''),
-  getModeDisplayName: vi.fn((): string | null => null),
-  getPvEProgressData: vi.fn((): { displayName: string | null } => ({ displayName: null })),
-  getPvPProgressData: vi.fn((): { displayName: string | null } => ({ displayName: null })),
 };
 vi.mock('vue-i18n', async (importOriginal) => ({
   ...(await importOriginal<typeof import('vue-i18n')>()),
@@ -92,9 +82,6 @@ vi.mock('@/composables/useTheme', () => ({
     toggleThemeMode: mockToggleThemeMode,
   }),
 }));
-vi.mock('@/composables/useSupporter', () => ({
-  useSupporter: () => mockUseSupporter(),
-}));
 vi.mock('@/stores/useActivityLogStore', () => ({
   useActivityLogStore: () => ({
     unreadCount: 0,
@@ -132,9 +119,6 @@ vi.mock('@/utils/logger', () => ({
 mockNuxtImport('useNuxtApp', () => () => ({
   $supabase: mockSupabase,
 }));
-mockNuxtImport('useRoute', () => () => ({
-  ...routeState,
-}));
 mockNuxtImport('useSkillCalculation', () => () => mockSkillCalculation);
 mockNuxtImport('useToast', () => () => mockToast);
 mockNuxtImport('useRuntimeConfig', () => () => ({
@@ -142,12 +126,6 @@ mockNuxtImport('useRuntimeConfig', () => () => ({
     trackerHandoffUrl: 'https://dev.tarkov-stammtisch.de/api/tracker/handoff',
   },
 }));
-const SelectMenuFixedStub = {
-  props: ['items', 'modelValue'],
-  emits: ['update:modelValue'],
-  template:
-    '<label data-testid="select-menu-fixed"><slot name="leading" /><select v-bind="$attrs" :value="modelValue" @change="$emit(\'update:modelValue\', $event.target.value)"><option v-for="item in (items || [])" :key="item.value" :value="item.value">{{ item.label }}</option></select></label>',
-};
 const mountAppBar = async () => {
   const { default: AppBar } = await import('@/shell/AppBar.vue');
   return mount(AppBar, {
@@ -157,7 +135,6 @@ const mountAppBar = async () => {
         AppTooltip: {
           template: '<span><slot /></span>',
         },
-        DiscordIcon: true,
         GlobalHelpLauncher: {
           template: '<div data-testid="global-help-launcher" />',
         },
@@ -165,11 +142,13 @@ const mountAppBar = async () => {
           template: '<a><slot /></a>',
         },
         Omnibar: true,
-        SelectMenuFixed: SelectMenuFixedStub,
+        ProgressSaveStatusIndicator: true,
+        SignOutConfirmModal: true,
         UButton: {
-          props: ['icon'],
+          props: ['icon', 'disabled', 'loading'],
           emits: ['click'],
-          template: '<button :data-icon="icon" @click="$emit(\'click\')"><slot /></button>',
+          template:
+            '<button :data-icon="icon" :disabled="disabled || undefined" @click="$emit(\'click\')"><slot /></button>',
         },
         UDropdownMenu: {
           props: ['items'],
@@ -191,8 +170,6 @@ const mountAppBar = async () => {
 describe('AppBar theme toggle disabled (fork: light theme unreachable)', () => {
   beforeEach(() => {
     windowWidthRef.value = 1280;
-    routeState.name = 'tasks';
-    routeState.params = {};
     mockThemeModeRef.value = 'dark';
     mockIsLightThemeRef.value = false;
     mockToggleThemeMode.mockClear();

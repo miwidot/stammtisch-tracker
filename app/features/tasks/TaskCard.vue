@@ -353,14 +353,6 @@
           "
         />
         <ContextMenuItem
-          icon="i-mdi-alert-circle-outline"
-          :label="t('page.tasks.questcard.report_data_issue')"
-          @click="
-            openTaskDataIssue();
-            close();
-          "
-        />
-        <ContextMenuItem
           v-if="hasAvailabilityConfirmation"
           icon="i-mdi-lock-reset"
           :label="t('page.tasks.questcard.clear_availability_confirmation')"

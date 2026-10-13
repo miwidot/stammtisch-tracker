@@ -126,18 +126,15 @@ describe('reported translation defects', () => {
     );
     expect(crowdin.get('page.tasks.questcard.lightkeeper_tooltip')).toContain('Lightkeeper');
   });
-  // The Kappa page header shipped as raw English in the German bundle — both
-  // the title and a full English sentence underneath it. The translation keeps
-  // Kappa and Lightkeeper as proper nouns and follows the storyline page, which
-  // renders the same "Track your progress…" opening as "Verfolge deinen
-  // Fortschritt…" with the proper noun carried into the compound.
-  it('translates the Kappa page header instead of shipping English', () => {
-    expect(crowdin.get('page.kappa.title')).toBe(source.get('page.kappa.title'));
-    expect(crowdin.get('page.kappa.subtitle')).toBe(source.get('page.kappa.subtitle'));
-    expect(overrides.get('page.kappa.title')).toBe('Kappa- & Lightkeeper-Tracker');
-    expect(overrides.get('page.kappa.subtitle')).toBe(
-      'Verfolge deinen Fortschritt beim Kappa-Container und den Lightkeeper-Aufgaben.'
+  // Upstream/Crowdin has since translated the Kappa page header itself (no longer
+  // raw English), so the override for it was removed. `common.kappa_lightkeeper`
+  // stays overridden (see IDENTICAL_BY_DESIGN above): Crowdin now translates
+  // "Lightkeeper" too, which this fork intentionally keeps as the proper noun.
+  it('keeps Lightkeeper as a proper noun even though Crowdin now translates it', () => {
+    expect(crowdin.get('common.kappa_lightkeeper')).not.toBe(
+      source.get('common.kappa_lightkeeper')
     );
+    expect(overrides.get('common.kappa_lightkeeper')).toBe('Kappa & Lightkeeper');
   });
   // The phrasing the translation above follows.
   it('opens the way the storyline page already does', () => {
@@ -156,9 +153,6 @@ describe('reported translation defects', () => {
     );
     expect(overrides.get('page.tasks.settings.appearance.collapse_completed_objectives')).toBe(
       'Ziele abgeschlossener Aufgaben einklappen'
-    );
-    expect(overrides.get('page.tasks.settings.appearance.hide_rewards')).toBe(
-      'Belohnungen ausblenden'
     );
     expect(overrides.get('settings.interface.tasks.hide_rewards')).toBe('Belohnungen ausblenden');
   });
@@ -179,13 +173,14 @@ describe('reported translation defects', () => {
     expect(crowdin.get('page.tasks.questcard.available_button')).toBe('Als verfügbar markieren');
     expect(crowdin.get('page.tasks.questcard.mark_failed')).toBe('Als fehlgeschlagen markieren');
   });
-  it('translates the accepted-items popover', () => {
+  // Upstream/Crowdin has since translated the accepted-items popover itself, so
+  // the overrides for it were removed; this just guards against them silently
+  // regressing back to English.
+  it('ships a translated accepted-items popover without needing an override', () => {
     for (const key of ['any_of_items', 'any_of_items_short', 'view_accepted_items']) {
       const path = `needed_items.${key}`;
-      expect(crowdin.get(path), `${path} is expected to be untranslated upstream`).toBe(
-        source.get(path)
-      );
-      expect(overrides.get(path)).toBeDefined();
+      expect(crowdin.get(path)).not.toBe(source.get(path));
+      expect(overrides.has(path)).toBe(false);
     }
   });
 });

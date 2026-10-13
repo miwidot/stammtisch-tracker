@@ -18,11 +18,6 @@
   "navigation_drawer": {
     "brand_name": "Tarkov Stammtisch"
   },
-  "needed_items": {
-    "any_of_items": "Einer dieser {count} Gegenstände genügt",
-    "any_of_items_short": "1 von {count}",
-    "view_accepted_items": "Alle {count} akzeptierten Gegenstände anzeigen"
-  },
   "page": {
     "herkunft": {
       "title": "Herkunft",
@@ -61,9 +56,7 @@
     "kappa": {
       "row": {
         "action_reset_failed": "Fehlgeschlagen zurücksetzen"
-      },
-      "subtitle": "Verfolge deinen Fortschritt beim Kappa-Container und den Lightkeeper-Aufgaben.",
-      "title": "Kappa- & Lightkeeper-Tracker"
+      }
     },
     "tasks": {
       "questcard": {
@@ -89,8 +82,7 @@
       },
       "settings": {
         "appearance": {
-          "collapse_completed_objectives": "Ziele abgeschlossener Aufgaben einklappen",
-          "hide_rewards": "Belohnungen ausblenden"
+          "collapse_completed_objectives": "Ziele abgeschlossener Aufgaben einklappen"
         }
       }
     }
