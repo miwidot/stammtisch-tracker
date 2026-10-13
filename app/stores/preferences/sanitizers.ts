@@ -1,3 +1,4 @@
+import { normalizeTaskIdList } from '@/features/maps/utils/mapTaskVisibility';
 import {
   normalizeNeededItemsCardStyle,
   normalizeNeededItemsFilterType,
@@ -16,6 +17,7 @@ import type { PreferencesState } from '@/stores/usePreferences';
 export type PersistedPreferencesState = Partial<Omit<PreferencesState, 'saving'>>;
 export type PersistedPreferencesStateWithLegacy = PersistedPreferencesState & {
   taskCardDensity?: unknown;
+  useAutomaticLevelCalculation?: unknown;
   neededItemsHideCollected?: boolean;
   onlyTasksWithSuggestedKeys?: boolean;
 };
@@ -23,6 +25,7 @@ export const requiresLegacyPreferencesMigration = (
   persistedState: PersistedPreferencesStateWithLegacy
 ): boolean => {
   return (
+    'useAutomaticLevelCalculation' in persistedState ||
     'taskCardDensity' in persistedState ||
     'neededItemsHideCollected' in persistedState ||
     'onlyTasksWithSuggestedKeys' in persistedState
@@ -164,12 +167,17 @@ const normalizeOptionalNeededItemsCardStyle = (
 export const clonePreferencesSnapshot = <T>(value: T): T => {
   return cloneSerializablePreferencesValue(value) as T;
 };
+const sanitizeMapTaskVisibilityIds = (state: PersistedPreferencesStateWithLegacy): void => {
+  if ('mapHiddenTaskIds' in state)
+    state.mapHiddenTaskIds = normalizeTaskIdList(state.mapHiddenTaskIds);
+};
 export const sanitizePersistedPreferencesState = (
   persistedState: PersistedPreferencesStateWithLegacy = {}
 ): PersistedPreferencesState => {
   const sanitizedState = clonePreferencesSnapshot(
     persistedState
   ) as PersistedPreferencesStateWithLegacy;
+  delete sanitizedState.useAutomaticLevelCalculation;
   delete sanitizedState.taskCardDensity;
   const legacyHideCollected = sanitizedState.neededItemsHideCollected;
   if (
@@ -249,6 +257,7 @@ export const sanitizePersistedPreferencesState = (
       sanitizedState.neededItemsCardStyle
     );
   }
+  sanitizeMapTaskVisibilityIds(sanitizedState);
   if ('keybindOmnibar' in sanitizedState) {
     sanitizedState.keybindOmnibar = sanitizeKeybind(
       sanitizedState.keybindOmnibar,

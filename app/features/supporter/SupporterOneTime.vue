@@ -9,7 +9,7 @@
           {{ t('page.supporter.one_time_subtitle', { min: formattedMinimum }) }}
         </p>
         <p class="text-surface-300 mt-4 text-xs font-semibold tracking-wide uppercase">
-          {{ t('page.supporter.one_time_perks_heading', 'Includes supporter perks') }}
+          {{ t('page.supporter.one_time_perks_heading') }}
         </p>
         <ul class="mt-2 space-y-2">
           <li
@@ -139,7 +139,7 @@
   const { locale, t } = useI18n({ useScope: 'global' });
   const { $supabase } = useNuxtApp();
   const { createCheckout, error: composableError } = useSupporter();
-  const ONE_TIME_BASE = 3;
+  const ONE_TIME_BASE = 4;
   const ONE_TIME_MAX = 500;
   const amountId = useId();
   const amountErrorId = useId();
@@ -153,6 +153,7 @@
   const loginLink = '/login?redirect=/supporter';
   onMounted(async () => {
     try {
+      await $supabase.ready();
       const { data } = await $supabase.client.auth.getUser();
       currentUserId.value = data?.user?.id ?? null;
     } catch (err) {
@@ -203,7 +204,7 @@
     { icon: 'i-mdi-api', label: t('page.supporter.perk_api_rate_limit') },
     {
       icon: 'i-mdi-calendar-clock',
-      label: t('page.supporter.perk_data_retention'),
+      label: t('page.supporter.perk_one_time_retention'),
     },
   ]);
   const baseAmount = computed(() => numericAmount.value || ONE_TIME_BASE);

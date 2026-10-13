@@ -1,3 +1,4 @@
+import { API_UPDATE_TASK_LIMIT } from '@tarkovtracker/progress-contracts/apiTaskUpdates';
 import { describe, expect, it } from 'vitest';
 import { ACTIVE_SEASON_NUMBER, MAX_SKILL_LEVEL } from '@/utils/constants';
 import {
@@ -8,7 +9,45 @@ import {
   sanitizeOwnedUserState,
 } from '@/utils/progressSanitizers';
 describe('sanitizeOwnedProgressData', () => {
-  it('drops legacy tarkov.dev payloads while preserving canonical fields', () => {
+  it('still bounds oversized confirmation maps during standalone imports', () => {
+    const progress = {
+      level: 1,
+      taskAvailability: Object.fromEntries(
+        Array.from({ length: 66 }, (_, i) => [
+          `s${i + 1}`,
+          { requirements: 'r'.repeat(4000), timestamp: i + 1 },
+        ])
+      ),
+    };
+    const sanitized = sanitizeOwnedProgressData(progress);
+    const state = sanitizeOwnedUserState({ pvp: progress });
+    expect(Object.keys(sanitized.taskAvailability ?? {})).toHaveLength(65);
+    expect(sanitized.taskAvailability).not.toHaveProperty('s1');
+    expect(state.pvp.taskAvailability).toEqual(sanitized.taskAvailability);
+  });
+  it('keeps confirmations in their own map and drops malformed ones', () => {
+    const result = sanitizeOwnedProgressData({
+      taskCompletions: { task: { complete: false, availabilityRequirements: 'legacy' } },
+      taskAvailability: {
+        confirmed: { requirements: 'requirements', timestamp: 10.7 },
+        cleared: { requirements: '', timestamp: 20 },
+        noClock: { requirements: 'requirements' },
+        negative: { requirements: 'requirements', timestamp: -1 },
+        wrongType: { requirements: true, timestamp: 1 },
+        notObject: 'requirements',
+      },
+    });
+    expect(result.taskAvailability).toEqual({
+      confirmed: { requirements: 'requirements', timestamp: 10 },
+      cleared: { requirements: '', timestamp: 20 },
+    });
+    expect(result.taskCompletions.task).toEqual({ complete: false });
+  });
+  it('defaults to no confirmations', () => {
+    expect(sanitizeOwnedProgressData({}).taskAvailability).toEqual({});
+    expect(sanitizeOwnedProgressData({ taskAvailability: [] }).taskAvailability).toEqual({});
+  });
+  it('drops legacy XP offsets and tarkov.dev payloads while preserving canonical fields', () => {
     const result = sanitizeOwnedProgressData({
       apiUpdateHistory: [{ at: 100, id: 'update-1', source: 'api' }],
       displayName: '  Test Player  ',
@@ -27,6 +66,7 @@ describe('sanitizeOwnedProgressData', () => {
       },
       xpOffset: 321,
     });
+    expect(result).not.toHaveProperty('xpOffset');
     expect(result).toEqual({
       apiUpdateHistory: [{ at: 100, id: 'update-1', source: 'api' }],
       displayName: 'Test Player',
@@ -41,12 +81,12 @@ describe('sanitizeOwnedProgressData', () => {
       skillOffsets: { Endurance: 3 },
       skills: { Endurance: 10 },
       storyChapters: {},
+      taskAvailability: {},
       taskCompletions: {
         task: { complete: true, timestamp: 1000 },
       },
       taskObjectives: {},
       traders: {},
-      xpOffset: 321,
     });
   });
   it('clamps skill values to the allowed range', () => {
@@ -67,6 +107,37 @@ describe('sanitizeOwnedProgressData', () => {
     expect(result.apiUpdateHistory).toEqual([{ at: millisecondAt, id: 'sync-1', source: 'api' }]);
     expect(result.lastApiUpdate).toEqual({ at: millisecondAt, id: 'sync-1', source: 'api' });
   });
+  it('keeps active API task updates and caps each entry at the shared task limit', () => {
+    const tasks = Array.from({ length: 25 }, (_, index) => ({
+      id: `task-${index}`,
+      state: index === 0 ? 'active' : 'completed',
+    }));
+    const result = sanitizeOwnedProgressData({
+      apiUpdateHistory: [{ at: 2, id: 'batch', source: 'api', tasks }],
+      lastApiUpdate: {
+        at: 3,
+        id: 'capped',
+        source: 'api',
+        taskCount: 300,
+        tasks: [{ id: '', state: 'completed' }, ...tasks.slice(0, 2)],
+      },
+    });
+    expect(result.apiUpdateHistory?.find((entry) => entry.id === 'batch')).toEqual({
+      at: 2,
+      id: 'batch',
+      source: 'api',
+      tasks: tasks.slice(0, API_UPDATE_TASK_LIMIT),
+      taskCount: 25,
+    });
+    expect(result.lastApiUpdate).toEqual({
+      at: 3,
+      id: 'capped',
+      source: 'api',
+      tasks: tasks.slice(0, 2),
+      taskCount: 300,
+    });
+    expect(sanitizeOwnedProgressData(result).apiUpdateHistory).toEqual(result.apiUpdateHistory);
+  });
   it('returns the default sanitized state for nullish input', () => {
     const nullResult = sanitizeOwnedProgressData(null);
     const undefinedResult = sanitizeOwnedProgressData(undefined);
@@ -79,7 +150,6 @@ describe('sanitizeOwnedProgressData', () => {
       pmcFaction: 'USEC',
       skills: {},
       taskCompletions: {},
-      xpOffset: 0,
     });
     expect(undefinedResult).toMatchObject({
       apiUpdateHistory: [],
@@ -90,7 +160,6 @@ describe('sanitizeOwnedProgressData', () => {
       pmcFaction: 'USEC',
       skills: {},
       taskCompletions: {},
-      xpOffset: 0,
     });
   });
   it('preserves valid manual activity history entries', () => {

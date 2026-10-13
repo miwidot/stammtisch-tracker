@@ -1,4 +1,4 @@
-# Co-located git worktrees for parallel PR work (see AGENTS.md worktree policy)
+# Co-located git worktrees for parallel PR work (see docs/workflow-automation.md#setup-git-worktree)
 .wt/
 
 # Nuxt dev/build outputs
@@ -11,8 +11,6 @@ coverage
 dist
 test-report.junit.xml
 .wrangler
-.claude/*
-!.claude/CLAUDE.md
 .codegraph
 .codex
 node_modules
@@ -47,3 +45,6 @@ __pycache__/
 .nuxtrc
 
 /precompute-manifest.json
+
+# Deno runs with supabase/functions/deno.json; a root lockfile only snapshots package.json.
+/deno.lock

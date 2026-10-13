@@ -46,6 +46,7 @@ type MapObjectiveMark = {
   users?: string[];
 };
 const TASK_SEARCH_DEBOUNCE_MS = 180;
+const TASK_REFRESH_DEBOUNCE_MS = 50;
 const preferencesStoreMock = {
   getTaskPrimaryView: 'all',
   getTaskSecondaryView: 'available',
@@ -63,8 +64,10 @@ const preferencesStoreMock = {
   getRespectTaskFiltersForImpact: true,
   getPinnedTaskIds: [] as string[],
   getHideCompletedMapObjectives: false,
+  getMapHiddenTaskIds: [] as string[],
   mapTeamAllHidden: false,
   togglePinnedTask: vi.fn(),
+  clearMapTaskVisibility: vi.fn(),
   setHideCompletedMapObjectives: vi.fn(),
 };
 const metadataStoreMock = reactive({
@@ -190,7 +193,6 @@ vi.mock('@/stores/useTarkov', () => ({
       taskCompletions: {},
       taskObjectives: {},
       traders: {},
-      xpOffset: 0,
     },
     pve: {
       apiUpdateHistory: [],
@@ -206,7 +208,6 @@ vi.mock('@/stores/useTarkov', () => ({
       taskCompletions: {},
       taskObjectives: {},
       traders: {},
-      xpOffset: 0,
     },
     isTaskObjectiveComplete: (objectiveId: string) => selfCompletedObjectiveIds.has(objectiveId),
     isTaskComplete: (taskId: string) => selfCompletedTaskIds.has(taskId),
@@ -295,9 +296,10 @@ const defaultGlobalStubs = {
     template: '<div data-testid="task-card" :data-accent="accentVariant">{{ task.id }}</div>',
   },
   TaskFilterBar: {
-    emits: ['update:searchQuery'],
+    props: ['activeStatusView', 'searchStatusCounts'],
+    emits: ['pin-status', 'update:searchQuery'],
     template:
-      '<div data-testid="task-filter"><input data-testid="task-search" @input="$emit(\'update:searchQuery\', $event.target.value)" /></div>',
+      '<div data-testid="task-filter" :data-active-status="activeStatusView"><input data-testid="task-search" @input="$emit(\'update:searchQuery\', $event.target.value)" /><button data-testid="pin-status" @click="$emit(\'pin-status\', \'locked\')" /></div>',
   },
   TaskEmptyState: true,
   TaskLoadingState: true,
@@ -364,6 +366,8 @@ describe('tasks page', () => {
     preferencesStoreMock.getHideGlobalTasks = false;
     preferencesStoreMock.getPinnedTaskIds = [];
     preferencesStoreMock.getHideCompletedMapObjectives = false;
+    preferencesStoreMock.getMapHiddenTaskIds = [];
+    preferencesStoreMock.clearMapTaskVisibility.mockReset();
     preferencesStoreMock.mapTeamAllHidden = false;
     preferencesStoreMock.setHideCompletedMapObjectives.mockReset();
     progressStoreMock.visibleTeamStores = { self: {} };
@@ -533,6 +537,51 @@ describe('tasks page', () => {
       secondaryView: 'all',
     });
     expect(preferencesStoreMock.getTaskSecondaryView).toBe('available');
+  });
+  it('searches every status while a query is active and restores the tab on clear', async () => {
+    const latestSecondaryView = () => updateVisibleTasksMock.mock.calls.at(-1)?.[0].secondaryView;
+    const filterBar = () => wrapper.find('[data-testid="task-filter"]');
+    const scopeHint = () => wrapper.find('[data-testid="task-search-scope-hint"]');
+    expect(latestSecondaryView()).toBe('available');
+    vi.useFakeTimers();
+    try {
+      await wrapper.find('[data-testid="task-search"]').setValue('saving the mole');
+      await vi.advanceTimersByTimeAsync(TASK_SEARCH_DEBOUNCE_MS + TASK_REFRESH_DEBOUNCE_MS);
+      expect(latestSecondaryView()).toBe('all');
+      expect(filterBar().attributes('data-active-status')).toBe('all');
+      expect(scopeHint().exists()).toBe(true);
+      expect(preferencesStoreMock.getTaskSecondaryView).toBe('available');
+      await scopeHint().find('button').trigger('click');
+      await vi.advanceTimersByTimeAsync(TASK_REFRESH_DEBOUNCE_MS);
+      expect(latestSecondaryView()).toBe('available');
+      expect(filterBar().attributes('data-active-status')).toBe('available');
+      expect(scopeHint().exists()).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it('narrows only the current search to a picked tab and returns to the saved tab on clear', async () => {
+    const latestSecondaryView = () => updateVisibleTasksMock.mock.calls.at(-1)?.[0].secondaryView;
+    const scopeHint = () => wrapper.find('[data-testid="task-search-scope-hint"]');
+    vi.useFakeTimers();
+    try {
+      await wrapper.find('[data-testid="task-search"]').setValue('mole');
+      await vi.advanceTimersByTimeAsync(TASK_SEARCH_DEBOUNCE_MS + TASK_REFRESH_DEBOUNCE_MS);
+      expect(latestSecondaryView()).toBe('all');
+      await wrapper.find('[data-testid="pin-status"]').trigger('click');
+      await vi.advanceTimersByTimeAsync(TASK_REFRESH_DEBOUNCE_MS);
+      expect(latestSecondaryView()).toBe('locked');
+      expect(scopeHint().exists()).toBe(true);
+      await wrapper.find('[data-testid="task-search"]').setValue('mol');
+      await vi.advanceTimersByTimeAsync(TASK_SEARCH_DEBOUNCE_MS + TASK_REFRESH_DEBOUNCE_MS);
+      expect(latestSecondaryView()).toBe('locked');
+      await scopeHint().find('button').trigger('click');
+      await vi.advanceTimersByTimeAsync(TASK_REFRESH_DEBOUNCE_MS);
+      expect(latestSecondaryView()).toBe('available');
+      expect(preferencesStoreMock.getTaskSecondaryView).toBe('available');
+    } finally {
+      vi.useRealTimers();
+    }
   });
   it('keeps initial task slice when tasks arrive after mount', async () => {
     visibleTasksRef.value = [];
@@ -922,6 +971,37 @@ describe('tasks page', () => {
     expect(clearButton.exists()).toBe(true);
     await clearButton.trigger('click');
     expect(clearPinnedTaskMock).toHaveBeenCalledTimes(1);
+  });
+  it('moves quests hidden from the map into the collapsed hidden section', async () => {
+    const shownTask = createDefaultTask({
+      id: 'task-shown',
+      name: 'Shown Task',
+      objectives: [createMapObjective({ id: 'obj-shown', taskId: 'task-shown' })],
+    });
+    const hiddenTask = createDefaultTask({
+      id: 'task-hidden',
+      name: 'Hidden Task',
+      objectives: [createMapObjective({ id: 'obj-hidden', taskId: 'task-hidden' })],
+    });
+    visibleTasksRef.value = [shownTask, hiddenTask];
+    preferencesStoreMock.getTaskPrimaryView = 'maps';
+    preferencesStoreMock.getTaskMapView = 'map-1';
+    preferencesStoreMock.getMapHiddenTaskIds = ['task-hidden'];
+    metadataStoreMock.mapsWithSvg = [{ id: 'map-1', name: 'Map One' }];
+    progressStoreMock.unlockedTasks = {
+      'task-shown': { self: true },
+      'task-hidden': { self: true },
+    };
+    await mountPage();
+    expect(getLeafletMarks().map((mark) => mark.id)).toEqual(['obj-shown']);
+    const section = wrapper.find('[data-testid="map-hidden-tasks-section"]');
+    expect(section.exists()).toBe(true);
+    expect(section.findAll('[data-testid="task-card"]')).toHaveLength(0);
+    expect(wrapper.findAll('[data-testid="task-card"]')).toHaveLength(1);
+    await section.find('[data-testid="map-hidden-tasks-toggle"]').trigger('click');
+    expect(section.findAll('[data-testid="task-card"]')).toHaveLength(1);
+    await section.find('[data-testid="map-hidden-tasks-show-all"]').trigger('click');
+    expect(preferencesStoreMock.clearMapTaskVisibility).toHaveBeenCalledWith(['task-hidden']);
   });
   it('keeps teammate objective markers when self already completed the same task objective', async () => {
     const task = createDefaultTask({

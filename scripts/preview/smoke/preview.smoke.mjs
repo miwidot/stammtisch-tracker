@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { previewGet, protectPreviewBrowser } from './access.mjs';
 import { MANIFEST_FILE, PAGES_DOMAIN } from '../profile.mjs';
 import { isForbiddenRequest, previewOrigin, requiredEnv, waitForDeployment } from './readiness.mjs';
 const origin = previewOrigin();
@@ -9,6 +10,9 @@ test.describe.configure({ mode: 'serial' });
 test.beforeAll(async () => {
   test.setTimeout(6 * 60 * 1000);
   await waitForDeployment(origin);
+});
+test.beforeEach(async ({ page, request }) => {
+  await protectPreviewBrowser(page, request, origin);
 });
 const ASSET_PATTERN = /\.(m?js|css)(\?|$)/;
 function failureText(request) {
@@ -43,7 +47,7 @@ async function expectUsableApplication(page, record) {
 }
 test('deployment serves the verified preview manifest', async ({ request }) => {
   expect(new URL(origin).hostname.endsWith(`.${PAGES_DOMAIN}`)).toBe(true);
-  const response = await request.get(`${origin}/${MANIFEST_FILE}`);
+  const response = await previewGet(request, `${origin}/${MANIFEST_FILE}`, origin);
   expect(response.status()).toBe(200);
   const manifest = await response.json();
   expect(manifest.headSha).toBe(expectedHeadSha);
@@ -67,13 +71,34 @@ test('direct /tasks navigation renders usable application content', async ({ pag
   expect(new URL(page.url()).origin).toBe(origin);
   await expectUsableApplication(page, record);
 });
+test.describe('Needed Items source tabs', () => {
+  test.use({ locale: 'en-US' });
+  test('keep their names below and above the sm breakpoint', async ({ page }) => {
+    const record = observe(page);
+    await page.setViewportSize({ width: 400, height: 800 });
+    const response = await page.goto(`${origin}/needed-items`, { waitUntil: 'networkidle' });
+    expect(response?.status()).toBe(200);
+    await expectUsableApplication(page, record);
+    const tablist = page.getByRole('tablist').first();
+    for (const width of [333, 400, 1280]) {
+      await page.setViewportSize({ width, height: 800 });
+      for (const label of ['All', 'Tasks', 'Hideout']) {
+        await expect(
+          tablist.getByRole('tab', { name: new RegExp(`^${label}\\s+\\d+$`, 'i') }),
+          `${label} tab name at ${width}px`
+        ).toBeVisible();
+      }
+    }
+    await expectUsableApplication(page, record);
+  });
+});
 test('cache-meta returns the anonymous fallback shape', async ({ request }) => {
-  const response = await request.get(`${origin}/api/tarkov/cache-meta`);
+  const response = await previewGet(request, `${origin}/api/tarkov/cache-meta`, origin);
   expect(response.status()).toBe(200);
   expect(await response.json()).toEqual({ data: { lastPurgeAt: null } });
 });
 test('bootstrap returns nonempty public game data', async ({ request }) => {
-  const response = await request.get(`${origin}/api/tarkov/bootstrap?lang=en`);
+  const response = await previewGet(request, `${origin}/api/tarkov/bootstrap?lang=en`, origin);
   expect(response.status()).toBe(200);
   const body = await response.json();
   expect(Array.isArray(body?.data?.playerLevels)).toBe(true);

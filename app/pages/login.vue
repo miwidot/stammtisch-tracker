@@ -95,15 +95,6 @@
 <script setup lang="ts">
   const { $supabase } = useNuxtApp();
   const isOfflineMode = computed(() => $supabase.isOfflineMode === true);
-  const { t } = useI18n({ useScope: 'global' });
-  useSeoMeta({
-    title: () => t('common.login', 'Login'),
-    description: () =>
-      t(
-        'page.login.meta_description',
-        'Sign in to TarkovTracker to sync your progress across devices and collaborate with your team.'
-      ),
-  });
   const trackerHandoffUrl = useRuntimeConfig().public.trackerHandoffUrl;
   function redirectToHandoff() {
     window.location.href = trackerHandoffUrl;

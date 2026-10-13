@@ -1,5 +1,7 @@
 import { isGameEdition } from '@/utils/editionHelpers';
+import { validStoryUnlock } from '@/utils/storylineUnlocks';
 import { isPlainObject } from './deepMerge';
+import { validProgressionCounters } from './overlayCounters';
 import { mergeOverlayRecords, overlayEntries, scopedOverlay } from './overlayProjectors';
 import type { OverlayData, OverlayRecords } from './overlayTypes';
 const OVERLAY_SECTION_OWNERS = {
@@ -80,6 +82,8 @@ const validPerk = (perk: Record<string, unknown>): boolean =>
   (perk.mutuallyExclusiveSeasonalPerkIds === undefined ||
     stringList(perk.mutuallyExclusiveSeasonalPerkIds)) &&
   perk.effects.every(validEffect);
+export const validSeasonalPerkPatch = (perk: unknown): boolean =>
+  isPlainObject(perk) && validPerk(perk);
 const validTaskReference = (value: unknown): boolean =>
   isPlainObject(value) && typeof value.id === 'string';
 const validCraftUnlock = (unlock: unknown): boolean =>
@@ -123,6 +127,14 @@ const validObjectives = (value: unknown): boolean => {
 // chapter as a blank ending row or an uninterpretable route.
 const nonEmptyString = (value: unknown): boolean =>
   typeof value === 'string' && value.trim().length > 0;
+const validStoryUnlocks = (value: unknown): boolean =>
+  value === undefined || (Array.isArray(value) && value.every(validStoryUnlock));
+const validStoryObjectives = (value: unknown): boolean => {
+  if (!validObjectives(value)) return false;
+  return overlayEntries(value as OverlayRecords | undefined).every((objective) =>
+    validStoryUnlocks(objective.unlocks)
+  );
+};
 const nonNegativeInteger = (value: unknown): boolean =>
   typeof value === 'number' && Number.isInteger(value) && value >= 0;
 const endingIdentity = (ending: Record<string, unknown>): boolean =>
@@ -143,7 +155,7 @@ const validQuestPairs = (value: unknown): boolean =>
   value === undefined || (Array.isArray(value) && value.every(validQuestPair));
 const validChapterBranches = (chapter: Record<string, unknown>): boolean =>
   [
-    validObjectives(chapter.objectives),
+    validStoryObjectives(chapter.objectives),
     validEndings(chapter.endings),
     validQuestPairs(chapter.mutuallyExclusiveQuestPairs),
   ].every(Boolean);
@@ -220,13 +232,11 @@ const scopedUnknownSections = (
       ? [`${prefix}.${scope}`]
       : unknownSectionNames(sections, `${prefix}.${scope}.`, allowed)
   );
-// Only the published empty root registry is a no-op. Populated registries still
-// require an actual consumer before precompute may certify them.
-const emptyCounterRegistry = (value: unknown): boolean =>
-  isPlainObject(value) && Object.keys(value).length === 0;
+// A valid registry is consumed by `overlayCounters.ts`; a malformed one is applied nowhere and
+// stays unconsumed so precompute refuses to certify it.
 export const unknownOverlaySections = (overlay: OverlayData): string[] => {
   const rootNames = new Set([...sectionNames, '$meta', 'modes', 'locales']);
-  if (emptyCounterRegistry(overlay.progressionCounters)) rootNames.add('progressionCounters');
+  if (validProgressionCounters(overlay.progressionCounters)) rootNames.add('progressionCounters');
   const localeNames = new Set(['tasks', 'items', 'traders', 'maps', 'prestige', 'storyChapters']);
   return [
     ...unknownSectionNames(overlay, '', rootNames),

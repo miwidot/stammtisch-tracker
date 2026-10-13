@@ -2,6 +2,7 @@
 import { flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { getPromiseStore } from '@/stores/tarkov/promiseStore';
 import { useMetadataStore } from '@/stores/useMetadata';
 import * as cacheUtils from '@/utils/tarkovCache';
 import { createDeferred } from '@/utils/test-helpers';
@@ -396,6 +397,40 @@ describe('useMetadataStore fetchEditionsData', () => {
     expect(store.editions).toEqual([refreshedEdition]);
     expect(store.storyChapters).toEqual([refreshedChapter]);
   });
+  it('revalidates a cached scope once per session without a cache bust', async () => {
+    const store = useMetadataStore();
+    store.currentGameMode = 'pve';
+    store.languageCode = 'de';
+    vi.spyOn(cacheUtils, 'getCachedData').mockResolvedValue({
+      editions: [createEdition('cached-edition', 1, 'Cached Edition')],
+      storyChapters: [createStoryChapter('cached-chapter', 1, 'Cached Chapter')],
+    });
+    vi.spyOn(cacheUtils, 'setCachedData').mockResolvedValue();
+    const fetchMock = vi.fn().mockResolvedValue({
+      data: {
+        editions: [createEdition('fresh-edition', 2, 'Fresh Edition')],
+        storyChapters: [createStoryChapter('fresh-chapter', 2, 'Fresh Chapter')],
+      },
+    });
+    vi.stubGlobal('$fetch', fetchMock);
+    await store.fetchEditionsData();
+    await flushPromises();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith('/api/tarkov/editions', {
+      query: { lang: 'de', gameMode: 'pve' },
+    });
+    // Switching away and back serves the cache again without another request.
+    store.languageCode = 'en';
+    await store.fetchEditionsData();
+    await flushPromises();
+    store.languageCode = 'de';
+    await store.fetchEditionsData();
+    await flushPromises();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenLastCalledWith('/api/tarkov/editions', {
+      query: { lang: 'en', gameMode: 'pve' },
+    });
+  });
   it('requests and caches the current mode/language catalog', async () => {
     const store = useMetadataStore();
     store.currentGameMode = 'pve';
@@ -411,7 +446,7 @@ describe('useMetadataStore fetchEditionsData', () => {
     });
     expect(cacheWrite).toHaveBeenCalledWith(
       'editions',
-      'overlay-v2-pve',
+      'overlay-v3-pve',
       'de',
       expect.any(Object),
       expect.any(Number)
@@ -459,5 +494,106 @@ describe('useMetadataStore fetchEditionsData', () => {
     pending.resolve({ data: { editions: [], storyChapters: [] } });
     await other;
     expect(store.editions).toEqual([edition]);
+  });
+  it('marks a cached scope revalidated only after a successful live response', async () => {
+    const store = useMetadataStore();
+    const response = createDeferred<object>();
+    vi.spyOn(cacheUtils, 'getCachedData').mockResolvedValue({
+      editions: [createEdition('cached', 1, 'Cached')],
+      storyChapters: [createStoryChapter('cached', 1, 'Cached')],
+    });
+    vi.spyOn(cacheUtils, 'setCachedData').mockResolvedValue();
+    vi.stubGlobal('$fetch', vi.fn().mockReturnValue(response.promise));
+    await store.fetchEditionsData();
+    expect(getPromiseStore(store).editionsRevalidatedScopes.has('regular-en')).toBe(false);
+    response.resolve({ data: { editions: [], storyChapters: [] } });
+    await store.ensureEditionsData();
+    expect(getPromiseStore(store).editionsRevalidatedScopes.has('regular-en')).toBe(true);
+  });
+  it('retries aborted cached revalidation and preserves a newer successful mark', async () => {
+    const store = useMetadataStore();
+    const controller = new AbortController();
+    const obsolete = createDeferred<object>();
+    vi.spyOn(cacheUtils, 'getCachedData').mockResolvedValue({
+      editions: [createEdition('cached', 1, 'Cached')],
+      storyChapters: [createStoryChapter('cached', 1, 'Cached')],
+    });
+    vi.spyOn(cacheUtils, 'setCachedData').mockResolvedValue();
+    const fetch = vi
+      .fn()
+      .mockReturnValueOnce(obsolete.promise)
+      .mockResolvedValue({ data: { editions: [], storyChapters: [] } });
+    vi.stubGlobal('$fetch', fetch);
+    await store.fetchEditionsData(false, { signal: controller.signal });
+    controller.abort();
+    store.languageCode = 'de';
+    await store.fetchEditionsData();
+    await flushPromises();
+    store.languageCode = 'en';
+    await store.fetchEditionsData();
+    await flushPromises();
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(getPromiseStore(store).editionsRevalidatedScopes.has('regular-en')).toBe(true);
+    obsolete.resolve({ data: { editions: [], storyChapters: [] } });
+    await flushPromises();
+    expect(getPromiseStore(store).editionsRevalidatedScopes.has('regular-en')).toBe(true);
+    await store.fetchEditionsData();
+    await flushPromises();
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(store.editionsError).toBeNull();
+  });
+  it('joins overlapping live revalidations for the same scope', async () => {
+    const store = useMetadataStore();
+    const response = createDeferred<object>();
+    vi.spyOn(cacheUtils, 'getCachedData').mockResolvedValue(null);
+    vi.spyOn(cacheUtils, 'setCachedData').mockResolvedValue();
+    const fetch = vi.fn().mockReturnValue(response.promise);
+    vi.stubGlobal('$fetch', fetch);
+    const first = store.fetchEditionsData(false, { revalidate: true });
+    let firstSettled = false;
+    void first.then(() => {
+      firstSettled = true;
+    });
+    const second = store.fetchEditionsData(false, { revalidate: true });
+    await flushPromises();
+    expect(firstSettled).toBe(false);
+    response.resolve({ data: { editions: [], storyChapters: [] } });
+    await Promise.all([first, second]);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it('does not record a failed background revalidation as successful', async () => {
+    const store = useMetadataStore();
+    vi.spyOn(cacheUtils, 'getCachedData').mockResolvedValue({
+      editions: [createEdition('cached', 1, 'Cached')],
+      storyChapters: [createStoryChapter('cached', 1, 'Cached')],
+    });
+    const fetch = vi.fn().mockRejectedValue(new Error('offline'));
+    vi.stubGlobal('$fetch', fetch);
+    await store.fetchEditionsData();
+    await flushPromises();
+    expect(getPromiseStore(store).editionsRevalidatedScopes.has('regular-en')).toBe(false);
+    await store.ensureEditionsData();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it('retries readiness after an aborted request settles in the active scope', async () => {
+    const store = useMetadataStore();
+    const controller = new AbortController();
+    const response = createDeferred<object>();
+    vi.spyOn(cacheUtils, 'getCachedData').mockResolvedValue(null);
+    vi.spyOn(cacheUtils, 'setCachedData').mockResolvedValue();
+    const fetch = vi
+      .fn()
+      .mockReturnValueOnce(response.promise)
+      .mockResolvedValue({ data: { editions: [], storyChapters: [] } });
+    vi.stubGlobal('$fetch', fetch);
+    const request = store.fetchEditionsData(false, { signal: controller.signal });
+    const rejection = expect(request).rejects.toMatchObject({ name: 'AbortError' });
+    await flushPromises();
+    controller.abort();
+    response.resolve({ data: { editions: [], storyChapters: [] } });
+    await rejection;
+    await store.ensureEditionsData();
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(store.editionsError).toBeNull();
   });
 });

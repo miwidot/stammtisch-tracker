@@ -50,7 +50,6 @@ const createProgressData = (overrides: Record<string, unknown> = {}) => ({
   level: 1,
   pmcFaction: 'USEC',
   displayName: null,
-  xpOffset: 0,
   taskObjectives: {},
   taskCompletions: {},
   hideoutParts: {},
@@ -109,9 +108,6 @@ vi.mock('@/stores/useMetadata', () => ({
 vi.mock('@/stores/usePreferences', () => ({
   usePreferencesStore: () => ({
     getTasksRequireTraderLevels: true,
-    getUseAutomaticLevelCalculation: false,
-    getProfileSharePvpPublic: false,
-    getProfileSharePvePublic: false,
   }),
 }));
 vi.mock('@/stores/useProgress', () => ({
@@ -134,7 +130,7 @@ vi.mock('@/utils/tarkovDevProfileUrl', () => ({
 vi.mock('@/utils/taskTypeFilters', () => ({
   filterTasksByTypeSettings: (tasks: Task[]) => tasks,
 }));
-vi.mock('@shared/utils/progressInvalidation', () => ({
+vi.mock('@tarkovtracker/progress-contracts/progressInvalidation', () => ({
   computeInvalidProgress: () => ({ invalidTasks: [], invalidObjectives: [] }),
 }));
 vi.mock('@/composables/useCopyToClipboard', () => ({
@@ -217,6 +213,37 @@ const expectNoStoryStoreWrites = () => {
   expect(setStoryObjectiveUncompleteMock).not.toHaveBeenCalled();
 };
 describe('ProfileProgression storyline chapter toggle', () => {
+  it.each(['pvp', 'pve', 'seasonal'])(
+    'uses the viewed %s catalog for shared automatic completion, never viewer marks',
+    async (mode) => {
+      const original = storyChaptersMetadata[0]!.objectives[0]!;
+      storyChaptersMetadata[0]!.objectives[0] = {
+        ...original,
+        ...{ completionPolicy: 'tutorial' },
+      };
+      routeState.params = { userId: '11111111-1111-4111-8111-111111111111', mode };
+      pvpOverrides = {
+        storyChapters: { 'chapter-1': { objectives: { 'obj-2': { complete: true } } } },
+      };
+      try {
+        const wrapper = await createWrapper();
+        await vi.waitFor(() => expect(wrapper.find('[data-testid="tabs"]').exists()).toBe(true));
+        await wrapper.get('[data-testid="select-storyline-tab"]').trigger('click');
+        const tab = wrapper.findComponent({ name: 'ProfileStorylineTab' });
+        expect(tab.props('storyObjectiveCompletionState')['chapter-1']).toEqual({
+          'obj-1': true,
+          'obj-2': false,
+          'obj-3': false,
+        });
+        expect(tab.props('readOnly')).toBe(true);
+        expect(profileMetadataScopes.mock.calls.at(-1)![0].value).toBe(mode);
+        expectNoStoryStoreWrites();
+        wrapper.unmount();
+      } finally {
+        storyChaptersMetadata[0]!.objectives[0] = original;
+      }
+    }
+  );
   afterEach(() => {
     vi.restoreAllMocks();
   });

@@ -48,4 +48,10 @@ describe('useSafeLocale', () => {
     resetI18nReady();
     expect(useSafeLocale().value).toBe('de');
   });
+  it('falls back to the app default for another unsupported browser locale', async () => {
+    vi.stubGlobal('navigator', { ...window.navigator, language: 'ar-SA' });
+    const { resetI18nReady, useSafeLocale } = await import('@/composables/i18nHelpers');
+    resetI18nReady();
+    expect(useSafeLocale().value).toBe('de');
+  });
 });

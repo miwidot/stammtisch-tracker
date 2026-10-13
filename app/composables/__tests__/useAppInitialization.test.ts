@@ -8,6 +8,14 @@ import {
   SYNC_RETRY_MAX_ATTEMPTS,
   useAppInitialization,
 } from '@/composables/useAppInitialization';
+const mockInitializeProgressAuthority = vi.hoisted(() => vi.fn(async (..._args: unknown[]) => {}));
+vi.mock('@/stores/tarkov/progressAuthority', async () => {
+  const { createProgressPolicyAuthority } = await import('#tests/test-helpers/progressAuthority');
+  return {
+    ...createProgressPolicyAuthority(),
+    initializeProgressAuthority: mockInitializeProgressAuthority,
+  };
+});
 const localeRef = ref('en');
 const setLocale = vi.fn(async (value: string) => {
   localeRef.value = value;
@@ -37,8 +45,12 @@ const mockSupabase = {
 const mockSupporter = { fetchStatus: vi.fn(), subscribe: vi.fn(), reset: vi.fn() };
 vi.mock('@/composables/useSupporter', () => ({ useSupporter: () => mockSupporter }));
 const mockInitializeTarkovSync = vi.fn(async () => {});
+const mockSettlePendingProgressHandoffs = vi.fn(async () => {});
+const mockHasPendingProgressHandoff = vi.fn(() => false);
 const mockResetTarkovStoreForSessionTransition = vi.fn();
 const mockResetTarkovSync = vi.fn();
+const mockPreserveUnsavedSessionProgress = vi.fn();
+const mockMayHoldUnsyncedProgress = vi.fn((_userId: string) => true);
 const mockMigrateDataIfNeeded = vi.fn(async () => {});
 const mockActivityLogResetForSession = vi.fn();
 const mockActivityLogMigrateLegacyManualEntries = vi.fn();
@@ -76,6 +88,11 @@ vi.mock('@/composables/useToastI18n', () => ({
 }));
 vi.mock('@/stores/useTarkov', () => ({
   initializeTarkovSync: () => mockInitializeTarkovSync(),
+  hasPendingProgressHandoff: () => mockHasPendingProgressHandoff(),
+  settlePendingProgressHandoffs: () => mockSettlePendingProgressHandoffs(),
+  mayHoldUnsyncedProgress: (userId: string) => mockMayHoldUnsyncedProgress(userId),
+  preserveUnsavedSessionProgress: (...args: unknown[]) =>
+    mockPreserveUnsavedSessionProgress(...args),
   resetTarkovStoreForSessionTransition: (...args: unknown[]) =>
     mockResetTarkovStoreForSessionTransition(...args),
   resetTarkovSync: (...args: unknown[]) => mockResetTarkovSync(...args),
@@ -117,9 +134,12 @@ describe('useAppInitialization locale setup', () => {
         mockMetadataStore.languageCode = localeOverride === 'uk' ? 'en' : localeOverride;
       }
     });
+    mockInitializeProgressAuthority.mockReset().mockResolvedValue(undefined);
     mockInitializeTarkovSync.mockClear();
     mockInitializeTarkovSync.mockResolvedValue(undefined);
-    mockResetTarkovStoreForSessionTransition.mockClear();
+    mockHasPendingProgressHandoff.mockReset().mockReturnValue(false);
+    mockSettlePendingProgressHandoffs.mockReset().mockResolvedValue(undefined);
+    mockResetTarkovStoreForSessionTransition.mockReset().mockResolvedValue(undefined);
     mockResetTarkovSync.mockClear();
     mockMigrateDataIfNeeded.mockClear();
     mockMigrateDataIfNeeded.mockResolvedValue(undefined);
@@ -130,6 +150,53 @@ describe('useAppInitialization locale setup', () => {
     (logger.error as Mock).mockClear();
     mockSupabaseUser.loggedIn = false;
     mockSupabaseUser.id = null;
+  });
+  it('activates the signed-in owner before starting cloud sync after guest login', async () => {
+    const wrapper = await mountWithComposable();
+    await flushPromises();
+    let finish!: () => void;
+    mockInitializeProgressAuthority.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        })
+    );
+    mockSupabaseUser.loggedIn = true;
+    mockSupabaseUser.id = 'owner';
+    await flushPromises();
+    expect(mockInitializeProgressAuthority).toHaveBeenCalledWith(
+      'owner',
+      false,
+      expect.any(Function)
+    );
+    expect(mockInitializeTarkovSync).not.toHaveBeenCalled();
+    finish();
+    await flushPromises();
+    expect(mockInitializeTarkovSync).toHaveBeenCalledOnce();
+    wrapper.unmount();
+  });
+  it('fences a delayed owner activation when the identity changes', async () => {
+    const wrapper = await mountWithComposable();
+    await flushPromises();
+    let finish!: () => void;
+    mockInitializeProgressAuthority.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        })
+    );
+    mockSupabaseUser.loggedIn = true;
+    mockSupabaseUser.id = 'a';
+    await flushPromises();
+    const canContinue = mockInitializeProgressAuthority.mock.calls[0]![2] as () => boolean;
+    mockSupabaseUser.id = 'b';
+    await flushPromises();
+    expect(canContinue()).toBe(false);
+    expect(mockInitializeTarkovSync).toHaveBeenCalledOnce();
+    finish();
+    await flushPromises();
+    expect(mockInitializeTarkovSync).toHaveBeenCalledOnce();
+    wrapper.unmount();
   });
   it('applies locale override through setLocale on mount', async () => {
     const wrapper = await mountWithComposable();
@@ -232,12 +299,42 @@ describe('useAppInitialization locale setup', () => {
     expect(mockActivityLogResetForSession).toHaveBeenCalled();
     wrapper.unmount();
   });
+  it('reports a failed current account-switch transition', async () => {
+    mockSupabaseUser.loggedIn = true;
+    mockSupabaseUser.id = 'user-1';
+    const wrapper = await mountWithComposable();
+    await flushPromises();
+    mockResetTarkovStoreForSessionTransition.mockRejectedValueOnce(
+      new Error('storage unavailable')
+    );
+    mockSupabaseUser.id = 'user-2';
+    await flushPromises();
+    expect(mockShowLoadFailed).toHaveBeenCalledOnce();
+    wrapper.unmount();
+  });
+  it('does not report a failed superseded account-switch transition', async () => {
+    mockSupabaseUser.loggedIn = true;
+    mockSupabaseUser.id = 'user-1';
+    const wrapper = await mountWithComposable();
+    await flushPromises();
+    const pending = Promise.withResolvers<undefined>();
+    mockResetTarkovStoreForSessionTransition.mockReturnValueOnce(pending.promise);
+    mockSupabaseUser.id = 'user-2';
+    await flushPromises();
+    mockSupabaseUser.id = 'user-3';
+    await flushPromises();
+    pending.reject(new Error('old storage failure'));
+    await flushPromises();
+    expect(mockShowLoadFailed).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
   it('preserves the previous user snapshot before resetting on account switch', async () => {
     mockSupabaseUser.loggedIn = true;
     mockSupabaseUser.id = 'user-1';
     const wrapper = await mountWithComposable();
     await flushPromises();
     mockResetTarkovStoreForSessionTransition.mockClear();
+    mockInitializeProgressAuthority.mockReset().mockResolvedValue(undefined);
     mockInitializeTarkovSync.mockClear();
     mockMigrateDataIfNeeded.mockClear();
     mockSupabaseUser.id = 'user-2';
@@ -250,6 +347,76 @@ describe('useAppInitialization locale setup', () => {
     expect(mockInitializeTarkovSync).toHaveBeenCalledTimes(1);
     expect(mockMigrateDataIfNeeded).toHaveBeenCalledTimes(1);
     wrapper.unmount();
+  });
+  it.each(['logout', 'account switch'])(
+    'handles a current progress activation failure at the %s auth boundary',
+    async (transition) => {
+      mockSupabaseUser.loggedIn = true;
+      mockSupabaseUser.id = 'user-1';
+      const wrapper = await mountWithComposable();
+      await flushPromises();
+      const { logger } = await import('@/utils/logger');
+      const failure = new Error('IndexedDB activation unavailable');
+      mockInitializeTarkovSync.mockClear();
+      mockMigrateDataIfNeeded.mockClear();
+      mockSupporter.subscribe.mockClear();
+      mockResetTarkovStoreForSessionTransition.mockRejectedValueOnce(failure);
+      if (transition === 'logout') {
+        mockSupabaseUser.loggedIn = false;
+        mockSupabaseUser.id = null;
+      } else mockSupabaseUser.id = 'user-2';
+      await flushPromises();
+      expect(logger.error).toHaveBeenCalledWith(
+        '[useAppInitialization] Failed to transition progress owner:',
+        failure
+      );
+      expect(mockInitializeTarkovSync).not.toHaveBeenCalled();
+      expect(mockMigrateDataIfNeeded).not.toHaveBeenCalled();
+      expect(mockSupporter.subscribe).not.toHaveBeenCalled();
+      wrapper.unmount();
+    }
+  );
+  it('does not let a superseded transition failure stop the new owner', async () => {
+    mockSupabaseUser.loggedIn = true;
+    mockSupabaseUser.id = 'user-1';
+    const wrapper = await mountWithComposable();
+    await flushPromises();
+    const pending = Promise.withResolvers<undefined>();
+    mockResetTarkovStoreForSessionTransition.mockReturnValueOnce(pending.promise);
+    mockInitializeTarkovSync.mockClear();
+    mockSupabaseUser.id = 'user-2';
+    await flushPromises();
+    mockSupabaseUser.id = 'user-3';
+    await flushPromises();
+    expect(mockInitializeTarkovSync).toHaveBeenCalledOnce();
+    pending.reject(new Error('former activation failed'));
+    await flushPromises();
+    expect(mockInitializeTarkovSync).toHaveBeenCalledOnce();
+    expect(mockSupporter.subscribe).toHaveBeenLastCalledWith('user-3');
+    wrapper.unmount();
+  });
+  it('settles a pending logout handoff before starting the next login', async () => {
+    let release!: () => void;
+    const handoff = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const wrapper = await mountWithComposable();
+    await flushPromises();
+    mockHasPendingProgressHandoff.mockReturnValue(true);
+    mockSettlePendingProgressHandoffs.mockImplementationOnce(() => handoff);
+    mockSupabaseUser.id = 'user-2';
+    mockSupabaseUser.loggedIn = true;
+    try {
+      await flushPromises();
+      expect(mockSettlePendingProgressHandoffs).toHaveBeenCalledOnce();
+      expect(mockResetTarkovStoreForSessionTransition).not.toHaveBeenCalled();
+      expect(mockInitializeTarkovSync).not.toHaveBeenCalled();
+    } finally {
+      release();
+      await flushPromises();
+      wrapper.unmount();
+    }
+    expect(mockInitializeTarkovSync).toHaveBeenCalledOnce();
   });
   it('does not refetch metadata before initialization', async () => {
     mockMetadataStore.hasInitialized = false;
@@ -350,6 +517,91 @@ describe('useAppInitialization locale setup', () => {
       headers: { Authorization: 'Bearer fixture-token' },
     });
   });
+  describe('foreground account activity', () => {
+    const foreground = async (visibility = 'visible') => {
+      vi.spyOn(document, 'visibilityState', 'get').mockReturnValue(
+        visibility as DocumentVisibilityState
+      );
+      document.dispatchEvent(new Event('visibilitychange'));
+      await flushPromises();
+    };
+    beforeEach(() => {
+      mockSupabaseUser.loggedIn = true;
+      mockSupabaseUser.id = 'user-1';
+      mockSupabase.client.auth.getSession.mockResolvedValue({
+        data: { session: { access_token: 'fixture-token' } },
+      });
+    });
+    afterEach(() => vi.restoreAllMocks());
+    it('throttles each user for a day and records a returning foreground without timers', async () => {
+      const fetch = vi.fn().mockResolvedValue({ recorded: true });
+      vi.stubGlobal('$fetch', fetch);
+      const now = vi.spyOn(Date, 'now').mockReturnValue(1_000);
+      const wrapper = await mountWithComposable();
+      await flushPromises();
+      await foreground();
+      expect(fetch).toHaveBeenCalledTimes(1);
+      now.mockReturnValue(86_401_000);
+      await foreground('hidden');
+      expect(fetch).toHaveBeenCalledTimes(1);
+      await foreground();
+      expect(fetch).toHaveBeenCalledTimes(2);
+      mockSupabaseUser.id = 'user-2';
+      await flushPromises();
+      expect(fetch).toHaveBeenCalledTimes(3);
+      mockSupabaseUser.id = 'user-1';
+      await flushPromises();
+      expect(fetch).toHaveBeenCalledTimes(3);
+      wrapper.unmount();
+      now.mockReturnValue(172_801_000);
+      await foreground();
+      expect(fetch).toHaveBeenCalledTimes(3);
+    });
+    it('retries failed and unrecorded requests on foreground', async () => {
+      const fetch = vi
+        .fn()
+        .mockRejectedValueOnce(new Error('offline'))
+        .mockResolvedValueOnce({ recorded: false })
+        .mockResolvedValue({ recorded: true });
+      vi.stubGlobal('$fetch', fetch);
+      const wrapper = await mountWithComposable();
+      await flushPromises();
+      await foreground();
+      await foreground();
+      await foreground();
+      expect(fetch).toHaveBeenCalledTimes(3);
+      wrapper.unmount();
+    });
+    it('does not send a stale session token after an account switch', async () => {
+      const pending = Promise.withResolvers<{ data: { session: { access_token: string } } }>();
+      mockSupabase.client.auth.getSession.mockReturnValueOnce(pending.promise);
+      const fetch = vi.fn().mockResolvedValue({ recorded: true });
+      vi.stubGlobal('$fetch', fetch);
+      const wrapper = await mountWithComposable();
+      await flushPromises();
+      mockSupabaseUser.id = 'user-2';
+      await flushPromises();
+      pending.resolve({ data: { session: { access_token: 'stale-token' } } });
+      await flushPromises();
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(fetch.mock.calls[0]?.[1].headers.Authorization).toBe('Bearer fixture-token');
+      wrapper.unmount();
+    });
+    it('deduplicates pending requests and cancels session reads after disposal', async () => {
+      const pending = Promise.withResolvers<{ data: { session: { access_token: string } } }>();
+      mockSupabase.client.auth.getSession.mockReturnValueOnce(pending.promise);
+      const fetch = vi.fn();
+      vi.stubGlobal('$fetch', fetch);
+      const wrapper = await mountWithComposable();
+      await flushPromises();
+      await foreground();
+      expect(mockSupabase.client.auth.getSession).toHaveBeenCalledTimes(1);
+      wrapper.unmount();
+      pending.resolve({ data: { session: { access_token: 'stale-token' } } });
+      await flushPromises();
+      expect(fetch).not.toHaveBeenCalled();
+    });
+  });
   it.each(['throw', 'failed read'])(
     'keeps sync usable when optional supporter status fails: %s',
     async (outcome) => {
@@ -378,16 +630,62 @@ describe('useAppInitialization locale setup', () => {
       const wrapper = await mountWithComposable();
       await vi.advanceTimersByTimeAsync(0);
       expect(mockInitializeTarkovSync).toHaveBeenCalledTimes(1);
-      expect(mockResetTarkovSync).toHaveBeenCalledWith('initial sync failed');
+      expect(mockResetTarkovSync).toHaveBeenCalledWith('initial sync failed', {
+        preserveStorageBaselineForUserId: 'user-1',
+      });
       expect(mockActivityLogMigrateLegacyManualEntries).not.toHaveBeenCalled();
       expect(mockShowLoadFailed).toHaveBeenCalledTimes(1);
       await vi.advanceTimersByTimeAsync(SYNC_RETRY_DELAY_MS);
       expect(mockInitializeTarkovSync).toHaveBeenCalledTimes(2);
+      expect(mockPreserveUnsavedSessionProgress).toHaveBeenCalledWith('user-1');
       expect(mockActivityLogMigrateLegacyManualEntries).toHaveBeenCalledTimes(1);
       expect(mockShowLoadFailed).toHaveBeenCalledTimes(1);
       await vi.advanceTimersByTimeAsync(SYNC_RETRY_DELAY_MS * 2);
       expect(mockInitializeTarkovSync).toHaveBeenCalledTimes(2);
       expect(mockResetTarkovSync).toHaveBeenCalledTimes(1);
+      wrapper.unmount();
+    });
+    it('keeps cloud saving visibly unavailable and retryable after initial sync fails', async () => {
+      vi.useFakeTimers();
+      const { progressSaveStatus, resetCloudSaveStatus, retryCloudSave } =
+        await import('@/stores/tarkov/progressSaveStatus');
+      resetCloudSaveStatus();
+      mockInitializeTarkovSync.mockRejectedValueOnce(new Error('offline'));
+      mockSupabaseUser.loggedIn = true;
+      mockSupabaseUser.id = 'user-1';
+      const wrapper = await mountWithComposable();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(progressSaveStatus.cloud.state).toBe('failed');
+      mockInitializeTarkovSync.mockImplementationOnce(async () => {
+        // A successful startup load clears the unavailable status (see initializeTarkovSync).
+        resetCloudSaveStatus();
+      });
+      expect(mockPreserveUnsavedSessionProgress).not.toHaveBeenCalled();
+      await expect(retryCloudSave()).resolves.toBe(true);
+      expect(mockPreserveUnsavedSessionProgress).toHaveBeenCalledWith('user-1');
+      expect(mockPreserveUnsavedSessionProgress.mock.invocationCallOrder[0]).toBeLessThan(
+        mockInitializeTarkovSync.mock.invocationCallOrder[1]!
+      );
+      expect(mockInitializeTarkovSync).toHaveBeenCalledTimes(2);
+      await vi.advanceTimersByTimeAsync(SYNC_RETRY_DELAY_MS * 2);
+      // The manual retry replaced the scheduled one.
+      expect(mockInitializeTarkovSync).toHaveBeenCalledTimes(2);
+      wrapper.unmount();
+    });
+    it('reports a read-only initial sync failure as a load failure, not a failed save', async () => {
+      vi.useFakeTimers();
+      const { progressSaveStatus, resetCloudSaveStatus } =
+        await import('@/stores/tarkov/progressSaveStatus');
+      resetCloudSaveStatus();
+      mockMayHoldUnsyncedProgress.mockReturnValueOnce(false);
+      mockInitializeTarkovSync.mockRejectedValueOnce(new Error('offline'));
+      mockSupabaseUser.loggedIn = true;
+      mockSupabaseUser.id = 'user-1';
+      const wrapper = await mountWithComposable();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(mockMayHoldUnsyncedProgress).toHaveBeenCalledWith('user-1');
+      expect(mockShowLoadFailed).toHaveBeenCalledTimes(1);
+      expect(progressSaveStatus.cloud.state).toBe('idle');
       wrapper.unmount();
     });
     it('stops retrying after the bounded number of attempts', async () => {
@@ -435,6 +733,30 @@ describe('useAppInitialization locale setup', () => {
       expect(mockActivityLogMigrateLegacyManualEntries).toHaveBeenCalledTimes(1);
       expect(mockResetTarkovSync).not.toHaveBeenCalled();
       wrapper.unmount();
+    });
+    it('treats a late superseded initialization failure as cancellation', async () => {
+      // Covers the lifecycle-state half of the startup ownership invariant: a
+      // former session's pending initialization rejects after the newer session
+      // already owns `syncStarted`, and the stale completion must not report
+      // active failure or clear the newer run's lifecycle marker.
+      const staleInit = Promise.withResolvers<undefined>();
+      mockInitializeTarkovSync.mockReturnValueOnce(staleInit.promise);
+      mockSupabaseUser.loggedIn = true;
+      mockSupabaseUser.id = 'user-1';
+      await mountWithComposable();
+      await flushPromises();
+      mockSupabaseUser.id = 'user-2';
+      await flushPromises();
+      expect(mockActivityLogMigrateLegacyManualEntries).toHaveBeenCalledTimes(1);
+      staleInit.reject(new Error('superseded startup read failed'));
+      await flushPromises();
+      const { logger } = await import('@/utils/logger');
+      expect(logger.error).not.toHaveBeenCalledWith(
+        '[useAppInitialization] Error initializing Supabase sync:',
+        expect.anything()
+      );
+      expect(mockResetTarkovSync).not.toHaveBeenCalled();
+      expect(mockShowLoadFailed).not.toHaveBeenCalled();
     });
   });
 });

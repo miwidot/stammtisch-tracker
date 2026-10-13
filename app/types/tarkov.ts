@@ -122,6 +122,30 @@ export interface TaskPrestigeReference {
  * never a diagnostic, so these values keep a malformed explicit gate distinguishable from no gate.
  */
 export type TaskRequirementDiagnostic = 'prestige_reference' | 'task_requirement';
+/**
+ * Best-effort counter derivation attached server-side from the overlay's progressionCounters
+ * registry: the counter equals the number of completed tasks in `taskIds`.
+ */
+export type TaskCounterDerivation = { type: 'distinctTaskCompletions'; taskIds: string[] };
+export type TaskOtherRequirement =
+  | {
+      type: 'globalVariable';
+      id: string;
+      variableId: string;
+      compareMethod: RequirementComparison;
+      value: number;
+      counter?: TaskCounterDerivation;
+    }
+  | { type: 'dialogue'; id: string; traders: string[] }
+  /** Overlay story gate: met only when the player completed that storyline objective. */
+  | {
+      type: 'storyObjective';
+      id: string;
+      storyChapter: { id: string; name?: string };
+      objective: { id: string; name?: string };
+    }
+  /** Unsupported or malformed gate; `upstreamType` keeps the original upstream discriminator. */
+  | { type: 'unknown'; upstreamType?: string };
 export interface TaskTraderLevelRequirement {
   id: string;
   trader: { id: string; name: string };
@@ -262,6 +286,7 @@ export interface Task {
   trader?: { id: string; name?: string; normalizedName?: string; imageLink?: string };
   objectives?: TaskObjective[];
   taskRequirements?: TaskRequirement[];
+  otherRequirements?: TaskOtherRequirement[];
   storyUnlocks?: Array<{ id: string; name: string }>;
   minPlayerLevel?: number;
   requiredPrestige?: TaskPrestigeReference;
@@ -320,6 +345,8 @@ export interface MapExtract {
   top?: number;
   /** Bottom boundary for multi-floor extracts */
   bottom?: number;
+  /** i18n key for tracker-supplied extracts, which have no upstream localized name */
+  nameKey?: string;
 }
 export interface MapSvgConfig {
   file: string;
@@ -328,7 +355,9 @@ export interface MapSvgConfig {
   coordinateRotation: number;
   transform?: [number, number, number, number];
   bounds: [[number, number], [number, number]];
+  /** Separate bounds for SVG overlay (if different from marker bounds) */
   svgBounds?: [[number, number], [number, number]];
+  /** Whether lower floors should remain visible when a higher floor is selected */
   stackFloors?: boolean;
   minZoom?: number;
   maxZoom?: number;
@@ -341,6 +370,10 @@ export interface MapTileConfig {
   bounds: [[number, number], [number, number]];
   minZoom?: number;
   maxZoom?: number;
+  tileSize?: number;
+  floors?: string[];
+  defaultFloor?: string;
+  floorTilePaths?: Record<string, string>;
 }
 export interface TarkovMap {
   id: string;
@@ -421,8 +454,17 @@ export interface PrestigeLevel {
 export interface TarkovPrestigeQueryResult {
   prestige: PrestigeLevel[];
 }
+/** Explicit unlock placement supplied by the overlay, never inferred from objective wording. */
+export interface StoryObjectiveUnlock {
+  type: 'achievement' | 'barter' | 'map' | 'quest' | 'trader' | 'other';
+  id?: string;
+  name: string;
+  note?: string;
+}
 export interface StoryObjective {
   id: string;
+  /** Producer-declared tutorial baseline, shared by all modes and never persisted on render. */
+  completionPolicy?: 'tutorial';
   order: number;
   type: 'main' | 'optional';
   description: string;
@@ -433,8 +475,11 @@ export interface StoryObjective {
    * chapters, so treat it as optional and never key persisted progress on it.
    */
   sourceQuestId?: string;
+  /** Raw optional layout parent in the same chapter/subquest; never a completion prerequisite. */
+  parentObjectiveId?: string;
   /** `client/ending_list` id of the branch this objective belongs to, when the overlay tags one. */
   endingId?: string;
+  unlocks?: StoryObjectiveUnlock[];
 }
 /**
  * Ending branch a chapter can resolve into, restated by the overlay so the branch set is visible
@@ -612,6 +657,7 @@ export interface StaticMapData {
     unavailable?: boolean;
     svg?: MapSvgConfig;
     tile?: MapTileConfig;
+    extractsAdd?: MapExtract[];
   };
 }
 // Store Types
@@ -635,6 +681,7 @@ export interface TeamState extends StateTree {
   id?: string | null;
   owner?: string | null;
   joinCode?: string | null;
+  ownerOnlyExpiresAt?: string | null;
   members?: string[];
   memberProfiles?: Record<string, MemberProfile>;
 }

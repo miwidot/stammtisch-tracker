@@ -1,4 +1,8 @@
-import { isSupporterActivityActive } from '@/features/supporter/supporterStatus';
+import {
+  useSupporterActivity,
+  useSupporterEntitlement,
+  useSupporterClock,
+} from '@/composables/useSupporterActivity';
 import { logger } from '@/utils/logger';
 import {
   createChannelReleaseLatch,
@@ -14,6 +18,10 @@ export interface SupporterStatus {
   hasEverSupported: boolean;
   expiresAt: string | null;
   startedAt: string;
+  oneTimeTier?: string | null;
+  oneTimeRemainingSeconds?: number | null;
+  oneTimeExpiresAt?: string | null;
+  stripeSubscriptionId?: string | null;
 }
 // Module-scoped reactive state: useSupporter() is a singleton-style composable
 // (similar to Pinia stores) so all components observe the same supporter status
@@ -26,7 +34,7 @@ const channelRelease = createChannelReleaseLatch();
 let channelUserId: string | null = null;
 let statusRequestVersion = 0;
 let subscriptionRequestVersion = 0;
-let statusLoadedForUserId: string | null = null;
+const statusLoadedForUserId = ref<string | null>(null);
 let initialRead: {
   userId: string;
   promise: Promise<boolean>;
@@ -40,16 +48,25 @@ export function useSupporter() {
     const currentUserId = $supabase.user?.id ?? null;
     return !currentUserId || currentUserId === userId;
   };
+  const now = useSupporterClock();
+  const effectiveState = useSupporterEntitlement(supporterState, now);
+  const isActiveStatus = useSupporterActivity(effectiveState, now);
   const isSupporter = computed(() => supporterState.value?.hasEverSupported === true);
   const isActiveSubscriber = computed(
+    () => effectiveState.value?.type === 'subscription' && isActiveStatus.value
+  );
+  const billingSubscription = computed(() =>
+    supporterState.value?.type === 'subscription' ? supporterState.value : null
+  );
+  const isSubscribed = computed(
     () =>
-      supporterState.value?.type === 'subscription' &&
-      isSupporterActivityActive(supporterState.value)
+      Boolean(billingSubscription.value?.stripeSubscriptionId) &&
+      ['active', 'past_due'].includes(billingSubscription.value!.status)
   );
   const activeTier = computed(() => {
     if (!supporterState.value) return null;
-    if (isSupporterActivityActive(supporterState.value)) {
-      return supporterState.value.tier;
+    if (isActiveStatus.value) {
+      return effectiveState.value!.tier;
     }
     if (supporterState.value.hasEverSupported) return 'supporter';
     return null;
@@ -75,8 +92,11 @@ export function useSupporter() {
     let success = false;
     try {
       const { data, error: err } = await $supabase.client
+        // Keep billing details raw; effective access is projected separately above.
         .from('supporters')
-        .select('tier, status, type, has_ever_supported, expires_at, started_at')
+        .select(
+          'tier, status, type, has_ever_supported, expires_at, started_at, one_time_tier, one_time_remaining_seconds, one_time_expires_at, stripe_subscription_id'
+        )
         .eq('user_id', userId)
         .maybeSingle();
       if (err) {
@@ -94,11 +114,15 @@ export function useSupporter() {
           hasEverSupported: data.has_ever_supported,
           expiresAt: data.expires_at,
           startedAt: data.started_at,
+          oneTimeTier: data.one_time_tier,
+          oneTimeRemainingSeconds: data.one_time_remaining_seconds,
+          oneTimeExpiresAt: data.one_time_expires_at,
+          stripeSubscriptionId: data.stripe_subscription_id,
         };
       } else {
         supporterState.value = null;
       }
-      statusLoadedForUserId = userId;
+      statusLoadedForUserId.value = userId;
       success = true;
       return true;
     } catch (e: unknown) {
@@ -106,6 +130,7 @@ export function useSupporter() {
       if (!isCurrentStatusRequest(userId, requestVersion)) return false;
       error.value = e instanceof Error ? e.message : 'Failed to load supporter status';
       supporterState.value = null;
+      statusLoadedForUserId.value = null;
       return false;
     } finally {
       finishStatusRequest(userId, requestVersion, success);
@@ -114,12 +139,12 @@ export function useSupporter() {
   async function subscribe(userId: string): Promise<boolean> {
     if (!$supabase || !userId) return false;
     if (channel && channelUserId === userId) {
-      if (statusLoadedForUserId === userId) return true;
+      if (statusLoadedForUserId.value === userId) return true;
       return initialRead?.promise ?? fetchStatus(userId);
     }
     initialRead?.resolve(false);
     initialRead = null;
-    statusLoadedForUserId = null;
+    statusLoadedForUserId.value = null;
     const requestVersion = ++subscriptionRequestVersion;
     const previousChannel = channel;
     channel = null;
@@ -175,7 +200,7 @@ export function useSupporter() {
     subscriptionRequestVersion += 1;
     initialRead?.resolve(false);
     initialRead = null;
-    statusLoadedForUserId = null;
+    statusLoadedForUserId.value = null;
     const channelToRemove = channel;
     channel = null;
     channelUserId = null;
@@ -242,11 +267,14 @@ export function useSupporter() {
     }
   }
   return {
-    supporter: supporterState,
+    supporter: effectiveState,
     loading,
+    loadedUserId: readonly(statusLoadedForUserId),
     error,
     isSupporter,
     isActiveSubscriber,
+    isSubscribed,
+    billingSubscription,
     activeTier,
     badgeLabel,
     fetchStatus,

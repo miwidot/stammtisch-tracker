@@ -1,28 +1,39 @@
 name: Preview
+run-name: Preview CI ${{ inputs.run_id }} request ${{ inputs.request_comment_id || '0' }}
 # Trusted preview controller. Every job checks out the default branch; candidate code is never
 # executed, installed, or used as Wrangler configuration. The controller verifies CI evidence and
 # the preview artifact's claims against live GitHub state, uploads only after an explicit trusted
 # dispatch, smoke-tests the unique deployment URL, and publishes the authoritative `Preview Result`
-# status. Automatic events only maintain the current-SHA gate. See docs/SYSTEMS.md §18.
+# status. See docs/systems/previews.md. Automatic status refresh lives in preview-state.yml so
+# ordinary pull requests never instantiate skipped deployment or smoke-test jobs.
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
-  pull_request_target:
-    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft, closed]
   workflow_dispatch:
     inputs:
       run_id:
         description: Successful CI run id for the exact PR revision to preview.
         required: true
         type: string
-# One controller per pull request (or per fork branch for runs without PR metadata); newer events
-# cancel obsolete preview work. Late results are additionally rejected by revision checks.
+      request_comment_id:
+        description: Command authorizing this automatic request; omit for a manual preview.
+        required: false
+        type: string
+      authorization:
+        description: Readiness policy provenance; omit for independently authorized dispatches.
+        required: false
+        type: string
+      ci_attempt:
+        description: Exact CI attempt selected by the trusted requester.
+        required: false
+        type: string
+# Repeated requests for the same CI run replace an older attempt. Late results are also rejected
+# by revision checks.
 concurrency:
-  group: preview-${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || format('{0}@{1}', github.event.workflow_run.head_repository.full_name, github.event.workflow_run.head_branch) }}-${{ inputs.run_id }}
+  group: preview-${{ inputs.run_id }}
   cancel-in-progress: true
 permissions:
   contents: read
+env:
+  PREVIEW_OPT_IN_START: ${{ vars.PREVIEW_OPT_IN_START }}
 jobs:
   plan:
     name: Plan preview
@@ -32,6 +43,7 @@ jobs:
       actions: read
       checks: read
       contents: read
+      issues: read
       pull-requests: read
       statuses: write
     outputs:
@@ -52,6 +64,9 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           RUN_ID_INPUT: ${{ inputs.run_id }}
+          REQUEST_COMMENT_ID_INPUT: ${{ inputs.request_comment_id }}
+          AUTHORIZATION_INPUT: ${{ inputs.authorization }}
+          CI_ATTEMPT_INPUT: ${{ inputs.ci_attempt }}
         with:
           script: |
             const { planPreview } = await import(`${process.env.GITHUB_WORKSPACE}/scripts/preview/controller.mjs`);
@@ -59,13 +74,13 @@ jobs:
               github,
               context,
               core,
-              inputs: { run_id: process.env.RUN_ID_INPUT },
+              inputs: { run_id: process.env.RUN_ID_INPUT, request_comment_id: process.env.REQUEST_COMMENT_ID_INPUT, authorization: process.env.AUTHORIZATION_INPUT, ci_attempt: process.env.CI_ATTEMPT_INPUT },
               workspace: process.env.RUNNER_TEMP,
             });
             core.setOutput('decision', JSON.stringify(decision));
             core.setOutput('action', decision.action);
             core.setOutput('environment', decision.environment ?? '');
-            if (decision.fork && decision.action === 'deploy') {
+            if (decision.environment === 'preview-fork' && decision.action === 'deploy') {
               await core.summary
                 .addHeading('Fork preview awaiting approval', 2)
                 .addRaw(`Approving deploys **exactly** revision \`${decision.headSha}\` from \`${decision.headRepo}\` (PR #${decision.pullRequest}). The deployment job re-checks the revision after approval and refuses any other head.`)
@@ -77,14 +92,15 @@ jobs:
     if: needs.plan.outputs.action == 'deploy'
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # Explicit dispatches use `preview` for same-repository candidates. Forks use `preview-fork`,
-    # which requires maintainer review with administrator bypass disabled. Both hold the token.
+    # A live maintainer /preview command authorizes the PR through `preview`, including forks.
+    # Forks without that opt-in use `preview-fork`, with manual review or an admin override.
     environment:
       name: ${{ needs.plan.outputs.environment }}
       url: ${{ steps.verify-deployment.outputs.url }}
     permissions:
       actions: read
       contents: read
+      issues: read
       pull-requests: read
     outputs:
       url: ${{ steps.verify-deployment.outputs.url }}
@@ -102,7 +118,7 @@ jobs:
         with:
           node-version-file: .nvmrc
       - name: Activate packageManager
-        run: bash scripts/ensure-pnpm.sh
+        run: bash scripts/setup/ensure-pnpm.sh
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
@@ -196,6 +212,8 @@ jobs:
           EXPECTED_DIGEST: ${{ needs.deploy.outputs.digest }}
           EXPECTED_PREVIEW_BRANCH: ${{ needs.deploy.outputs.preview_branch }}
           SMOKE_REPORT_DIR: ${{ runner.temp }}/smoke-report
+          PREVIEW_ACCESS_CLIENT_ID: ${{ secrets.PREVIEW_ACCESS_CLIENT_ID }}
+          PREVIEW_ACCESS_CLIENT_SECRET: ${{ secrets.PREVIEW_ACCESS_CLIENT_SECRET }}
         run: pnpm exec playwright test --config scripts/preview/smoke/playwright.config.mjs
       - name: Retain smoke evidence
         if: always()
@@ -229,6 +247,7 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           PLAN_RESULT: ${{ needs.plan.result }}
+          RUN_ID_INPUT: ${{ inputs.run_id }}
           DECISION: ${{ needs.plan.outputs.decision }}
           DEPLOY_RESULT: ${{ needs.deploy.result }}
           SMOKE_RESULT: ${{ needs.smoke.result }}
@@ -246,15 +265,20 @@ jobs:
               return;
             }
             if (process.env.PLAN_RESULT !== 'success' || !decision) {
-              await publishControllerFailure({ github, context, core, decision });
+              await publishControllerFailure({ github, context, core, decision, inputs: { run_id: process.env.RUN_ID_INPUT } });
               core.setFailed('Preview planning did not succeed.');
               return;
             }
-            await publishResult({
-              github,
-              context,
-              core,
-              decision,
-              outcomes: { deploy: process.env.DEPLOY_RESULT, smoke: process.env.SMOKE_RESULT },
-              evidence: { url: process.env.DEPLOYMENT_URL, deploymentId: process.env.DEPLOYMENT_ID },
-            });
+            try {
+              await publishResult({
+                github,
+                context,
+                core,
+                decision,
+                outcomes: { deploy: process.env.DEPLOY_RESULT, smoke: process.env.SMOKE_RESULT },
+                evidence: { url: process.env.DEPLOYMENT_URL, deploymentId: process.env.DEPLOYMENT_ID },
+              });
+            } catch (error) {
+              await publishControllerFailure({ github, context, core, decision });
+              throw error;
+            }

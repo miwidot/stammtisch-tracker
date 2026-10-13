@@ -319,10 +319,14 @@ export type Database = {
           discord_user_id: string | null
           expires_at: string | null
           has_ever_supported: boolean
+          last_contribution_at: string | null
+          retention_history_verified: boolean
           started_at: string
           status: string
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
+          subscription_ended_at: string | null
+          supporter_disqualified_at: string | null
           tier: string
           type: string
           updated_at: string
@@ -333,10 +337,14 @@ export type Database = {
           discord_user_id?: string | null
           expires_at?: string | null
           has_ever_supported?: boolean
+          last_contribution_at?: string | null
+          retention_history_verified?: boolean
           started_at?: string
           status?: string
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          subscription_ended_at?: string | null
+          supporter_disqualified_at?: string | null
           tier?: string
           type: string
           updated_at?: string
@@ -347,10 +355,14 @@ export type Database = {
           discord_user_id?: string | null
           expires_at?: string | null
           has_ever_supported?: boolean
+          last_contribution_at?: string | null
+          retention_history_verified?: boolean
           started_at?: string
           status?: string
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          subscription_ended_at?: string | null
+          supporter_disqualified_at?: string | null
           tier?: string
           type?: string
           updated_at?: string
@@ -500,6 +512,39 @@ export type Database = {
         }
         Relationships: []
       }
+      user_game_profiles: {
+        Row: {
+          created_at: string
+          eft_account_id: string | null
+          game_edition: number | null
+          id: string
+          is_default: boolean
+          label: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          eft_account_id?: string | null
+          game_edition?: number | null
+          id?: string
+          is_default?: boolean
+          label?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          eft_account_id?: string | null
+          game_edition?: number | null
+          id?: string
+          is_default?: boolean
+          label?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_preferences: {
         Row: {
           created_at: string | null
@@ -579,7 +624,6 @@ export type Database = {
           trader_sort_direction: string | null
           trader_sort_mode: string | null
           updated_at: string | null
-          use_automatic_level_calculation: boolean | null
           user_id: string
         }
         Insert: {
@@ -660,7 +704,6 @@ export type Database = {
           trader_sort_direction?: string | null
           trader_sort_mode?: string | null
           updated_at?: string | null
-          use_automatic_level_calculation?: boolean | null
           user_id: string
         }
         Update: {
@@ -741,7 +784,6 @@ export type Database = {
           trader_sort_direction?: string | null
           trader_sort_mode?: string | null
           updated_at?: string | null
-          use_automatic_level_calculation?: boolean | null
           user_id?: string
         }
         Relationships: []
@@ -779,11 +821,53 @@ export type Database = {
         }
         Relationships: []
       }
+      user_profile_mode_progress: {
+        Row: {
+          created_at: string
+          game_mode: string
+          profile_id: string
+          profile_public: boolean
+          progress_data: Json
+          season_number: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          game_mode: string
+          profile_id: string
+          profile_public?: boolean
+          progress_data?: Json
+          season_number?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          game_mode?: string
+          profile_id?: string
+          profile_public?: boolean
+          progress_data?: Json
+          season_number?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_profile_mode_progress_profile_fkey"
+            columns: ["profile_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "user_game_profiles"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
       user_progress: {
         Row: {
           created_at: string | null
           current_game_mode: string | null
           game_edition: number | null
+          metadata_write_id: string | null
           pve_data: Json | null
           pvp_data: Json | null
           tarkov_uid: number | null
@@ -794,6 +878,7 @@ export type Database = {
           created_at?: string | null
           current_game_mode?: string | null
           game_edition?: number | null
+          metadata_write_id?: string | null
           pve_data?: Json | null
           pvp_data?: Json | null
           tarkov_uid?: number | null
@@ -804,6 +889,7 @@ export type Database = {
           created_at?: string | null
           current_game_mode?: string | null
           game_edition?: number | null
+          metadata_write_id?: string | null
           pve_data?: Json | null
           pvp_data?: Json | null
           tarkov_uid?: number | null
@@ -931,6 +1017,10 @@ export type Database = {
       }
     }
     Functions: {
+      add_game_profile: {
+        Args: { p_eft_account_id: string | null; p_label: string | null }
+        Returns: Json
+      }
       archive_prestige_run_and_reset_progress: {
         Args: {
           p_archived_progress: Json
@@ -986,9 +1076,17 @@ export type Database = {
           reset_at: string
         }[]
       }
+      delete_game_profile: {
+        Args: { p_profile_id: string }
+        Returns: undefined
+      }
       disband_team: {
         Args: { p_owner_id: string; p_team_id: string }
         Returns: boolean
+      }
+      get_game_profile_progress: {
+        Args: { p_profile_id: string }
+        Returns: Json
       }
       get_api_usage_summary: {
         Args: { p_limit?: number; p_since: string }
@@ -1006,12 +1104,20 @@ export type Database = {
         Args: { p_token_id: string }
         Returns: undefined
       }
+      list_game_profiles: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       merge_api_update_history: {
         Args: { max_entries?: number; payload: Json; previous_payload: Json }
         Returns: Json
       }
       leave_team: {
         Args: { p_team_id: string; p_user_id: string }
+        Returns: string
+      }
+      kick_team: {
+        Args: { p_initiator_id: string; p_member_id: string; p_team_id: string }
         Returns: string
       }
       merge_progress_data: {
@@ -1023,6 +1129,22 @@ export type Database = {
           p_user_id: string
         }
         Returns: number
+      }
+      disqualify_supporter_account: {
+        Args: { p_user_id: string; p_charge_id: string }
+        Returns: undefined
+      }
+      disqualify_supporter_customer: {
+        Args: { p_customer_id: string; p_user_id?: string }
+        Returns: undefined
+      }
+      supporter_benefits_disqualified: {
+        Args: { p_user_id: string }
+        Returns: boolean
+      }
+      record_account_activity: {
+        Args: { p_user_id: string }
+        Returns: undefined
       }
       record_api_usage: {
         Args: {
@@ -1068,7 +1190,16 @@ export type Database = {
           p_seasonal_season_number?: number | null
           p_tarkov_uid: number | null
         }
-        Returns: undefined
+        Returns: Json
+      }
+      sync_game_profile_progress: {
+        Args: {
+          p_game_edition: number | null
+          p_modes: Json
+          p_profile_id: string
+          p_seasonal_season_number?: number | null
+        }
+        Returns: Json
       }
       transfer_team_ownership: {
         Args: {
@@ -1078,16 +1209,13 @@ export type Database = {
         }
         Returns: undefined
       }
-      update_task_completion: {
+      update_game_profile: {
         Args: {
-          p_complete: boolean
-          p_failed: boolean
-          p_game_mode: string
-          p_task_id: string
-          p_timestamp: number
-          p_user_id: string
+          p_eft_account_id: string | null
+          p_label: string | null
+          p_profile_id: string | null
         }
-        Returns: undefined
+        Returns: Json
       }
     }
     Enums: {

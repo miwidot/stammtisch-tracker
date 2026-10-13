@@ -16,7 +16,6 @@ const createBaseState = (): UserState =>
       level: 1,
       pmcFaction: 'USEC',
       displayName: null,
-      xpOffset: 0,
       taskObjectives: {},
       taskCompletions: {},
       hideoutParts: {},
@@ -31,7 +30,6 @@ const createBaseState = (): UserState =>
       level: 1,
       pmcFaction: 'USEC',
       displayName: null,
-      xpOffset: 0,
       taskObjectives: {},
       taskCompletions: {},
       hideoutParts: {},
@@ -61,6 +59,92 @@ describe('progressState getters task completion compatibility', () => {
     const state = createStateWithTaskCompletion({ complete: true, failed: true });
     expect(getters.isTaskComplete(state)('task-1')).toBe(false);
     expect(getters.isTaskFailed(state)('task-1')).toBe(true);
+  });
+});
+describe('task availability confirmations', () => {
+  it('confirms and clears without touching task status or objectives', () => {
+    // Review #979: confirming must not create a completion record that reads as active, and a
+    // clear must not rewrite (and so on merge override) another device's status.
+    const state = createBaseState();
+    state.pvp.taskObjectives.objective = { count: 2, complete: false };
+    actions.confirmTaskAvailability.call(state, 'task', 'requirements');
+    expect(state.pvp.taskCompletions.task).toBeUndefined();
+    expect(state.pvp.taskAvailability?.task?.requirements).toBe('requirements');
+    actions.clearTaskAvailability.call(state, 'task');
+    expect(state.pvp.taskCompletions.task).toBeUndefined();
+    expect(state.pvp.taskAvailability?.task?.requirements).toBe('');
+    expect(state.pvp.taskObjectives.objective).toEqual({ count: 2, complete: false });
+  });
+  it('leaves an existing completion untouched when clearing', () => {
+    const state = createBaseState();
+    const completion = { complete: true, failed: false, manual: true, timestamp: 10 };
+    state.pvp.taskCompletions.task = { ...completion };
+    actions.clearTaskAvailability.call(state, 'task');
+    expect(state.pvp.taskCompletions.task).toEqual(completion);
+  });
+  it('stamps confirmations after the status clock and after the previous confirmation', () => {
+    const state = createBaseState();
+    const future = Date.now() + 60_000;
+    state.pvp.taskCompletions.task = { complete: false, failed: false, timestamp: future };
+    actions.confirmTaskAvailability.call(state, 'task', 'requirements');
+    const first = state.pvp.taskAvailability!.task!.timestamp;
+    expect(first).toBeGreaterThanOrEqual(future);
+    actions.clearTaskAvailability.call(state, 'task');
+    expect(state.pvp.taskAvailability!.task!.timestamp).toBeGreaterThan(first);
+  });
+  it('advances a status change past a confirmation stamped by a clock running ahead', () => {
+    const state = createBaseState();
+    const ahead = Date.now() + 3_600_000;
+    state.pvp.taskAvailability = { task: { requirements: 'requirements', timestamp: ahead } };
+    for (const action of [
+      actions.setTaskComplete,
+      actions.setTaskFailed,
+      actions.setTaskUncompleted,
+    ]) {
+      action.call(state, 'task');
+      expect(state.pvp.taskCompletions.task!.timestamp!).toBeGreaterThan(ahead);
+    }
+  });
+  it('scopes confirmations to the current mode and retires them on later status changes', () => {
+    const state = createBaseState();
+    for (const action of [
+      actions.setTaskUncompleted,
+      actions.setTaskComplete,
+      actions.setTaskFailed,
+    ]) {
+      actions.confirmTaskAvailability.call(state, 'task', 'requirements');
+      expect(state.pve.taskAvailability?.task).toBeUndefined();
+      const confirmedAt = state.pvp.taskAvailability!.task!.timestamp;
+      vi.useFakeTimers();
+      vi.setSystemTime(confirmedAt + 5);
+      action.call(state, 'task');
+      expect(state.pvp.taskCompletions.task!.timestamp!).toBeGreaterThan(confirmedAt);
+      vi.useRealTimers();
+    }
+  });
+});
+describe('story objective completion clock', () => {
+  it('stamps a completion after an entry another device wrote ahead', () => {
+    const state = createBaseState();
+    const ahead = Date.now() + 3_600_000;
+    state.pvp.storyChapters.boreas = {
+      objectives: { drives: { complete: false, timestamp: ahead } },
+    };
+    actions.setStoryObjectiveComplete.call(state, 'boreas', 'drives');
+    const entry = state.pvp.storyChapters.boreas.objectives!.drives!;
+    expect(entry.complete).toBe(true);
+    expect(entry.timestamp!).toBeGreaterThan(ahead);
+  });
+  it('stamps an uncompletion after an entry another device wrote ahead', () => {
+    const state = createBaseState();
+    const ahead = Date.now() + 3_600_000;
+    state.pvp.storyChapters.boreas = {
+      objectives: { drives: { complete: true, timestamp: ahead } },
+    };
+    actions.setStoryObjectiveUncomplete.call(state, 'boreas', 'drives');
+    const entry = state.pvp.storyChapters.boreas.objectives!.drives!;
+    expect(entry.complete).toBe(false);
+    expect(entry.timestamp!).toBeGreaterThan(ahead);
   });
 });
 describe('progressState storyline timestamps', () => {
@@ -259,5 +343,20 @@ describe('manual activity clearing', () => {
     expect(state.pve.manualActivityEpoch).toBeUndefined();
     actions.clearManualActivityHistory.call(state);
     expect(state.pvp.manualActivityEpoch).toBe(2);
+  });
+});
+describe('legacy XP state migration', () => {
+  it('preserves saved levels and prestige in every mode while dropping retired offsets', () => {
+    const legacy = createBaseState();
+    legacy.seasonal = structuredClone(legacy.pvp);
+    for (const [index, mode] of (['pvp', 'pve', 'seasonal'] as const).entries()) {
+      Object.assign(legacy[mode], { level: 30 + index, prestigeLevel: index, xpOffset: 999999 });
+    }
+    legacy.seasonalSeasonNumber = ACTIVE_SEASON_NUMBER;
+    const migrated = migrateToGameModeStructure(legacy);
+    for (const [index, mode] of (['pvp', 'pve', 'seasonal'] as const).entries()) {
+      expect(migrated[mode]).toMatchObject({ level: 30 + index, prestigeLevel: index });
+      expect(migrated[mode]).not.toHaveProperty('xpOffset');
+    }
   });
 });

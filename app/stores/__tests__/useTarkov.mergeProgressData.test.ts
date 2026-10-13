@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { hasProgress, mergeProgressData } from '@/stores/tarkov/progressMerge';
+import {
+  hasProgress,
+  hasRetainableModeProgress,
+  mergeProgressData,
+} from '@/stores/tarkov/progressMerge';
 import type { ManualActivityEntry, UserProgressData, UserState } from '@/stores/progressState';
 const createProgressData = (
   storyChapters: UserProgressData['storyChapters']
@@ -7,7 +11,6 @@ const createProgressData = (
   level: 1,
   pmcFaction: 'USEC',
   displayName: null,
-  xpOffset: 0,
   taskObjectives: {},
   taskCompletions: {},
   hideoutParts: {},
@@ -18,6 +21,51 @@ const createProgressData = (
   progressEpoch: 0,
   skillOffsets: {},
   storyChapters,
+});
+describe('hasProgress availability confirmations', () => {
+  it('counts a confirmation-only mode as progress so it syncs and survives startup', () => {
+    const pvp = createProgressData({});
+    expect(hasProgress({ pvp })).toBe(false);
+    pvp.taskAvailability = { task: { requirements: 'sig', timestamp: 1 } };
+    expect(hasProgress({ pvp })).toBe(true);
+  });
+});
+describe('mergeProgressData availability confirmation', () => {
+  const withConfirmation = (requirements: string, timestamp: number) => {
+    const data = createProgressData({});
+    data.taskAvailability = { task: { requirements, timestamp } };
+    return data;
+  };
+  it('keeps the newest confirmation on its own clock and never resurrects a newer clear', () => {
+    const confirmed = withConfirmation('requirements', 10);
+    const cleared = withConfirmation('', 20);
+    for (const [a, b] of [
+      [confirmed, cleared],
+      [cleared, confirmed],
+    ] as const)
+      expect(mergeProgressData(a, b).taskAvailability?.task).toEqual({
+        requirements: '',
+        timestamp: 20,
+      });
+    const older = withConfirmation('', 5);
+    expect(mergeProgressData(older, confirmed).taskAvailability?.task?.requirements).toBe(
+      'requirements'
+    );
+  });
+  it('never lets a stale confirmation or clear discard another client completion', () => {
+    // Review #979: a stale client that confirms or clears later must not rewrite task status.
+    const completedElsewhere = createProgressData({});
+    completedElsewhere.taskCompletions.task = { complete: true, failed: false, timestamp: 200 };
+    const staleClient = withConfirmation('', 300);
+    for (const [a, b] of [
+      [staleClient, completedElsewhere],
+      [completedElsewhere, staleClient],
+    ] as const) {
+      const merged = mergeProgressData(a, b);
+      expect(merged.taskCompletions.task).toMatchObject({ complete: true, failed: false });
+      expect(merged.taskAvailability?.task).toEqual({ requirements: '', timestamp: 300 });
+    }
+  });
 });
 describe('mergeProgressData story chapters', () => {
   it('merges chapter objectives by key without dropping existing objective progress', () => {
@@ -312,4 +360,36 @@ describe('manual history reconciliation regressions', () => {
     ).toBe(true);
     expect(hasProgress({ ...state, pvp: { ...empty, manualActivityEpoch: 1 } })).toBe(true);
   });
+});
+describe('hasRetainableModeProgress', () => {
+  it('ignores default progress and reset clocks but keeps any real change', () => {
+    const empty = createProgressData({});
+    expect(hasRetainableModeProgress(empty)).toBe(false);
+    expect(hasRetainableModeProgress(undefined)).toBe(false);
+    expect(hasRetainableModeProgress({ ...empty, progressEpoch: 3, manualActivityEpoch: 2 })).toBe(
+      false
+    );
+    expect(hasRetainableModeProgress({ ...empty, displayName: 'player' })).toBe(true);
+    expect(
+      hasRetainableModeProgress({ ...empty, traders: { prapor: { level: 2, reputation: 0 } } })
+    ).toBe(true);
+    expect(hasRetainableModeProgress({ ...empty, level: 2 })).toBe(true);
+  });
+});
+describe('retired XP offsets in merge paths', () => {
+  it.each(['local-only', 'remote-only', 'equal-epoch', 'newer-remote', 'newer-local'])(
+    'drops offsets from %s merges without changing saved levels',
+    (path) => {
+      const local = Object.assign(createProgressData({}), { level: 35, xpOffset: 999999 });
+      const remote = Object.assign(createProgressData({}), { level: 40, xpOffset: 888888 });
+      if (path === 'newer-remote') remote.progressEpoch = 1;
+      if (path === 'newer-local') local.progressEpoch = 1;
+      const merged = mergeProgressData(
+        path === 'remote-only' ? undefined : local,
+        path === 'local-only' ? undefined : remote
+      );
+      expect(merged).not.toHaveProperty('xpOffset');
+      expect(merged.level).toBe(['local-only', 'newer-local'].includes(path) ? 35 : 40);
+    }
+  );
 });

@@ -21,6 +21,10 @@ import {
   type PersistedPreferencesStateWithLegacy,
 } from '@/stores/preferences/sanitizers';
 import {
+  isDeviceDataRemovalPending,
+  registerDeviceDataRemovalCleanup,
+} from '@/stores/tarkov/deviceData';
+import {
   isValidPrimaryView,
   type TaskPrimaryView,
   type TaskSecondaryView,
@@ -142,8 +146,6 @@ export interface PreferencesState {
   showLockedFilter: boolean;
   showCompletedFilter: boolean;
   showFailedFilter: boolean;
-  // XP and Level settings
-  useAutomaticLevelCalculation: boolean;
   dashboardNoticeDismissed: boolean;
   // Map display settings
   showMapExtracts: boolean;
@@ -153,6 +155,8 @@ export interface PreferencesState {
   mapZoneOpacity: number;
   mapTooltipDensity: 'default' | 'compact';
   pinnedTaskIds: string[];
+  // Quests the user hid from the Tasks map (#918); persisted locally only, not synced to Supabase
+  mapHiddenTaskIds: string[];
   mapShowSelfObjectives: boolean;
   mapShowPinnedObjectives: boolean;
   mapShowTeamObjectives: boolean;
@@ -232,8 +236,6 @@ export const preferencesDefaultState: PreferencesState = {
   showLockedFilter: true,
   showCompletedFilter: true,
   showFailedFilter: true,
-  // XP and Level settings
-  useAutomaticLevelCalculation: false,
   dashboardNoticeDismissed: false,
   // Map display settings
   showMapExtracts: true,
@@ -243,6 +245,7 @@ export const preferencesDefaultState: PreferencesState = {
   mapZoneOpacity: 0.24,
   mapTooltipDensity: 'default',
   pinnedTaskIds: [],
+  mapHiddenTaskIds: [],
   mapShowSelfObjectives: true,
   mapShowPinnedObjectives: true,
   mapShowTeamObjectives: true,
@@ -356,6 +359,7 @@ export const clearPendingResetPreferencesSnapshot = (userId?: string | null): vo
     pendingResetPreferencesSnapshot = null;
   }
 };
+registerDeviceDataRemovalCleanup(clearPendingResetPreferencesSnapshot);
 const serializePersistedPreferencesSnapshot = (
   state: PersistedPreferencesState,
   userId: string | null,
@@ -423,12 +427,6 @@ export const usePreferencesStore = defineStore('preferences', {
   getters: {
     getStreamerMode(state) {
       return state.streamerMode ?? false;
-    },
-    getProfileSharePvpPublic: (state) => {
-      return state.profileSharePvpPublic ?? false;
-    },
-    getProfileSharePvePublic: (state) => {
-      return state.profileSharePvePublic ?? false;
     },
     teamIsHidden: (state) => {
       return (teamId: string): boolean => {
@@ -624,9 +622,6 @@ export const usePreferencesStore = defineStore('preferences', {
     getShowFailedFilter: (state) => {
       return state.showFailedFilter ?? true;
     },
-    getUseAutomaticLevelCalculation: (state) => {
-      return state.useAutomaticLevelCalculation ?? false;
-    },
     // Map display getters
     getShowMapExtracts: (state) => {
       return state.showMapExtracts ?? true;
@@ -636,6 +631,9 @@ export const usePreferencesStore = defineStore('preferences', {
     },
     getPinnedTaskIds: (state) => {
       return state.pinnedTaskIds ?? [];
+    },
+    getMapHiddenTaskIds: (state) => {
+      return state.mapHiddenTaskIds ?? [];
     },
     getMapShowSelfObjectives: (state) => {
       return state.mapShowSelfObjectives ?? true;
@@ -909,9 +907,6 @@ export const usePreferencesStore = defineStore('preferences', {
     setMapShowTeamObjectives(show: boolean) {
       this.mapShowTeamObjectives = show;
     },
-    setUseAutomaticLevelCalculation(use: boolean) {
-      this.useAutomaticLevelCalculation = use;
-    },
     // Map display actions
     setShowMapExtracts(show: boolean) {
       this.showMapExtracts = show;
@@ -934,6 +929,27 @@ export const usePreferencesStore = defineStore('preferences', {
       } else {
         this.pinnedTaskIds = current.filter((id) => id !== taskId);
       }
+    },
+    toggleMapHiddenTask(taskId: string) {
+      const hidden = this.mapHiddenTaskIds ?? [];
+      this.mapHiddenTaskIds = hidden.includes(taskId)
+        ? hidden.filter((id) => id !== taskId)
+        : [...hidden, taskId];
+    },
+    /** Hides every other quest on the current map and shows this one. */
+    showOnlyMapTask(taskId: string, mapTaskIds: readonly string[]) {
+      const hidden = new Set([...(this.mapHiddenTaskIds ?? []), ...mapTaskIds]);
+      hidden.delete(taskId);
+      this.mapHiddenTaskIds = [...hidden];
+    },
+    /** Shows the given quests again, or every hidden quest when omitted. */
+    clearMapTaskVisibility(taskIds?: readonly string[]) {
+      if (!taskIds) {
+        this.mapHiddenTaskIds = [];
+        return;
+      }
+      const clearSet = new Set(taskIds);
+      this.mapHiddenTaskIds = (this.mapHiddenTaskIds ?? []).filter((id) => !clearSet.has(id));
     },
     // Skills actions
     setSkillSortMode(mode: SkillSortMode) {
@@ -963,13 +979,13 @@ export const usePreferencesStore = defineStore('preferences', {
           ) {
             return {};
           }
-          return wrapped.data;
+          return sanitizePersistedPreferencesState(wrapped.data);
         }
         const legacyState = parseLegacyPersistedPreferencesState(value);
         if (!legacyState) {
           return {};
         }
-        return legacyState;
+        return sanitizePersistedPreferencesState(legacyState);
       },
     },
     // Pick specific properties to persist (excluding transient state)
@@ -1030,7 +1046,6 @@ export const usePreferencesStore = defineStore('preferences', {
       'mapShowSelfObjectives',
       'mapShowPinnedObjectives',
       'mapShowTeamObjectives',
-      'useAutomaticLevelCalculation',
       'dashboardNoticeDismissed',
       'hideoutCollapseCompleted',
       'hideoutSortReadyFirst',
@@ -1044,6 +1059,7 @@ export const usePreferencesStore = defineStore('preferences', {
       'mapPanSpeed',
       'mapZoneOpacity',
       'pinnedTaskIds',
+      'mapHiddenTaskIds',
       'taskFilterPresets',
       'skillSortMode',
       'traderSortMode',
@@ -1085,14 +1101,16 @@ export const resetPreferencesStoreForSessionTransition = (
 ): void => {
   const preferencesStore = usePreferencesStore();
   const preservedState = getPreservedPreferencesStorageValue(previousUserId);
-  pendingResetPreferencesSnapshot = previousUserId
-    ? readPersistedPreferencesSnapshot(previousUserId)
-    : null;
+  pendingResetPreferencesSnapshot =
+    previousUserId && !isDeviceDataRemovalPending(previousUserId)
+      ? readPersistedPreferencesSnapshot(previousUserId)
+      : null;
   preferencesStore.resetToDefaults();
   if (!import.meta.client) {
     return;
   }
-  if (preservedState) {
+  // An explicit device-data removal keeps no preferences copy for the previous owner.
+  if (preservedState && !isDeviceDataRemovalPending(previousUserId)) {
     localStorage.setItem(STORAGE_KEYS.preferences, preservedState);
     return;
   }

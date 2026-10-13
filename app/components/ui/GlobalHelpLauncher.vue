@@ -13,9 +13,9 @@
           icon="i-mdi-help-circle-outline"
           :aria-label="helpCommunityAriaLabel"
           :class="buttonToneClass"
-          class="h-9"
+          class="h-8 min-w-8 justify-center px-2 sm:px-2.5"
           trailing-icon="i-mdi-chevron-down"
-          :ui="{ trailingIcon: 'size-3.5' }"
+          :ui="{ trailingIcon: 'hidden size-3.5 sm:inline-flex' }"
         >
           <span class="hidden text-[13px] leading-none font-medium md:inline">
             {{ helpButtonLabel }}
@@ -287,7 +287,7 @@
   const isLoggedIn = computed(() => $supabase.user?.loggedIn ?? false);
   const helpButtonLabel = computed(() => t('page_help.button'));
   const helpCommunityAriaLabel = computed(() =>
-    copy('app_bar.help_community_aria', 'Help & community')
+    copy('app_bar.help_community_aria', 'Help & onboarding')
   );
   const keyboardShortcutsLabel = computed(() =>
     copy('app_bar.keyboard_shortcuts', 'Keyboard shortcuts')

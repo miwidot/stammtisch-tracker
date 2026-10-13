@@ -114,7 +114,6 @@ export default withNuxt(
       // Block parent relative imports (use @/ aliases instead)
       'import-x/no-relative-parent-imports': 'error',
       // Import order: builtin → external → internal → parent → sibling → index → object → type
-      // (Keep in sync with CLAUDE.md, AGENTS.md, GEMINI.md)
       'import-x/order': [
         'warn',
         {
@@ -180,5 +179,10 @@ export default withNuxt(
       '@typescript-eslint/no-unused-vars': 'off',
       'vue/no-unused-vars': 'error',
     },
+  },
+  {
+    // The route registry is also loaded by Nuxt's Node config before @ aliases exist.
+    files: ['app/utils/routeSeo.ts'],
+    rules: { 'import-x/no-relative-parent-imports': 'off' },
   }
 );

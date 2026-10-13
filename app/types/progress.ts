@@ -1,4 +1,5 @@
-export interface TaskObjective {
+import type { ApiTaskUpdateEntry } from '@tarkovtracker/progress-contracts/apiTaskUpdates';
+export interface TaskObjectiveProgress {
   count?: number;
   complete?: boolean;
   timestamp?: number;
@@ -9,24 +10,32 @@ export interface TaskCompletion {
   timestamp?: number;
   manual?: boolean;
 }
+/**
+ * In-game availability confirmation for a task's server-side start gates, stored separately from
+ * task status so confirming or clearing it can never rewrite a completion. `requirements` is the
+ * exact normalized gate signature; an empty string is a clear. It is honoured only while not older
+ * than the task's status timestamp, so a later reset/complete/fail on any device supersedes it.
+ */
+export interface TaskAvailabilityConfirmation {
+  requirements: string;
+  timestamp: number;
+}
 export interface HideoutPart {
   count?: number;
   complete?: boolean;
   timestamp?: number;
 }
-export interface HideoutModule {
+export interface HideoutModuleProgress {
   complete?: boolean;
   timestamp?: number;
 }
-export interface ApiTaskUpdate {
-  id: string;
-  state: 'completed' | 'failed' | 'uncompleted';
-}
+export type ApiTaskUpdate = ApiTaskUpdateEntry;
 export interface ApiUpdateMeta {
   id: string;
   at: number;
   source: 'api';
   tasks?: ApiTaskUpdate[];
+  taskCount?: number;
 }
 export interface TraderProgress {
   level: number;
@@ -62,11 +71,11 @@ export interface UserProgressData {
   level: number;
   pmcFaction: 'USEC' | 'BEAR';
   displayName: string | null;
-  xpOffset: number;
-  taskObjectives: { [objectiveId: string]: TaskObjective };
+  taskObjectives: { [objectiveId: string]: TaskObjectiveProgress };
   taskCompletions: { [taskId: string]: TaskCompletion };
+  taskAvailability?: { [taskId: string]: TaskAvailabilityConfirmation };
   hideoutParts: { [objectiveId: string]: HideoutPart };
-  hideoutModules: { [hideoutId: string]: HideoutModule };
+  hideoutModules: { [hideoutId: string]: HideoutModuleProgress };
   traders: { [traderId: string]: TraderProgress };
   skills: { [skillName: string]: number };
   prestigeLevel: number;

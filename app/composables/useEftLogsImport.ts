@@ -7,6 +7,7 @@ import {
   readEftLogSources,
   type EftLogReadProgress,
 } from '@/utils/eftLogFileReader';
+import { EftLogImportBudgetError } from '@/utils/eftLogImportBudget';
 import { loadEftImportTaskCatalog } from '@/utils/eftLogImportCatalog';
 import {
   hasOutsideSeasonEvents,
@@ -20,12 +21,14 @@ import {
 } from '@/utils/eftLogQuestParser';
 import { EftLogRecordSizeError } from '@/utils/eftLogRecordReader';
 import { logger } from '@/utils/logger';
+import { otherRequirementsSignature } from '@/utils/taskOtherRequirements';
 import {
   applyTaskAvailabilityRequirements,
   applyTaskTraderRequirements,
   ensureTaskMinPlayerLevel,
   completeTaskForProgress,
   failTaskForProgress,
+  recordImpliedStoryObjectives,
 } from '@/utils/taskProgress';
 import { getCompletionFlags } from '@/utils/taskStatus';
 import type { Task } from '@/types/tarkov';
@@ -45,6 +48,7 @@ export interface UseEftLogsImportReturn {
   parseFiles: (files: File[]) => Promise<void>;
   previewData: Ref<EftLogsImportPreviewData | null>;
   setIncludedVersions: (versions: string[]) => void;
+  setAccount: (accountId: string) => void;
   confirmImport: (targetMode: GameMode) => Promise<void>;
   reset: () => void;
 }
@@ -71,6 +75,8 @@ function translateReadError(error: unknown, t: TranslationFn): string | null {
   if (error instanceof EftLogRecordSizeError) {
     return t('settings.log_import.errors.record_too_large', { path: error.path });
   }
+  if (error instanceof EftLogImportBudgetError)
+    return t('settings.log_import.errors.budget_exceeded');
   if (error instanceof EftLogArchiveError) return t('settings.log_import.errors.invalid_archive');
   return null;
 }
@@ -145,6 +151,7 @@ const applyImportedTaskRequirements = (
 ) => {
   ensureTaskMinPlayerLevel(store, task);
   if (requireTraders) applyTaskTraderRequirements({ store, task });
+  recordImpliedStoryObjectives(store, task);
 };
 /** Applies completion requirements without overriding explicit imported states or existing completions. */
 const applyCompletedImports = (
@@ -196,14 +203,21 @@ const shouldStartImportedTask = (
 /** Restores active task state for imported starts that are not already successfully completed. */
 const applyStartedImports = (
   store: ReturnType<typeof useTarkovStore>,
+  tasksMap: Map<string, Task>,
   completedTaskIds: Set<string>,
   startedTaskIds: Set<string>
 ) => {
   const completions = store.getCurrentProgressData().taskCompletions ?? {};
   for (const taskId of startedTaskIds) {
     const flags = getCompletionFlags(completions[taskId]);
-    const shouldStart = shouldStartImportedTask(completedTaskIds.has(taskId), flags);
-    if (shouldStart) store.setTaskUncompleted(taskId);
+    if (!shouldStartImportedTask(completedTaskIds.has(taskId), flags)) continue;
+    store.setTaskUncompleted(taskId);
+    // The game only lets a task start once its start gates are met, so an imported start records
+    // its story objectives and confirms its gate signature (after the status write, so it counts).
+    const task = tasksMap.get(taskId) ?? { id: taskId };
+    recordImpliedStoryObjectives(store, task);
+    const signature = otherRequirementsSignature(task);
+    if (signature) store.confirmTaskAvailability(taskId, signature);
   }
 };
 /** Persists explicit failures as manual failures so automatic state repair cannot remove them. */
@@ -213,8 +227,10 @@ const applyFailedImports = (
   failed: Set<string>
 ) => {
   for (const taskId of failed) {
-    if (!store.isTaskComplete(taskId))
-      failTaskForProgress({ store, taskId, tasksMap, manual: true });
+    if (store.isTaskComplete(taskId)) continue;
+    failTaskForProgress({ store, taskId, tasksMap, manual: true });
+    // A task can only fail after it started, so its start gates (story objectives) were met.
+    recordImpliedStoryObjectives(store, tasksMap.get(taskId) ?? { id: taskId });
   }
 };
 /** Applies catalog-filtered events to one mode and tracks switches for later restoration. */
@@ -245,7 +261,7 @@ const applyModeImports = async (
     requireTraders
   );
   applyFailedImports(store, tasksMap, failed);
-  applyStartedImports(store, completed, started);
+  applyStartedImports(store, tasksMap, completed, started);
   return mode;
 };
 /** Restores the original mode after success or failure without losing the original import error. */
@@ -307,6 +323,7 @@ export function useEftLogsImport(): UseEftLogsImportReturn {
   const parseProgress = ref<EftLogReadProgress>({ bytesRead: 0, totalBytes: 0 });
   const sourceFiles = shallowRef<EftParsedLogFile[]>([]);
   const selectedVersions = ref<string[]>([]);
+  const requestedAccount = ref<string | undefined>(undefined);
   const sourceFileName = ref(t('settings.log_import.selected_files'));
   const scannedEntriesCount = ref(0);
   let parseFilesRequestId = 0;
@@ -319,6 +336,7 @@ export function useEftLogsImport(): UseEftLogsImportReturn {
   function buildPreviewData(taskIds: string[]): EftLogsImportPreviewData {
     const parsed = parseEftLogsForQuestImport(sourceFiles.value, taskIds, {
       includedVersions: selectedVersions.value,
+      account: requestedAccount.value,
       taskIdsByMode: Object.fromEntries(
         [...catalogs].map(([mode, tasks]) => [mode, tasks.map((task) => task.id)])
       ),
@@ -341,6 +359,20 @@ export function useEftLogsImport(): UseEftLogsImportReturn {
     previewData.value = buildPreviewData(getTaskIds());
     importError.value = null;
   }
+  /** Switches the account whose sessions are previewed and resets versions to that account's defaults. */
+  function setAccount(accountId: string): void {
+    if (!canEditPreview()) return;
+    const preview = previewData.value;
+    if (!preview || preview.selectedAccount === accountId) return;
+    if (!preview.availableAccounts.some((account) => account.id === accountId)) return;
+    requestedAccount.value = accountId;
+    selectedVersions.value = [];
+    const switched = buildPreviewData(getTaskIds());
+    const defaults = selectDefaultIncludedVersions(switched.availableVersions);
+    selectedVersions.value = defaults.length > 0 ? defaults : switched.availableVersions;
+    previewData.value = buildPreviewData(getTaskIds());
+    importError.value = null;
+  }
   /** Invalidates pending parsing and clears transient import state unless progress application is active. */
   function reset(): void {
     if (isImporting.value) return;
@@ -353,6 +385,7 @@ export function useEftLogsImport(): UseEftLogsImportReturn {
     importError.value = null;
     sourceFiles.value = [];
     selectedVersions.value = [];
+    requestedAccount.value = undefined;
     sourceFileName.value = t('settings.log_import.selected_files');
     scannedEntriesCount.value = 0;
     isParsing.value = false;
@@ -392,7 +425,7 @@ export function useEftLogsImport(): UseEftLogsImportReturn {
         return;
       }
       const taskIds = tasks.map((task) => task.id);
-      const parsed = parseEftLogsForQuestImport(importFiles, taskIds);
+      const parsed = parseEftLogsForQuestImport(importFiles, taskIds, { account: null });
       const modes = new Set<GameMode>();
       for (const event of parsed.events) {
         if (event.mode === UNKNOWN_MODE) GAME_MODE_VALUES.forEach((mode) => modes.add(mode));
@@ -434,10 +467,10 @@ export function useEftLogsImport(): UseEftLogsImportReturn {
         files.length === 1
           ? (files[0]?.name ?? t('settings.log_import.selected_files'))
           : t('settings.log_import.selected_files_count', { count: files.length });
-      selectedVersions.value = selectDefaultIncludedVersions(parsed.availableVersions);
-      if (selectedVersions.value.length === 0) {
-        selectedVersions.value = parsed.availableVersions;
-      }
+      selectedVersions.value = [];
+      const initial = buildPreviewData(getTaskIds());
+      const defaults = selectDefaultIncludedVersions(initial.availableVersions);
+      selectedVersions.value = defaults.length > 0 ? defaults : initial.availableVersions;
       previewData.value = buildPreviewData(getTaskIds());
       importState.value = 'preview';
     } catch (error) {
@@ -524,6 +557,7 @@ export function useEftLogsImport(): UseEftLogsImportReturn {
     parseFiles,
     previewData,
     setIncludedVersions,
+    setAccount,
     confirmImport,
     reset,
   };

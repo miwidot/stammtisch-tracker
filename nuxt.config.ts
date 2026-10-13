@@ -1,16 +1,19 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import { readdirSync, readFileSync, writeFileSync, type Dirent } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveTrustProxySetting } from './app/utils/apiProtectionConfig';
+import { resolveBuildCommit } from './app/utils/buildCommit';
 import { ENTRY_RECOVERY_SCRIPT } from './app/utils/entryRecoveryScript';
 import { SUPPORTED_LOCALES } from './app/utils/locales';
 import {
   assertCloudflarePagesOutput,
   buildContentSecurityPolicyRouteRules,
-  promoteSpaFallback,
   resolveNitroPreset,
 } from './app/utils/nuxtSecurityConfig';
+import { assertPrerenderedDocuments } from './app/utils/prerenderOutput';
+import { CLIENT_DOCUMENT_ROUTES, PUBLIC_SEO_ROUTES } from './app/utils/routeSeo';
 import {
   GITHUB_IMAGE_DOMAINS,
   resolveCanonicalSiteUrl,
@@ -32,9 +35,15 @@ import { THEME_BOOT_SCRIPT } from './app/utils/theme';
 import { TURNSTILE_TEST_SECRET_KEY, TURNSTILE_TEST_SITE_KEY } from './app/utils/turnstileKeys';
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const appDir = resolve(__dirname, 'app');
+const nuxtRequire = createRequire(createRequire(import.meta.url).resolve('nuxt/package.json'));
+const nitroPagesAdapter = resolve(
+  nuxtRequire.resolve('nitropack/package.json'),
+  '../dist/presets/cloudflare/runtime/cloudflare-pages'
+);
 const testsDir = resolve(__dirname, 'tests');
 const packageJson = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8'));
 const appVersion = packageJson.version ?? 'dev';
+const buildCommit = resolveBuildCommit(process.env);
 const clientLogSinkUrl = resolveClientLogSinkUrl(process.env);
 const isNonProduction = process.env.NODE_ENV !== 'production';
 const CONFIGURED_NITRO_PRESET = process.env.NITRO_PRESET;
@@ -88,9 +97,10 @@ if (
     throw new Error(`[Config] Missing required Stripe env vars: ${missingKeys.join(', ')}`);
   }
 }
-// Sitekeys are public identifiers; the secret stays in the Pages project env.
-// Production and preview builds require explicit configuration so a secret can never
-// be deployed without the matching client widget. Local builds use Cloudflare test keys.
+// Sitekeys are public identifiers; the secret stays in the Pages project env. Production and
+// preview builds require explicit configuration so a secret can never be deployed without the
+// matching client widget. Local builds use Cloudflare test keys. Validate only actual build
+// commands: pnpm install runs `nuxt prepare` as postinstall, which is not a deployable build.
 const TURNSTILE_SITE_KEY = (
   process.env.NUXT_PUBLIC_TURNSTILE_SITE_KEY ??
   (!IS_PRODUCTION_BUILD ? TURNSTILE_TEST_SITE_KEY : '')
@@ -98,17 +108,22 @@ const TURNSTILE_SITE_KEY = (
 const TURNSTILE_SECRET_KEY = (
   process.env.NUXT_TURNSTILE_SECRET_KEY ?? (IS_PRODUCTION_BUILD ? '' : TURNSTILE_TEST_SECRET_KEY)
 ).trim();
-if (IS_PRODUCTION_BUILD && Boolean(TURNSTILE_SITE_KEY) !== Boolean(TURNSTILE_SECRET_KEY)) {
+if (
+  IS_PRODUCTION_BUILD &&
+  IS_BUILD_COMMAND &&
+  Boolean(TURNSTILE_SITE_KEY) !== Boolean(TURNSTILE_SECRET_KEY)
+) {
   throw new Error(
     '[Config] NUXT_PUBLIC_TURNSTILE_SITE_KEY and NUXT_TURNSTILE_SECRET_KEY must be configured together'
   );
 }
+const TARKOV_ACCESS_SITE_KEY = (process.env.NUXT_PUBLIC_TARKOV_ACCESS_SITE_KEY ?? '').trim();
 const cspRouteRules = buildContentSecurityPolicyRouteRules({
   clientLogSinkUrl,
   clarityInstrumentationKey: IS_PRODUCTION_BUILD ? MICROSOFT_CLARITY_PROJECT_ID : '',
   gaMeasurementId: IS_PRODUCTION_BUILD ? GOOGLE_ANALYTICS_MEASUREMENT_ID : '',
   supabaseUrl: PUBLIC_SUPABASE_URL,
-  turnstileSiteKey: TURNSTILE_SITE_KEY,
+  turnstileSiteKey: TURNSTILE_SITE_KEY || TARKOV_ACCESS_SITE_KEY,
 });
 const webApplicationSchema = {
   '@context': 'https://schema.org',
@@ -135,7 +150,10 @@ const webApplicationSchema = {
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   telemetry: false,
-  ssr: false,
+  ssr: true,
+  experimental: {
+    payloadExtraction: false,
+  },
   srcDir: 'app',
   ignore: ['**/__tests__/**', '**/*.test.*', '**/*.spec.*'],
   runtimeConfig: {
@@ -182,6 +200,14 @@ export default defineNuxtConfig({
     tarkovDevProfileMaxUpdatedAgeDays: Number(
       process.env.NUXT_TARKOV_DEV_PROFILE_MAX_UPDATED_AGE_DAYS?.trim() || '7'
     ),
+    // Tarkov data browser-clearance handoff (app/server/utils/tarkovAccessConfig.ts):
+    // disabled by default. The secret and the exact hostname allowlist are per-deployment
+    // settings — keep them in the Pages env/dashboard, never commit them. See
+    // .env.example and wrangler.toml for the commented deployment wiring.
+    tarkovAccessSecretKey: (process.env.NUXT_TARKOV_ACCESS_SECRET_KEY ?? '').trim(),
+    tarkovAccessExpectedHostnames: (process.env.NUXT_TARKOV_ACCESS_EXPECTED_HOSTNAMES ?? '').trim(),
+    tarkovVerifyRateLimitPerMinute:
+      Number(process.env.NUXT_TARKOV_VERIFY_RATE_LIMIT_PER_MINUTE || '10') || 10,
     turnstileSecretKey: TURNSTILE_SECRET_KEY,
     // API protection configuration (server-only)
     apiProtection: {
@@ -196,7 +222,7 @@ export default defineNuxtConfig({
       // e.g., "/api/tarkov/*" for public data endpoints
       publicRoutes:
         process.env.API_PUBLIC_ROUTES?.trim() ||
-        '/api/tarkov/*,/api/tarkov-dev/profile,/api/changelog,/api/contributors,/api/logs/client,/api/profile/*,/api/streamer/*,/api/twitch/*',
+        '/api/tarkov/*,/api/tarkov-dev/profile,/api/changelog,/api/contributors,/api/logs/client,/api/security/tarkov-verify,/api/profile/*,/api/streamer/*,/api/twitch/*',
       // Whether to trust proxy headers (X-Forwarded-For, etc.)
       // ONLY enable this if the server is behind a trusted proxy like Cloudflare
       trustProxy: resolveTrustProxySetting({
@@ -209,17 +235,21 @@ export default defineNuxtConfig({
       logLevel: process.env.NUXT_PUBLIC_LOG_LEVEL || '',
       appUrl: PUBLIC_APP_URL,
       appVersion,
+      buildCommit,
       googleAnalyticsMeasurementId: IS_PRODUCTION_BUILD ? GOOGLE_ANALYTICS_MEASUREMENT_ID : '',
       microsoftClarityProjectId: IS_PRODUCTION_BUILD ? MICROSOFT_CLARITY_PROJECT_ID : '',
       supabaseAnonKey: PUBLIC_SUPABASE_ANON_KEY,
       supabaseUrl: PUBLIC_SUPABASE_URL,
       clientLogSinkUrl,
       turnstileSiteKey: TURNSTILE_SITE_KEY,
+      // Tarkov data browser-clearance gate: disabled default. Never flip the flag without
+      // the dedicated sitekey/secret/exact-hostname allowlist. The verification endpoint
+      // fails closed on incomplete configuration; the probe only tests edge passage.
+      tarkovAccessEnabled: process.env.NUXT_PUBLIC_TARKOV_ACCESS_ENABLED === 'true',
+      tarkovAccessSiteKey: TARKOV_ACCESS_SITE_KEY,
       tarkovDevImportCooldownMinutes: Number(
         process.env.NUXT_PUBLIC_TARKOV_DEV_IMPORT_COOLDOWN_MINUTES?.trim() || '60'
       ),
-      allowDirectTokenCreateFallback:
-        process.env.NUXT_PUBLIC_ALLOW_DIRECT_TOKEN_CREATE_FALLBACK === 'true',
       adminWatchTimeoutMs: Number(process.env.ADMIN_WATCH_TIMEOUT_MS || '5000') || 5000,
       githubOwner: process.env.GITHUB_OWNER || 'tarkovtracker-org',
       githubRepo: process.env.GITHUB_REPO || 'TarkovTracker',
@@ -244,10 +274,16 @@ export default defineNuxtConfig({
       pages: {
         defaultRoutes: false,
         routes: {
-          include: ['/api/*', '/overlay/*'],
+          include: ['/api/*', '/overlay/*', '/profile/*'],
           exclude: [],
         },
       },
+    },
+    prerender: {
+      routes: [...PUBLIC_SEO_ROUTES, ...CLIENT_DOCUMENT_ROUTES, '/200.html', '/404.html'],
+      crawlLinks: false,
+      autoSubfolderIndex: false,
+      failOnError: true,
     },
     hooks: {
       async compiled(nitro) {
@@ -284,7 +320,16 @@ export default defineNuxtConfig({
   routeRules: {
     '/neededitems': { redirect: { to: '/needed-items', statusCode: 301 } },
     '/streamer-tools': { redirect: { to: '/settings#streamer-tools', statusCode: 301 } },
-    '/200.html': { prerender: true },
+    // Most application routes stay client-rendered; public documents opt into SSR.
+    '/**': { ...cspRouteRules['/**'], ssr: false },
+    ...Object.fromEntries(
+      PUBLIC_SEO_ROUTES.map((route) => [route, { ssr: true, prerender: true }])
+    ),
+    ...Object.fromEntries(
+      CLIENT_DOCUMENT_ROUTES.map((route) => [route, { ssr: false, prerender: true }])
+    ),
+    '/200.html': { ssr: false, prerender: true },
+    '/404.html': { ssr: false, prerender: true },
     // Explicit long-term caching for build assets
     '/_nuxt/**': {
       headers: { 'cache-control': 'public,max-age=31536000,immutable' },
@@ -292,7 +337,7 @@ export default defineNuxtConfig({
     '/_fonts/**': {
       headers: { 'cache-control': 'public,max-age=31536000,immutable' },
     },
-    ...cspRouteRules,
+    '/overlay/kappa/**': cspRouteRules['/overlay/kappa/**'],
   },
   app: {
     baseURL: '/',
@@ -420,8 +465,8 @@ export default defineNuxtConfig({
   },
   css: ['~/assets/css/tailwind.css'],
   alias: {
+    'nitropack/presets/cloudflare/runtime/cloudflare-pages': nitroPagesAdapter,
     '@': appDir,
-    '@shared': fileURLToPath(new URL('./shared', import.meta.url)),
     '#tests': testsDir,
     '~': appDir,
   },
@@ -461,21 +506,10 @@ export default defineNuxtConfig({
       { label: 'URL', width: '65%' },
       { label: 'Last Modified', select: 'sitemap:lastmod', width: '25%' },
     ],
-    exclude: [
-      '/account',
-      '/admin',
-      '/auth/**',
-      '/login',
-      '/not-found',
-      '/oauth/**',
-      '/profile',
-      '/settings',
-      '/team',
-    ],
-    defaults: {
-      changefreq: 'weekly',
-      priority: 0.8,
-    },
+    excludeAppSources: true,
+    autoLastmod: false,
+    discoverImages: false,
+    urls: PUBLIC_SEO_ROUTES,
   },
   i18n: {
     bundle: {
@@ -488,6 +522,7 @@ export default defineNuxtConfig({
     },
     strategy: 'no_prefix',
     defaultLocale: 'de',
+    detectBrowserLanguage: false,
     restructureDir: 'app',
     langDir: 'locales',
     locales: SUPPORTED_LOCALES.map((code) =>
@@ -498,17 +533,45 @@ export default defineNuxtConfig({
     vueI18n: 'i18n.config.ts',
   },
   hooks: {
+    // Tracker modules keep their client state; route entrypoints render public summaries.
+    'pages:extend': (pages) => {
+      const wrappers: Record<string, string> = {
+        '/': 'index',
+        '/tasks': 'tasks',
+        '/hideout': 'hideout',
+        '/needed-items': 'needed-items',
+        '/kappa': 'kappa',
+        '/storyline': 'storyline',
+        '/changelog': 'changelog',
+      };
+      for (const page of pages) {
+        const wrapper = wrappers[page.path];
+        if (wrapper) page.file = resolve(appDir, 'features/seo-pages', `${wrapper}.vue`);
+      }
+    },
     'nitro:init': (nitro) => {
       if (!String(nitro.options.preset || '').includes('cloudflare')) {
         return;
       }
+      // Change only the resolved Pages entry; prerender/dev must keep their own adapters.
+      if (nitro.options.preset === 'cloudflare-pages') {
+        nitro.options.entry = resolve(appDir, 'server/pages-entry.ts');
+      }
       nitro.hooks.hook('compiled', () => {
-        promoteSpaFallback(nitro.options.output.publicDir);
         writeFileSync(
           resolve(nitro.options.output.dir, '_routes.json'),
-          JSON.stringify({ version: 1, include: ['/api/*', '/overlay/*'], exclude: [] }, null, 2)
+          JSON.stringify(
+            { version: 1, include: ['/api/*', '/overlay/*', '/profile/*'], exclude: [] },
+            null,
+            2
+          )
         );
-        assertCloudflarePagesOutput(nitro.options.output.dir, ['/api/*', '/overlay/*']);
+        assertCloudflarePagesOutput(nitro.options.output.dir, [
+          '/api/*',
+          '/overlay/*',
+          '/profile/*',
+        ]);
+        assertPrerenderedDocuments(nitro.options.output.publicDir);
       });
     },
     'imports:extend': (imports: Array<{ as?: string; from?: string; name: string }>) => {
@@ -543,7 +606,9 @@ export default defineNuxtConfig({
   },
   icon: {
     clientBundle: {
-      scan: true,
+      scan: {
+        globInclude: ['**/*.{vue,jsx,tsx,md,mdc,mdx,yml,yaml}', 'app/**/*.ts'],
+      },
     },
   },
   // Pin Nuxt UI to its dark alias block regardless of OS preference. The app's
@@ -573,6 +638,8 @@ export default defineNuxtConfig({
       ],
     },
   },
+  // Nuxt default; lets Fallow model auto-imports and report unused utils/composables.
+  imports: {},
   components: [
     {
       path: '~/components',
@@ -605,7 +672,6 @@ export default defineNuxtConfig({
   postcss: {
     plugins: {
       '@tailwindcss/postcss': {},
-      autoprefixer: {},
     },
   },
   vite: {

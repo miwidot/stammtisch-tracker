@@ -9,7 +9,7 @@ mode = "smart"
 
 # Atomic, globally-consistent rate limiter shared with the api-gateway Worker.
 # The ApiGatewayRateLimiter Durable Object class is owned and deployed by
-# workers/api-gateway; Pages binds to it by script_name (Pages cannot define a
+# TarkovTracker-API; Pages binds to api-gateway by script_name (Pages cannot define a
 # DO class itself). When this binding is absent the rate limiter degrades to a
 # best-effort Cache API + in-memory path. durable_objects is a non-inheritable
 # key; it is deliberately not repeated under [env.preview] so anonymous previews
@@ -25,8 +25,8 @@ script_name = "api-gateway"
 # by the Nitro request handlers via edgeCache's `precomputed` option. When this
 # binding is absent the handlers fall back to the per-colo Cache API path, so a
 # misconfigured deploy degrades instead of breaking.
-# kv_namespaces is non-inheritable; it is deliberately not repeated under
-# [env.preview] so previews cannot read or depend on the production namespace.
+# kv_namespaces is non-inheritable; [env.preview] binds an isolated namespace
+# so previews cannot read or depend on the production namespace.
 # The same ID must be set as the TARKOV_DATA_KV_NAMESPACE_ID repository
 # variable so the Actions precompute writes where Pages reads.
 [[kv_namespaces]]
@@ -44,6 +44,16 @@ NUXT_PUBLIC_CLIENT_LOG_SINK_URL = ""
 SUPABASE_URL = "https://knptqelvsodccnoehmbj.supabase.co"
 SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtucHRxZWx2c29kY2Nub2VobWJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0NTQ2OTMsImV4cCI6MjA3OTAzMDY5M30.jnlspZYu4J7i7bKfJ0p7j5R_r0YmvJj0ph5uw3XUPeY"
 NUXT_PUBLIC_TURNSTILE_SITE_KEY = "0x4AAAAAAEDQJTvapp0PUVaO"
+# Tarkov data browser-clearance gate (Cloudflare Turnstile + WAF). Deliberately unset:
+# the public flag defaults off. With any strict key missing POST
+# /api/security/tarkov-verify answers 503. The widget must bind action
+# `tarkov_data_access` to the exact hostnames configured in
+# NUXT_TARKOV_ACCESS_EXPECTED_HOSTNAMES; the secret (NUXT_TARKOV_ACCESS_SECRET_KEY) is a
+# Pages dashboard secret — see .env.example, never a committed var.
+# NUXT_PUBLIC_TARKOV_ACCESS_ENABLED = "true"
+# NUXT_PUBLIC_TARKOV_ACCESS_SITE_KEY = "0x..."
+# NUXT_TARKOV_ACCESS_EXPECTED_HOSTNAMES = "tarkovtracker.org,www.tarkovtracker.org"
+# NUXT_TARKOV_VERIFY_RATE_LIMIT_PER_MINUTE = "10"
 STRIPE_PRICE_SCAV_MONTHLY = "price_1Ta2niLaRBke56G2jQ8EOt7X"
 STRIPE_PRICE_SCAV_6MONTH = "price_1Ta2njLaRBke56G2zB0PIbAH"
 STRIPE_PRICE_SCAV_YEARLY = "price_1Ta2njLaRBke56G2iS0IqOWR"
@@ -60,11 +70,20 @@ STRIPE_PRICE_CHAD_YEARLY = "price_1Ta2npLaRBke56G2I0UqI1HD"
 # sets the controlled preview branch alias explicitly, and the application derives per-deployment
 # host trust from it. Supabase, analytics, Turnstile, Stripe prices, and log forwarding are
 # deliberately empty so previews never carry production identifiers; the application's offline
-# Supabase fallback activates on `pages.dev` hostnames. Production KV and Durable Object bindings
-# are intentionally absent: the precomputed-payload readers and the rate limiter degrade to their
-# Cache API paths, so previews still serve public game data through /api/tarkov/*. Preview
-# environment secrets (service-role, Stripe, Turnstile, log sinks) are managed in the Pages
-# dashboard and must remain unset; see docs/runbook.md "Preview environment isolation".
+# Supabase fallback activates on `pages.dev` hostnames. Preview KV contains only public game-data
+# snapshots and is separate from production; it requires an explicit preview seed/refresh.
+# The production Durable Object binding is absent, so the rate limiter uses its Cache API path.
+# This binding applies to all preview branches. Preview environment secrets
+# (service-role, Stripe, Turnstile, log sinks) are managed in the Pages
+# dashboard and must remain unset so previews stay isolated.
+# KV bindings permit get/put/delete: approved preview runtime code can replace or
+# delete another preview's catalogs. This shared store is deliberately expendable.
+# Seed only merged public game catalogs, never raw overlays, credentials, or user
+# progress. Maintainers revalidate the seeded release before import verification.
+[[env.preview.kv_namespaces]]
+binding = "TARKOV_DATA"
+id = "8b1f5caca19c4d379b601e4bd0f815e6"
+
 [env.preview.vars]
 NODE_ENV = "production"
 APP_URL = ""

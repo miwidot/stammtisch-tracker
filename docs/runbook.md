@@ -2,38 +2,35 @@
 
 ## Required Environment Variables
 
+Canonical variable map (owner): [`architecture.md` §Environment Variables](./architecture.md#environment-variables).
 Naming: `NUXT_*` = Nuxt private (server-only), `NUXT_PUBLIC_*` = Nuxt public (browser-exposed).
 
-**Nuxt app (Cloudflare Pages):**
-
-- `SUPABASE_URL` — Supabase project URL, managed as plaintext in `wrangler.toml`
-- `SUPABASE_ANON_KEY` — Supabase anon key, managed as plaintext in `wrangler.toml`
-- `NUXT_SUPABASE_SERVICE_KEY` — encrypted Supabase service role key in the Pages dashboard
-- `APP_URL` — production application URL in `wrangler.toml`; previews use `CF_PAGES_URL`
-- `API_ALLOWED_HOSTS` — production host allowlist
-- `API_TRUST_PROXY` — only when overriding proxy auto-detection (forwarded headers are trusted
-  only when `API_TRUST_PROXY=true` or `NITRO_PRESET` is explicitly set to a `cloudflare*`
-  preset)
+**Nuxt app (Cloudflare Pages):** see the canonical map for `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+`NUXT_SUPABASE_SERVICE_KEY`, `APP_URL`, `API_ALLOWED_HOSTS`, and `API_TRUST_PROXY`. Plaintext
+`[vars]` stay in `wrangler.toml`; encrypted secrets stay in the Pages dashboard. Previews use
+`CF_PAGES_URL`. Forwarded headers are trusted only when `API_TRUST_PROXY=true` or `NITRO_PRESET`
+is explicitly set to a `cloudflare*` preset.
 
 ### Stripe checkout (Nuxt server)
 
-- `STRIPE_SECRET_KEY` for the Nuxt `/api/stripe/checkout` route to create Checkout Sessions.
-- `STRIPE_PRICE_SCAV_MONTHLY`, `STRIPE_PRICE_SCAV_6MONTH`, `STRIPE_PRICE_SCAV_YEARLY`
-- `STRIPE_PRICE_TIMMY_MONTHLY`, `STRIPE_PRICE_TIMMY_6MONTH`, `STRIPE_PRICE_TIMMY_YEARLY`
-- `STRIPE_PRICE_CHAD_MONTHLY`, `STRIPE_PRICE_CHAD_6MONTH`, `STRIPE_PRICE_CHAD_YEARLY`
+See the canonical map for `STRIPE_SECRET_KEY` and the nine `STRIPE_PRICE_*` IDs used by the Nuxt
+`/api/stripe/checkout` route to create Checkout Sessions.
 
 ### Stripe webhook (Supabase Edge Function `stripe-webhook`)
 
-Set these in Supabase Dashboard → Project Settings → Edge Functions:
+Receipt completion, fenced retries, migration-before-handler rollout and historical receipt
+disposition: [Stripe webhook recovery](./stripe-webhook-recovery.md).
+
+Set these in Supabase Dashboard → Project Settings → Edge Functions (canonical definitions in
+[`architecture.md` §Environment Variables](./architecture.md#environment-variables) and
+`supabase/functions/.env.example`):
 
 - `STRIPE_WEBHOOK_SECRET` (Stripe Dashboard → Webhooks → Signing secret)
 - `STRIPE_SECRET_KEY` (Stripe Dashboard → Developers → API keys); required so refund and
   dispute events can correlate the charge back to its subscription/customer before revoking
   supporter access. The function refuses to start without it.
-- `STRIPE_PRICE_SCAV_MONTHLY`, `STRIPE_PRICE_SCAV_6MONTH`, `STRIPE_PRICE_SCAV_YEARLY`
-- `STRIPE_PRICE_TIMMY_MONTHLY`, `STRIPE_PRICE_TIMMY_6MONTH`, `STRIPE_PRICE_TIMMY_YEARLY`
-- `STRIPE_PRICE_CHAD_MONTHLY`, `STRIPE_PRICE_CHAD_6MONTH`, `STRIPE_PRICE_CHAD_YEARLY`; the
-  webhook uses these IDs as the source of truth when a customer changes plans in Stripe's portal.
+- The nine `STRIPE_PRICE_*` IDs; the webhook uses these IDs as the source of truth when a customer
+  changes plans in Stripe's portal.
 - `SUPABASE_SERVICE_ROLE_KEY` and `SUPABASE_URL` (auto-injected in hosted Supabase)
 - `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_SUPPORTER_ROLE_ID` for role sync. The
   per-tier role IDs `DISCORD_SCAV_ROLE_ID` / `DISCORD_TIMMY_ROLE_ID` / `DISCORD_CHAD_ROLE_ID` are
@@ -67,21 +64,18 @@ product.
 
 ### Account IP audit
 
-- `NUXT_ACCOUNT_IP_HASH_SECRET` for the Nuxt `/api/account/activity` route. It stores an HMAC
-  digest of each authenticated user's IP address, never the raw address. Use a unique, long random
-  value and retain it while historical hashes need to remain comparable.
+- `NUXT_ACCOUNT_IP_HASH_SECRET` (canonical map) for the Nuxt `/api/account/activity` route. It
+  stores an HMAC digest of each authenticated user's IP address, never the raw address. Use a
+  unique, long random value and retain it while historical hashes need to remain comparable.
 
 ## Optional Environment Variables
 
-- `NUXT_LOG_SINK_URL` — centralized server logs (Sentry/Datadog/HTTP collector)
-- `NUXT_PUBLIC_CLIENT_LOG_SINK_URL` — browser error forwarding; disabled when unset. Set it at
-  build time to `/api/logs/client` only when the edge/WAF rate limit for that path is enabled, or
-  use an external collector URL.
-- `NUXT_PUBLIC_LOG_LEVEL` — client log level (debug, info, warn, error)
-- `NUXT_TEAM_MEMBERS_RATE_LIMIT_PER_MINUTE`
-- `NUXT_TEAM_MEMBERS_CACHE_TTL_MS`
-- `NUXT_SHARED_PROFILE_RATE_LIMIT_PER_MINUTE`
-- `NUXT_SHARED_PROFILE_CACHE_TTL_MS`
+See the canonical map for `NUXT_LOG_SINK_URL`, `NUXT_PUBLIC_CLIENT_LOG_SINK_URL`,
+`NUXT_PUBLIC_LOG_LEVEL`, `NUXT_TEAM_MEMBERS_RATE_LIMIT_PER_MINUTE`,
+`NUXT_TEAM_MEMBERS_CACHE_TTL_MS`, `NUXT_SHARED_PROFILE_RATE_LIMIT_PER_MINUTE`, and
+`NUXT_SHARED_PROFILE_CACHE_TTL_MS`. Operational note: set the browser log sink at build time to
+`/api/logs/client` only when the edge/WAF rate limit for that path is enabled, or use an external
+collector URL.
 
 ## Pre-Deploy Validation
 
@@ -91,7 +85,7 @@ product.
 4. `pnpm run test`
 5. `pnpm run supabase:check`
 6. `pnpm run build`
-7. `pnpm audit --prod`
+7. `pnpm run audit:dependencies`
 8. For the tarkov.dev profile cleanup rollout, snapshot `public.user_progress` before applying the
    destructive cleanup migration.
 
@@ -120,14 +114,37 @@ Prepare and deploy each rollover in two releases during the no-write gap between
 
 ## Deployment
 
-Merging to `main` deploys everything automatically. Three integrations do the work — none of them
-GitHub Actions — and each surfaces as a check on the merge commit:
+### Internal game-data browser verification
 
-| What                                 | Mechanism                    | Check on the merge commit     |
-| ------------------------------------ | ---------------------------- | ----------------------------- |
-| Frontend                             | Cloudflare Pages Git build   | `Cloudflare Pages`            |
-| `api-gateway` Worker                 | Cloudflare Workers Git build | `Workers Builds: api-gateway` |
-| DB migrations **and** Edge Functions | Supabase GitHub integration  | `Supabase Preview`            |
+Application support is disabled by default and does not itself enforce CDN access.
+Use the [browser-clearance rollout and rollback procedure](./tarkov-clearance-rollout.md)
+for staging, alias closure, Access-protected automation, exact production approval and
+readback evidence. **Disable the edge challenge rule before removing frontend recovery.**
+Production deployment, Cloudflare mutations and merge require separate approval.
+
+Tracker merges deploy Pages and Supabase through their integrations. The API Worker builds
+independently from API-repository merges matching its watch paths; none of these deploys are
+GitHub Actions deployments. Checks appear on the corresponding source repository's commit:
+
+| What                                  | Mechanism                    | Check on the source commit    |
+| ------------------------------------- | ---------------------------- | ----------------------------- |
+| Frontend                              | Cloudflare Pages Git build   | `Cloudflare Pages`            |
+| `api-gateway` Worker (API repository) | Cloudflare Workers Git build | `Workers Builds: api-gateway` |
+| DB migrations **and** Edge Functions  | Supabase GitHub integration  | `Supabase Preview`            |
+
+The existing `api-gateway` Worker deploys only from `tarkovtracker-org/TarkovTracker-API/main`,
+root `/`, with empty build command and deploy command `pnpm run deploy`. That command prepares
+the generated workspace contracts before Wrangler bundles the Worker. The old Tracker source
+trigger is disconnected. Build caching remains enabled and preview builds remain disabled.
+
+Its watched API-repository inputs are `src/**`, `progress-contracts/**`,
+`scripts/prepare-contracts.mjs`, `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`,
+`tsconfig.json`, `worker-configuration.d.ts`, `wrangler.toml`, `.nvmrc` and `.npmrc`, with no
+exclusions. Tracker-only merges do not deploy the API Worker. For API deployment, secrets and
+rollback, use [API operations](https://github.com/tarkovtracker-org/TarkovTracker-API/blob/main/docs/operations.md).
+Consumer source/tag pins, compiled contracts and all-mode integration tests remain here:
+[API ownership](api-ownership.md). `/health` reports a fixed version; verify build SHA to active
+Worker version through Workers Builds and the deployment record.
 
 The Supabase check keeps the name `Supabase Preview` on `main`, where it targets the **production**
 project rather than a preview branch. Per-PR preview deploys are intentionally disabled to avoid
@@ -152,8 +169,11 @@ The steps below are therefore mostly verification. The manual commands are a fal
 integration fails or is unavailable, not the normal path.
 
 1. Merge to `main` and verify CI workflow `Validate`, `Supabase DB`, and `Workers` jobs are green.
-2. Confirm the Pages project remains **fail open** so the static SPA shell still serves if the
-   Functions daily quota is exhausted.
+2. Confirm the Pages project remains **fail open** so prerendered public documents and finite
+   client documents still serve if the Functions daily quota is exhausted. Dynamic `/profile/*`,
+   `/api/*`, and `/overlay/*` paths require available Functions capacity; missing static paths must
+   return HTTP 404. Verify the document inventory and routing described in
+   [Public rendering and discovery](architecture.md#public-rendering-and-discovery).
 3. **Verify DB migrations applied.** The Supabase integration applies pending migrations on merge.
    Confirm rather than assume:
 
@@ -188,21 +208,26 @@ integration fails or is unavailable, not the normal path.
 
 4. **Pre-deploy secret check (api-gateway Worker):** before merging a change that relies on
    `IP_HASH_SECRET` (e.g. any change to abuse-gate logs that emit `ip_hash`), confirm the secret is
-   already provisioned on the production `api-gateway` Worker:
+   already provisioned on the production `api-gateway` Worker. Run these commands only from
+   the TarkovTracker-API checkout; Tracker's root Wrangler config is for Pages:
 
    ```bash
-   wrangler secret list --config workers/api-gateway/wrangler.toml   # confirm IP_HASH_SECRET is listed
-   wrangler secret put IP_HASH_SECRET --config workers/api-gateway/wrangler.toml   # set if missing
+   pnpm exec wrangler secret list --config wrangler.toml
+   # If absent, provision it only with explicit secret-change authorization:
+   pnpm exec wrangler secret put IP_HASH_SECRET --config wrangler.toml
    ```
 
-   The api-gateway Worker auto-deploys from `main` on merge. If `IP_HASH_SECRET` is absent at
+   The api-gateway Worker auto-deploys from the API repository's `main` on merge. If `IP_HASH_SECRET` is absent at
    deploy time, `abuse_gate_429` and `abuse_gate_unavailable` log lines emit `ip_hash: null`,
    defeating the IP-level abuse observability the change introduced. Provision the secret **before**
    merging so the first post-merge request already has a non-null HMAC identifier.
    Do not commit the value.
 
-5. Confirm the `Cloudflare Pages`, `Workers Builds: api-gateway` and `Supabase Preview` checks all
-   succeeded on the merge commit.
+5. Confirm the `Cloudflare Pages` and `Supabase Preview` checks succeeded on the merge commit. If
+   an API-repository merge matches the Worker watch paths (or matching is bypassed by Cloudflare),
+   also confirm its `Workers Builds: api-gateway` check and exact active version there. Unwatched
+   docs-only changes normally create no Worker build/check. Tracker merges do not deploy the API.
+   `/health` reports a fixed version, so it identifies no build.
 6. **Verify Edge Functions deployed.** The Supabase integration deploys every function under
    `supabase/functions/` on merge; confirm each changed function reports a new version in the
    Supabase dashboard. Manual fallback:
@@ -218,7 +243,7 @@ integration fails or is unavailable, not the normal path.
    `supabase/config.toml`.
 
 7. Confirm workers are serving the expected revision:
-   - `workers/api-gateway`
+   - `api-gateway` from the API repository
 8. Smoke test:
    - `https://tarkovtracker.org`
    - `https://api.tarkovtracker.org/health`
@@ -232,6 +257,51 @@ Discord ID. Eligible lifetime and active-subscription roles are restored when an
 again. Manual role sync removes stale tier roles, preserves the base Supporter role for users with
 paid support history, and reports a join-server warning when the Discord account is not a member of
 the configured guild.
+
+## Reusable production QA accounts
+
+Two ordinary test identities in production project `knptqelvsodccnoehmbj` are retained between
+authorized smoke tests:
+
+- **Owner:** `production-smoke-owner@tests.tarkovtracker.invalid`, user ID
+  `663b3094-f3bd-41aa-81c7-b50a801d2ba1`.
+- **Member:** `production-smoke-member@tests.tarkovtracker.invalid`, user ID
+  `d5004745-9d38-4b5f-8da4-1f3abca83907`.
+
+Their trusted Auth `app_metadata` has `production_smoke: true`,
+`production_smoke_label: "owner"` or `"member"`, and
+`production_smoke_project: "knptqelvsodccnoehmbj"`. Verify the project, exact user IDs, emails,
+markers, ordinary `authenticated` role, and absence of super-admin status before issuing a session.
+These markers identify fixtures; they grant no application privileges or billing benefits.
+
+Generated credentials are encrypted in the Supabase Vault secret
+`tarkovtracker.production-smoke.accounts`. Access it only through an already authorized operational
+connection. Do not print decrypted values or put them in Git, tool output, process arguments, or
+browser storage. Verify `anon` and `authenticated` have neither Vault schema usage nor SELECT on
+`vault.secrets` or `vault.decrypted_secrets`; never grant browser access to the secret.
+
+Production email/password sign-in is disabled. To test the existing OAuth-only application without
+changing Auth providers or sending email, an authorized server-side Auth administrator can issue
+`auth.admin.generateLink({ type: 'magiclink', email })` for the verified fixture, then exchange the
+returned `properties.hashed_token` with `auth.verifyOtp({ token_hash, type: 'magiclink' })`. Verify
+the returned user's ID, trusted markers, and role again. Keep generated links and OTP material
+private and short-lived. Only the resulting ordinary user session belongs in an isolated test
+browser; privileged keys stay outside the browser. See the official
+[generateLink](https://supabase.com/docs/reference/javascript/auth-admin-generatelink) and
+[verifyOtp](https://supabase.com/docs/reference/javascript/auth-verifyotp) contracts.
+
+Run saves, reloads, disconnected edits, imports, team/profile reads, and API checks against these
+identities through normal application, RPC, and Edge Function paths. Use temporary teams and API
+tokens; after testing, leave as the member, disband as the owner, revoke every test token, restore
+private profile visibility, sign out test sessions, and remove local session/credential files.
+Retain both accounts and the encrypted Vault record. This fixture does not authorize deployments,
+migrations, or writes to other accounts.
+
+The accounts follow the ordinary [inactivity policy](./account-retention.md). Successful sign-in
+and authenticated testing renew their activity; keeping the fixture does not exempt it from
+inactivity cleanup. Follow that policy when scheduling fixture reuse; do not grant supporter,
+Storage, or administrator privileges to bypass retention. Credentials can be rotated through an
+authorized operation without changing account IDs.
 
 ## Known Benign Database Signals
 
@@ -286,16 +356,17 @@ These show up in Supabase logs / query performance and are expected. Do not trea
   deletions, and renames are a stop condition unless part of an explicitly approved recovery or
   baseline project. Restoring an accidentally edited file to its deployed Git revision is not a new
   schema change; verify the resulting PR has no historical SQL diff.
-- An authorized operator verifies the linked project identity and records the target project, Git SHA,
-  CLI version, time, and sanitized output of these read-only commands before deployment and again
-  after the integration:
+- The implementing agent collects migration evidence directly using available authenticated MCP,
+  the read-only observer, and CLI access. Operator-provided records are not required. Record the
+  verified target project/ref, Git SHA, CLI version, capture time and sanitized results before merge
+  and repeat the relevant checks after integration. When the CLI is linked, use:
 
   ```bash
   git rev-parse HEAD
   pnpm exec supabase --version
   pnpm exec supabase projects list
   pnpm exec supabase migration list --linked
-  pnpm exec supabase db push --linked --dry-run
+  pnpm exec supabase db push --linked --dry-run --skip-vault
   ```
 
   Confirm the remote project ref in `projects list` matches the linked ref stored in the gitignored
@@ -307,9 +378,22 @@ These show up in Supabase logs / query performance and are expected. Do not trea
   unexpected versions or ordering differences and reconcile against deployment records before any
   push. After deployment, expect no pending migrations for the deployed revision. A branch with new
   migrations legitimately has pending versions before deployment; record that exact expected set.
-  Do not give Pi migration/admin credentials for these checks: use operator-provided evidence and the
-  approved read-only observer for supported catalog inspection. If evidence is unavailable, report
-  remote synchronization as unverified rather than assuming it from green CI.
+  If linked CLI access is unavailable, verify the authenticated MCP project URL against the
+  observer's `project_ref`, collect observer/MCP migration history, and run `migration list` and
+  `db push --dry-run --skip-vault` with `--db-url` using the dedicated observer connection. This is
+  equivalent evidence for the verified target; record the transport used rather than claiming a
+  linked command ran. A CLI dry-run checks the pending migration plan, not SQL execution or locks;
+  validate SQL in a disposable database and inspect production catalogs separately.
+
+  Prefer the observer for telemetry and relation inspection. Authenticated MCP may collect bounded,
+  catalog-only SELECT results for function contracts, dependencies, grants and triggers that the
+  observer cannot report. Do not execute mutation routines or read application rows through this
+  exception. Never pass privileged credentials to the observer. Load only the credentials needed
+  for each CLI command, keep passwords out of arguments/logs using `PGPASSFILE`, keep TLS validation
+  enabled, and never use `--debug` with production credentials. Always include `--skip-vault` on a
+  dry-run so configuration cannot update Vault secrets. Inspection does not authorize deployment,
+  migration repair, reset, privilege changes or other remote writes. If required evidence cannot be
+  collected, report the precise gap instead of treating green CI as production clearance.
 
 - **Deploy migrations only from a revision that is already merged to `main`.** Pushing from an
   unmerged branch moves remote history ahead of the checkout, and every later `main` build then fails
@@ -317,7 +401,7 @@ These show up in Supabase logs / query performance and are expected. Do not trea
 directory.` until the deployed file lands. That check runs on `main` pushes and is skipped on pull
   requests, so the breakage only becomes visible after merge. If an out-of-band apply is unavoidable,
   merge the exact deployed file immediately afterwards and record the revision, version list, and file
-  hashes; `scripts/prod-db migration-history` shows `missing_locally` for exactly this condition. The
+  hashes; `scripts/ops/prod-db migration-history` shows `missing_locally` for exactly this condition. The
   fix is always to land the deployed file, never `migration repair --status reverted`, which would
   falsify applied history and let a later push re-run the SQL.
 - `migration list` compares **timestamps only**. Matching rows do not detect edited SQL or schema
@@ -494,6 +578,172 @@ References: [CREATE INDEX](https://www.postgresql.org/docs/17/sql-createindex.ht
 - Platform-managed extensions (`pg_graphql`, `pg_net`) differ between the local stack and prod;
   migrations do not control these and the difference is expected.
 
+### Platform-owned public relation defaults
+
+The client-access invariant in [progress storage](./systems/progress-storage.md#invariants)
+covers the reserved creating role tracked by [#1133](https://github.com/tarkovtracker-org/TarkovTracker/issues/1133).
+Customer migrations run as `postgres`; that role cannot change `supabase_admin` default ACLs
+without membership or superuser authority. Supabase's
+[existing-project opt-in procedure](https://supabase.com/changelog/45329-breaking-change-tables-not-exposed-to-data-and-graphql-api-automatically)
+targets only `postgres`. Its announced platform rollout is not evidence that this project's
+reserved-role defaults have changed. No supported customer operation for that change was found
+in the documented procedure. Do not grant reserved-role membership, escalate credentials, or
+install privileged hooks to work around the boundary.
+
+Platform extension installation is a relevant creation path, even when requested by `postgres`.
+[Supautils delegates privileged extension creation to its configured superuser](https://github.com/supabase/supautils/blob/df32bd65e4d13212bf812ee966a51132d034bc17/README.md#privileged-extensions);
+this project's installed configuration names `supabase_admin`. Extension member relations
+placed in `public` can therefore inherit that role's defaults. This is a possible future-object
+exposure, not evidence of an existing platform-owned public table. Supabase also uses the role
+for [internal upgrades and automations](https://supabase.com/docs/guides/database/postgres/roles#supabase_admin);
+the current inventory cannot guarantee the schemas or owners of future platform objects.
+
+**Operational policy**
+
+- Create application relations through reviewed `postgres` migrations with explicit client
+  grants, RLS where applicable, and the required service-role grants. The separate
+  [#1134](https://github.com/tarkovtracker-org/TarkovTracker/pull/1134) handles existing application
+  grants and `postgres` table/view defaults; do not infer its deployment from this audit.
+- Install extensions in a schema outside the configured Data API exposed schemas where supported;
+  review fixed-schema extensions individually. Check the target schema, dependencies and expected
+  creating role before enabling or upgrading an extension. Do not assume `extensions` is
+  unexposed merely because of its name. Supabase's
+  [PostGIS guide](https://supabase.com/docs/guides/database/extensions/postgis) recommends a
+  dedicated schema instead of `public`.
+- Repeat the catalog checks below before and after extension changes, platform/database upgrades,
+  restores, and any observation of a new platform-owned public relation. Compare owners and
+  extension membership, not only relation names. Also collect `scripts/ops/prod-db schema` for
+  column ACLs and effective inherited/PUBLIC grants, and inspect RLS policies and view security
+  settings before accepting client access.
+- If a platform-owned public relation appears, stop the related feature rollout until its actual
+  client access and service-role requirements are reviewed. Use a forward migration for
+  customer-authorized per-object grants/revokes only when the catalog confirms grant authority.
+  Otherwise request remediation through Supabase Support: provide the project ref, creating role,
+  global/public ACL readback, relation/extension identity and required service-role access; ask
+  whether the feature can use an unexposed schema and whether provider-side default changes are
+  supported. Do not report provider remediation as completed without a response and readback.
+- Preserve service-role DML on application tables and required view/sequence access. After any
+  approved remediation, rerun these checks and the affected feature smoke tests; absence of client
+  defaults alone is insufficient. A catalog grant does not prove a view is updatable or a request
+  succeeds through the Data API.
+
+**Read-only catalog checks**
+
+Verify the target using the [production inspection procedure](#database-migrations) first.
+Use authenticated Supabase MCP for the following catalog-only SELECTs when the dedicated observer
+does not expose default ACLs. Never pass privileged credentials to the observer. Record the project
+ref, Git revision, capture time and results. Query errors, missing expected roles or an unexpected
+inventory are incomplete evidence, not a passing audit.
+
+Confirm the role boundary and extension delegation:
+
+```sql
+SELECT current_timestamp AS captured_at, current_database() AS database_name,
+       current_user AS execution_role, r.rolsuper AS postgres_superuser,
+       pg_has_role('postgres', 'supabase_admin', 'MEMBER') AS postgres_member_of_supabase_admin,
+       pg_has_role('postgres', 'supabase_admin', 'SET') AS postgres_can_set_supabase_admin,
+       current_setting('supautils.privileged_extensions_superuser', true) AS extension_creating_role
+FROM pg_catalog.pg_roles r
+WHERE r.rolname = 'postgres';
+```
+
+Inventory table/view and sequence defaults for **every creating role**, both global and `public`
+scopes. Keep the object types separate: sequence privileges differ from table privileges.
+Schema defaults add to global defaults; a schema-only revoke cannot cancel a global grant.
+[PostgreSQL default privileges](https://www.postgresql.org/docs/17/sql-alterdefaultprivileges.html)
+apply when objects are created, not retrospectively. An absent `pg_default_acl` entry means
+PostgreSQL's built-in defaults, not missing owner privileges; for tables these do not grant client
+access. Check grants to `PUBLIC` and roles inherited by the client roles as well as direct grants.
+
+```sql
+SELECT pg_get_userbyid(d.defaclrole) AS creating_role,
+       CASE d.defaclobjtype WHEN 'r' THEN 'table/view' WHEN 'S' THEN 'sequence' END AS object_type,
+       CASE WHEN d.defaclnamespace = 0 THEN '(global)' ELSE n.nspname END AS scope,
+       CASE WHEN a.grantee IS NULL THEN '(empty ACL)'
+            WHEN a.grantee = 0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END AS grantee,
+       coalesce(array_agg(a.privilege_type ORDER BY a.privilege_type)
+         FILTER (WHERE a.privilege_type IS NOT NULL), ARRAY[]::text[]) AS privileges,
+       coalesce(bool_or(a.is_grantable), false) AS has_grant_option
+FROM pg_catalog.pg_default_acl d
+LEFT JOIN pg_catalog.pg_namespace n ON n.oid = d.defaclnamespace
+LEFT JOIN LATERAL pg_catalog.aclexplode(nullif(d.defaclacl, '{}'::aclitem[])) a ON true
+WHERE d.defaclobjtype IN ('r', 'S')
+  AND (d.defaclnamespace = 0 OR n.nspname = 'public')
+GROUP BY d.defaclrole, d.defaclobjtype, d.defaclnamespace, n.nspname, a.grantee
+ORDER BY creating_role, object_type, scope, grantee;
+```
+
+Inventory public tables, partitions, views, materialized views, foreign tables and sequences,
+including extension membership and effective relation-level access (schema USAGE included).
+This complements rather than replaces the observer's column-grant report.
+
+```sql
+SELECT c.relname AS relation, c.relkind AS kind,
+       pg_get_userbyid(c.relowner) AS owner, e.extname AS extension,
+       c.relrowsecurity AS rls_enabled,
+       (SELECT jsonb_object_agg(r.rolname, ARRAY(
+          SELECT p.privilege
+          FROM unnest(CASE WHEN c.relkind = 'S'
+            THEN ARRAY['SELECT', 'USAGE', 'UPDATE']
+            ELSE ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE',
+                       'TRUNCATE', 'REFERENCES', 'TRIGGER', 'MAINTAIN']
+          END) AS p(privilege)
+          WHERE pg_catalog.has_schema_privilege(r.oid, n.oid, 'USAGE')
+            AND CASE WHEN c.relkind = 'S'
+              THEN pg_catalog.has_sequence_privilege(r.oid, c.oid, p.privilege)
+              ELSE pg_catalog.has_table_privilege(r.oid, c.oid, p.privilege)
+            END
+          ORDER BY p.privilege
+        ))
+        FROM pg_catalog.pg_roles r
+        WHERE r.rolname IN ('anon', 'authenticated', 'service_role')
+       ) AS effective_relation_privileges
+FROM pg_catalog.pg_class c
+JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+LEFT JOIN pg_catalog.pg_depend dep
+  ON dep.classid = 'pg_catalog.pg_class'::regclass AND dep.objid = c.oid
+ AND dep.objsubid = 0 AND dep.refclassid = 'pg_catalog.pg_extension'::regclass
+ AND dep.deptype = 'e'
+LEFT JOIN pg_catalog.pg_extension e ON e.oid = dep.refobjid
+WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p', 'v', 'm', 'f', 'S')
+ORDER BY owner, relation;
+```
+
+**Production readback — 2026-10-07**
+
+Authenticated MCP project discovery verified `knptqelvsodccnoehmbj` as TarkovTracker.org,
+host `db.knptqelvsodccnoehmbj.supabase.co`, PostgreSQL 17.6.1.048. Catalog SELECTs at
+05:27–05:30 UTC were collected from checkout `3e5cab49`; no production mutation was performed.
+
+- Execution role `postgres`: not a superuser; neither MEMBER of nor able to SET ROLE to
+  `supabase_admin`. Privileged extension creation is configured to use `supabase_admin`.
+- No global table-default ACL entries. Both `postgres` and `supabase_admin` have `public`
+  table defaults granting SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER and
+  MAINTAIN to `anon`, `authenticated`, `postgres` and `service_role`, without grant option.
+  These are pre-#1134 defaults, not a successful hardening readback.
+- All 19 public tables and two views are owned by `postgres`; no public sequences or extension
+  member relations were found. Service-role schema USAGE and SELECT/INSERT/UPDATE/DELETE are
+  effective on all 21 relations. All 19 tables have RLS enabled; the two view RLS flags are false,
+  which does not describe the underlying tables' policies or the views' security settings.
+- Eight installed extensions: `hypopg`, `index_advisor`, `pg_cron`, `plpgsql` and
+  `supabase_vault` owned by `supabase_admin`; `pg_stat_statements`, `pgcrypto` and
+  `uuid-ossp` owned by `postgres`. None has `public` as its extension namespace.
+- Supported outcome for #1133: retain provider-owned defaults under this operational policy and
+  re-audit on the triggers above. No provider support response or reserved-role default change is
+  claimed. Application-grant rollout and readback remain owned by #663/#1134.
+
+**Default-ACL follow-up — 2026-10-07 06:03 UTC**
+
+The expanded table/view-and-sequence query was executed through authenticated MCP for the same
+verified project after merging main `35ffee6d` into this branch. It returned no global entries for
+either object type. `postgres` public table/view defaults now grant only `postgres` and
+`service_role` all eight privileges; the client grants removed by #1134 are absent.
+`supabase_admin` public table/view defaults are unchanged. Public sequence defaults for both creating
+roles grant SELECT, UPDATE and USAGE to `anon`, `authenticated`, `postgres` and `service_role`,
+without grant option. Sequence defaults were outside #1134's table/view hardening and remain
+unchanged by this documentation-only PR. This follow-up checks defaults, not application-table
+grants, feature behavior or the full migration ledger.
+
 ### Progress transfer and freshness rollout
 
 For `20260906174817_suppress_unchanged_progress_writes.sql` and
@@ -514,6 +764,50 @@ a tab hidden longer than 60 seconds, edits while disconnected, reconnect, team c
 reconnect, and reload. Verify no saved progress is lost or resurrected, retained teammates refresh,
 and resumed saves succeed. Frontend rollback remains compatible with these additive migrations;
 preserve applied migrations.
+
+### Normalized PvP/PvE progress backfill (#1028)
+
+`20261002090000_side_effect_free_mode_progress_backfill.sql` ships the helper only; running it is
+separately approved operational maintenance under the rules above. The helper writes only rows whose
+legacy payload has a numeric level while the normalized row is missing or has none. It never locks
+or rewrites materialized rows; repairing a placeholder takes its row lock. It keeps source timestamps,
+records unknown freshness, and records no
+account activity, so retention deadlines and pending inactivity deletions are unchanged.
+
+1. Measure remaining work per range with the completion gate (read-only):
+
+   ```sql
+   SELECT game_mode, count(*) FROM private.unmaterialized_mode_progress(
+     '00000000-0000-0000-0000-000000000000', '01000000-0000-0000-0000-000000000000')
+   GROUP BY game_mode;
+   ```
+
+2. Run one range per SQL Editor operation so each commits on its own. Start with a two-hex-digit
+   range (`00…`–`01…`) to measure duration, then widen only while it stays well under the timeout.
+   The last range passes `NULL` as the upper bound.
+
+   ```sql
+   BEGIN;
+   SET LOCAL statement_timeout = '60s';
+   SELECT private.backfill_game_mode_progress_range(
+     '00000000-0000-0000-0000-000000000000', '01000000-0000-0000-0000-000000000000');
+   COMMIT;
+   ```
+
+   The transaction-local timeout cannot leak into later maintenance. The helper sets
+   `lock_timeout = '2s'`; a range that meets a live write fails and rolls back whole. If an error
+   leaves the session in an aborted transaction, run `ROLLBACK;` before retrying. Re-run the range
+   later; completed rows are no-ops.
+
+3. Record each completed range in the change log and stop on rising latency, CPU, lock waits, or
+   I/O pressure.
+4. Remove fallback reads only after the gate returns zero rows for both modes across every range.
+
+After `20261009020231_retire_legacy_progress_keep_compatibility_clocks.sql` deploys, nothing writes the legacy
+columns, so the gate stays a read-only check and the helper must not run: it would copy frozen
+legacy progress over newer normalized rows. A non-zero gate after that point (for example a
+normalized row saved without a `level`) does not mean missing data, and Phase 4 must not use the
+gate as its precondition; Phase 4 removes the helper and gate with the columns.
 
 ### Manual activity history rollout
 
@@ -566,7 +860,7 @@ deployed function sources in the same change.
 The database change alone does not cover the handler behavior: the deployed handlers filter cooldown
 reads on `server_verified = true`, and the preserved pre-containment rows are `server_verified = false`
 with possibly forged timestamps, so the older handlers would trust that history again. See the
-`team_events` invariants in `docs/SYSTEMS.md`.
+`team_events` invariants in `docs/systems/teams.md`.
 
 ### Atomic-leave checkout recovery (`20260912085904`)
 
@@ -581,7 +875,7 @@ Supabase CLI 2.117.0 authenticated using its existing authorized session; `proje
 explicit `link --project-ref knptqelvsodccnoehmbj`, and `migration list --linked` all succeeded.
 A missing observer `PROD_DB_URL` does not mean the CLI cannot inspect the project. Keep the
 observer's restricted credential boundary intact; this recovery uses separately authorized CLI
-access, not broader credentials passed to `scripts/prod-db`.
+access, not broader credentials passed to `scripts/ops/prod-db`.
 
 Recovery procedure and evidence:
 
@@ -614,6 +908,69 @@ and repeat linked history/dry-run checks. Pull-request previews intentionally sk
 so a green PR alone does not establish that the production integration has recovered. Do not
 roll back to the pre-atomic leave handler or apply unrelated account-deletion migrations.
 
+### Atomic team-kick rollout (`20260926090000`)
+
+PR #938 (fix for #864) ships the atomic `kick_team` RPC in migration
+`20260926090000_atomic_team_kick.sql` together with the rewritten `team-kick` handler sources in
+one change, mirroring the atomic-leave unit rule: never separate the migration from the handler
+sources it requires. The rollout is database-first: after the merge, the Supabase GitHub
+integration applies the migration and deploys the edge functions (including `team-kick`) together
+in the same integration run against the merge commit — there is no manual SQL step:
+
+- **Do not apply the migration out of band** (no dashboard SQL editor, no `db push`) from PR #938's
+  branch or any unmerged revision — see "Deploy migrations only from a revision that is already
+  merged to `main`" above. Deploying the handler sources without the migration (or the migration
+  without the required handler sources) breaks the RPC-version parity the atomic-leave recovery
+  had to restore.
+- The pre-merge state is already safe: the deployed `team-kick` (non-atomic, direct DELETE +
+  event INSERT) never referenced `kick_team`, so the migration and the handler deploy land in the
+  same integration run on the merge commit with no regression window.
+- PR checks report `Supabase Preview` as `skipping` (per-PR preview databases are intentionally
+  disabled), so validation is: green `Supabase DB` job on the PR, then after merge confirm on the
+  merge commit that `Supabase Preview` succeeded, `supabase migration list --linked` shows
+  `20260926090000` applied remotely (no blank REMOTE rows) and the `team-kick` function shows a
+  new version in the Supabase dashboard. A blank REMOTE row is the pending case; the fallback is
+  the manual `db push` block in "Deployment", not a hand-written apply of the migration.
+
+### Durable leave and kick cooldown rollout (#1031)
+
+Migration `20261002080000_durable_team_cooldowns.sql` adds private cooldown storage and
+deletion-preservation triggers, and replaces `leave_team` and `kick_team` in place. It performs no
+bulk backfill or existing-row rewrite. The RPC signatures, service-role grants, and Edge Function
+result contracts stay compatible; no frontend, gateway, or Edge Function redeploy is required.
+The cooldown and legacy-event trust rules belong to [the team system](systems/teams.md).
+
+Before merge, collect the migration-history and preflight evidence above, inspect deployed RPC
+definitions/grants, event provenance and cascade constraints, and the indexes used by legacy
+lookups. Assess an `incomplete` preflight explicitly: function bodies and triggers are unsupported
+by the classifier, and their runtime `INSERT`/`DELETE` statements are not migration-time rewrites.
+Confirm the new private objects are absent and only this migration is pending for this PR. Keep
+`20261002080000` ahead of the `20261002090000` progress-backfill migration in the release order.
+
+After merge and explicit deployment authorization:
+
+1. Repeat target identity, history, blocking/long-running-session checks, and the CLI dry-run from
+   the merged revision. Apply only the expected migration set, in timestamp order.
+2. Apply through the normal transactional migration runner. `lock_timeout = '5s'` bounds lock
+   acquisition, including trigger installation on `teams`/`team_events`;
+   `statement_timeout = '30s'` bounds each statement. If any statement fails, roll back the whole
+   migration and verify it remains pending before retrying at a quieter time. Do not apply the file
+   as separately committed SQL Editor statements or repair the migration ledger to force success.
+3. Verify the ledger, both enabled preservation triggers, private-table RLS/client denial, and
+   unchanged RPC signatures/service-role execution grants. Inspect blocking and error rates again.
+4. With disposable test accounts, verify leave → disband → join another same-mode team → leave
+   returns 429. Verify kick → disband/recreate → kick also returns 429; a missing target returns
+   404 without spending the cooldown. Confirm another mode remains independent and a successful
+   action is allowed after five minutes. Remove test teams through the owner disband function.
+
+There is no down migration. A failed transactional apply leaves the previous schema and RPCs
+intact. After a successful apply, recover with a separately reviewed, authorized forward migration
+that corrects the affected helper, trigger, or RPC while retaining cooldown rows and compatible
+grants. A frontend rollback cannot undo this database change. Do not drop the durable table,
+disable preservation, restore event-only cooldowns, or rewrite applied migration history as routine
+rollback: those actions can erase active windows or reopen the disband bypass. Re-run the database
+regressions and deployment postchecks against any recovery migration before declaring recovery.
+
 ### Reconcile migration `20260630075121_reconcile_prod_schema_drift`
 
 - Captures schema changes that were previously made directly in the dashboard (teams
@@ -631,9 +988,77 @@ roll back to the pre-atomic leave handler or apply unrelated account-deletion mi
   `unknown flag: --mode`. `db dump`, `db query`, `db reset`, and `migration` work. The 2.101
   Go binary (`supabase-2.101` in `~/.local/bin`) can run `db diff` when the 2.108 wrapper cannot.
 
+## Owner-only team expiry rollout
+
+The migrations install schema, aggregate receipts and the hourly `owner-only-team-cleanup`
+pg_cron job (`17 * * * *`, 60-second statement timeout, at most 100 teams per batch).
+Both gates stay off: `warnings_started_at=NULL` and `deletion_enabled=false`. The scheduled
+runner is inert until warning activation. Database migrations and frontend deployment are
+independent; applying migrations must never consume an owner's warning period before the
+warning UI is verified live. Follow the database procedure above for deployment approval.
+
+1. Before production activation, use an isolated local/preview database with warnings enabled
+   and deletion disabled. Verify the persistent owner warning and date on desktop/mobile,
+   reload persistence, PvP/PvE/Seasonal switches, join cancellation, a fresh 168-hour clock after
+   the last member leaves, and disband fallback with personal progress and other-mode teams
+   preserved. Run the committed concurrency and expiry tests for failure/response ordering.
+2. Separately approve provisioning the dedicated observer's aggregate-view grant. Grant no
+   base-table reads or cleanup execution:
+
+   ```sql
+   GRANT USAGE ON SCHEMA private TO pi_prod_observer;
+   GRANT SELECT ON private.owner_only_team_cleanup_status TO pi_prod_observer;
+   ```
+
+   Run `scripts/ops/prod-db canary` and `scripts/ops/prod-db owner-only-teams` using that restricted
+   role. Confirm the report succeeds within the observer timeout, contains only aggregate counts
+   and receipts, and both gates are off. The telemetry canary alone does not exercise this view.
+   A failed report or unverified warning UI blocks activation.
+
+3. After the production warning UI is live and the observer checks pass, obtain explicit approval
+   to start warnings (a manual production mutation). In a bounded transaction, call
+   `SELECT private.begin_owner_only_team_warnings();` while deletion remains disabled. Confirm
+   activation time with `scripts/ops/prod-db owner-only-teams` and the named job is active in
+   `cron.job`. The runner initializes existing solo teams in batches of 100, giving each at
+   least 168 hours from its own initialization; new solo transitions are stamped immediately.
+4. Keep deletion disabled for a full 168 hours of verified warning availability. Before enabling
+   deletion, repeat the warning/lifecycle acceptance and observer report checks; inspect
+   `cron.job_run_details` for failures and runtime, and confirm committed initialization receipts.
+   Obtain separate explicit approval to set `deletion_enabled=true`. No team expires until both
+   its own deadline and `warnings_started_at + 168 hours` have passed. Hourly batching, lock
+   contention and backlog may delay expiry.
+5. Monitor `scripts/ops/prod-db owner-only-teams` for owner-only/populated/empty/inconsistent
+   counts, awaiting-clock/in-grace/deadline-reached counts, activation state and the latest 20
+   aggregate receipts. Each committed batch records completion time, initialized/disbanded
+   counts and the deletion flag. Failed transactions record no receipt; inspect pg_cron status.
+   Receipts retain thirty days at hourly cadence, pruning at most 100 older rows per batch.
+   Empty, missing-owner or role/mode-inconsistent teams remain for separate investigation.
+   The cap bounds locks and mutations, not scan work; measure runtime before approving deletion
+   and tune in a reviewed change if the scan approaches the 60-second timeout.
+
+A single disband or receipt failure rolls back the entire batch. No deletion receipt is committed
+for that failed run; pg_cron records failure and the next hourly run retries. Persistent failures
+can stall the earliest candidates and need investigation before resuming deletion. Do not silently skip or partially commit failed teams.
+
+Pause deletion by setting `deletion_enabled=false`; the next batch initializes clocks but
+does not disband. The flag update waits for an in-flight batch's settings share lock, so a batch
+already running completes atomically. Unschedule the named job to pause all batches. Neither
+pause resets clocks. If warning availability is interrupted by a failed app deployment or rollback,
+keep deletion disabled. After restoring and verifying the warning UI, obtain approval to restart
+the global warning floor with `warnings_started_at=clock_timestamp()` and wait another full 168
+hours before re-enabling deletion. Preserve individual team clocks; the global floor prevents an
+old deadline from allowing immediate deletion after warning restoration. If a new policy/grace
+period is desired, prepare a separately reviewed forward change rather than resetting deadlines through user activity. Do not drop the warning
+UI while deletion remains enabled. Existing account-deletion retry handlers must retain
+whole-transaction handling of `55P03`; failed cascades leave all data unchanged for retry.
+
+Expired team rows/events cannot be recreated by toggling a flag; use the approved recovery
+procedure/backups if necessary. Personal progress needs no recovery because disband never
+deletes it. Do not rollback applied migration history.
+
 ## Production database observer
 
-The repository-owned `scripts/prod-db` command is the canonical read-only production inspection
+The repository-owned `scripts/ops/prod-db` command is the canonical read-only production inspection
 interface for agents and developers. It uses the Supabase CLI for the built-in inspection reports
 and a restricted SQL library for schema and bounded data-shape reports. It always emits normalized
 JSON and never applies migrations.
@@ -650,32 +1075,38 @@ CLI, supplies it through a temporary mode-`0600` `PGPASSFILE`, removes the file 
 and redacts the password from command failures.
 
 ```bash
-PROD_DB_TARGET=local scripts/prod-db health
+PROD_DB_TARGET=local scripts/ops/prod-db health
 chmod 600 "${PROD_DB_ENV_FILE:-.env}"
-scripts/prod-db canary
-scripts/prod-db table-stats
-scripts/prod-db preflight --migration supabase/migrations/20260807_example.sql
+scripts/ops/prod-db canary
+scripts/ops/prod-db table-stats
+scripts/ops/prod-db preflight --migration supabase/migrations/20260807_example.sql
 ```
 
 Store `PROD_DB_URL=postgresql://pi_prod_observer:...@...:5432/postgres?sslmode=verify-full` in the
 mode-`0600`, gitignored repository-root `.env` alongside the other local development secrets, so the
-password does not enter shell history. `scripts/prod-db` loads only `PROD_DB_*` keys from `.env`;
+password does not enter shell history. `scripts/ops/prod-db` loads only `PROD_DB_*` keys from `.env`;
 unrelated file keys are ignored. Already-exported environment variables take precedence and remain
 inherited by the observer child process, apart from the credential variables stripped by the wrapper.
 Keep the invoking environment free of privileged credentials. Export `PROD_DB_ENV_FILE` in the
 invoking shell to select a different file (for example, `export PROD_DB_ENV_FILE=/path/to/observer.env`);
 setting this selector inside `.env` is unsupported. The command fails if the selected file cannot be
 read; an absent default `.env` is allowed. Values are literal:
-no shell or variable expansion occurs. Use absolute certificate paths in `sslrootcert`, not `$HOME`
-or `${HOME}`. An inline environment
+no shell or variable expansion occurs. The wrapper rejects relative or missing certificate paths
+before invoking the CLI. Use absolute certificate paths in `sslrootcert`, not `$HOME` or
+`${HOME}`. An inline environment
 assignment remains supported for non-interactive automation whose secret store masks command input.
 
 Available reports include `health`, `schema`, `migration-history`, `db-stats`, `table-stats`,
 `index-stats`, `traffic`, `outliers`, `calls`, `locks`, `blocking`, `long-running`, `vacuum`,
 `bloat`, `role-stats`, bounded `sample`, `distribution`, and `count`. `sample` excludes columns
 matching the sensitive-column policy and is capped at 20 rows; `distribution` is capped at 50
-groups. `EXPLAIN ANALYZE`, arbitrary SQL, writes, DDL, migration commands, and unbounded row access
-are not supported.
+groups. The schema report exposes catalog ACL entries, PUBLIC grants, observer-effective privileges
+through inherited roles, privileges effective for existing `anon`, `authenticated`, and `service_role`
+roles, per-role schema `USAGE`, relation owners, and row-level-security flags. A privilege counts as
+effective only when the role can also use the relation's schema. Column-level ACL entries and
+the per-column privileges they make effective are listed separately. Health shows schema usage and read
+access to the migration `version` and `statements` columns. `EXPLAIN ANALYZE`, arbitrary SQL,
+writes, DDL, migration commands, and unbounded row access are not supported.
 
 `migration-history` reads applied version identifiers from `supabase_migrations.schema_migrations`
 and compares them with `supabase/migrations` in the current checkout. It reports `missing_locally`
@@ -697,7 +1128,8 @@ guaranteed to describe the same environment as the observer credential.
 `canary` is the first production validation command. It runs only health and telemetry reports:
 `db-stats`, `role-stats`, `table-stats`, `index-stats`, and `outliers`. It does not sample rows,
 run distributions, or execute migration preflight. Before collecting telemetry it rejects
-privileged or write-capable roles, persistent-object creation privileges, disabled default
+privileged or write-capable roles, persistent-object creation privileges, read access to stored
+migration `statements`, disabled default
 read-only transactions, and unbounded statement or lock timeouts. Every report includes an
 `observation` object with capture time, observer application name, database statistics reset time,
 statement statistics reset time, and I/O statistics reset time. These reset times are required to
@@ -705,11 +1137,20 @@ interpret cumulative counters.
 
 `preflight` parses the proposed migration to identify referenced relations and operation classes,
 then combines that information with production table/index, traffic, vacuum, query, lock, and
-blocking reports. The result is evidence-only and must be reviewed by a human before a migration is
-merged. It does not execute the migration. If the parser sees dynamic SQL, unsupported statements,
-quoted identifiers, multiple statements, or any unclassified syntax, it returns
-`assessment: incomplete`, `risk: unknown`, and `requires_manual_review: true`; it never treats an
-unrecognized migration as safe.
+blocking reports. The result is evidence-only and must be assessed before a migration is merged.
+The implementing agent may collect and assess this evidence; human review is not mandatory.
+Document migration semantics, deployed function dependencies/contracts and permissions, rolling
+compatibility, lock acquisition and timeout/rollback strategy, together with the independent review
+required by `AGENTS.md`. It does not execute the migration. If the parser sees dynamic SQL,
+unsupported statements, quoted identifiers, malformed literals or comments, multiple statements, or
+any unclassified syntax, it returns `assessment: incomplete`, `risk: unknown`, and `requires_manual_review: true`; it never
+treats an unrecognized migration as safe. An incomplete report requires a documented assessment of
+those unsupported operations using source review, disposable replay and production catalog/telemetry
+evidence; it does not require the user to collect records or perform the assessment. Unresolved
+material risks remain merge blockers. The only multi-statement exception is a migration made
+entirely of table-level `GRANT`/`REVOKE` statements, optionally wrapped in one `BEGIN`/`COMMIT`
+pair. Privilege names such as `UPDATE` and `DELETE` in those statements are not data changes, and
+the explicit transaction is still reported as transaction control.
 
 Provision the observer role out of band through the Supabase SQL editor or approved database
 operation. Grant only `CONNECT`, required schema/catalog visibility, and `pg_monitor`; Supabase CLI
@@ -759,8 +1200,25 @@ Pi access. Do not make production role provisioning or the canary an automatic m
    - `NUXT_SHARED_PROFILE_RATE_LIMIT_PER_MINUTE`
    - For `/api/tarkov-dev/profile`, add or tighten a Cloudflare rule; the app route also has a fixed per-IP limiter.
    - Cache API-backed shared rate limits are best-effort under concurrent bursts; use Cloudflare or Durable Objects for hard enforcement.
-   - Full ownership map (Worker DO vs Edge mutation limits vs Pages vs Auth): [`RATE_LIMITING.md`](./RATE_LIMITING.md).
+   - Full ownership map (Worker DO vs Edge mutation limits vs Pages vs Auth): [`rate-limiting.md`](./rate-limiting.md).
 3. If API protection blocks valid traffic, update `API_ALLOWED_HOSTS` and redeploy.
+
+### Browser progress authority (#1092) rollback
+
+After this release, IndexedDB `tarkovtracker-active-progress-v1` owns browser progress. The
+`v2_progress` localStorage copy is imported once and then only observed, so it is stale after the
+first edit ([decision record](./decision-browser-progress.md#historical-rollback-requirements-and-remaining-acceptance)).
+
+- Fix forward. Prefer a repair release that still reads IndexedDB; revert later changes, not this
+  reader.
+- Do not redeploy a pre-#1092 frontend as routine rollback. It reads the stale localStorage copy:
+  guest edits made since the release disappear, and signed-in tabs can sync stale local state.
+- If an old-code rollback is unavoidable, first announce that users should open Settings →
+  Backup & Restore and use "Export locally saved device data and recovery copies". After the
+  IndexedDB release returns, edits made by old code appear only as older-tab recovery copies in
+  that card; users restore them from there.
+- Verify a release by editing in two tabs, reloading both and confirming the edit persists with
+  no recovery warning.
 
 ### Combined task cache contract rollout (v2 to v3)
 
@@ -787,3 +1245,74 @@ entries remain within their seven-day TTL. Roll back to the previous v2 applicat
 standalone #825 application. The cold fetch/adapt/overlay fallback is not a safe bridge during
 this cache-key rollout. After deployment, run `pnpm run verify:overlay` and retain the served
 fleet verification before closing issue #729.
+
+### EFT import snapshot rollout (#1161)
+
+`/api/tarkov/tasks-import` reads only `tasks-import-json-v1-en-{regular,pve,pvp-season}` and returns
+503 while a key is missing, so seed before Pages deploys the consumer
+([release order](./systems/overlay-and-precompute.md#release-verification)):
+
+1. Read the published overlay `$meta.sha256`. Dispatch `precompute-tarkov-data.yml` on the PR
+   branch with `lang=en`, no mode, and that `expectedOverlaySha`. Require the run's
+   `importSnapshots.failures` to be empty.
+2. Confirm each of the three envelopes in `TARKOV_DATA` has envelope version 2, the expected
+   overlay SHA, a fresh `storedAt` and its own `catalog.gameMode`.
+3. Merge. After Pages deploys, `GET /api/tarkov/tasks-import?gameMode=<mode>` returns 200 for all
+   three modes, and `pnpm run verify:overlay` (with `OVERLAY_TOKEN` supplied through the process
+   environment or a secret store) reports no import mismatches.
+4. If the overlay was published after step 1, dispatch an unfiltered run on `main` so all 48 core
+   entries and the import keys share the release.
+
+Rollback: the previous app ignores these keys and returns to its `json-v3` objective entries,
+which can lack overlay provenance (the defect this change fixes), so EFT imports may again fail
+for affected modes. Purge the `json-v3` objective targets with `admin-cache-purge` after rolling
+back so they regenerate with the overlay. The 7-day import keys can be left to expire.
+
+### Retired automatic-level cleanup
+
+The automatic-level removal migration is schema only. New clients and database writes discard
+`xpOffset` while keeping each mode's saved level. Cached automatic clients cannot overwrite an
+existing level until refresh, except through an intentional newer reset epoch. Refresh clients
+before validating manual level editing. See [manual player levels](systems/progress-storage.md#manual-player-levels).
+
+Existing JSON offsets can be removed with `scripts/maintenance/remove-level-calculation-offsets.sql`.
+It includes the same SQL that the database regression test runs, strips only the top-level
+`xpOffset`, and covers frozen PvP/PvE mirrors, normalized modes (all seasons), game-profile
+modes, and prestige archives. It preserves every other JSON value, row freshness clocks,
+metadata write markers, sharing, and account-retention state. It does not recalculate or guess
+missing levels.
+
+This is manual production data maintenance and needs explicit approval after the schema
+migration is merged and applied. Verify project identity and migration history with the
+[database migration procedure](#database-migrations), inspect the current trigger set, and
+choose a quiet window. The migration adds a user index for game-profile progress so every cleanup query can limit its
+scan to the approved owner range. The script creates and drops transaction-scoped maintenance triggers;
+its DDL briefly holds exclusive table locks. Lock waits are limited to 2 seconds and statements
+to 15 seconds. A failure rolls back the entire range; retry only after investigating it.
+No persistent maintenance trigger/function or new public RPC remains.
+
+Use a privileged operator connection through the approved credential mechanism, never the
+read-only observer connection. Pass `PGSERVICE` or the existing connection environment without
+printing credentials. One invocation removes offsets from at most 100 affected users in the
+half-open UUID range; subdivide ranges until they meet the limit. Do not run a whole-table
+range or a loop in one transaction.
+
+```sh
+psql -X --single-transaction --set ON_ERROR_STOP=1 \
+  --set from_user_id='<inclusive UUID>' --set to_user_id='<exclusive UUID>' \
+  --file scripts/maintenance/remove-level-calculation-offsets.sql
+```
+
+The script refuses to run without one transaction or before the preference column has been
+removed. Its bound and updates share table locks, so concurrent writes cannot expand the
+selected users. Running the same range again is a no-op. Confirm completion with a bounded
+count for each table in the approved range using these predicates:
+
+- `user_progress`: `pvp_data ? 'xpOffset' OR pve_data ? 'xpOffset'`
+- `user_game_mode_progress` and `user_profile_mode_progress`: `progress_data ? 'xpOffset'`
+- `user_prestige_runs`: `archived_progress ? 'xpOffset'`
+
+Require zero remaining matches in every approved range, and verify representative saved levels
+and historical records against the pre-cleanup evidence. Rollback is transaction-level on error;
+a successful cleanup permanently removes only the obsolete offsets. Frontend rollback to an
+automatic-level client is unsupported because offsets are no longer authoritative.
