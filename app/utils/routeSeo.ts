@@ -11,6 +11,7 @@ const PUBLIC_PAGE_KEYS = {
   '/resources': 'resources',
   '/about': 'about',
   '/credits': 'credits',
+  '/herkunft': 'herkunft',
   '/changelog': 'changelog',
   '/supporter': 'supporter',
   '/privacy': 'privacy',

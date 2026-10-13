@@ -33,8 +33,11 @@ describe('route SEO registry', () => {
     );
   });
   it('includes exactly the public pages and every available guide', () => {
-    expect(PUBLIC_SEO_ROUTES).toHaveLength(18);
-    expect(new Set(PUBLIC_SEO_ROUTES).size).toBe(18);
+    // 19, not upstream's 18: this fork adds the additive /herkunft attribution page
+    // (FORK.md category B) to PUBLIC_PAGE_KEYS so it gets a real SEO entry instead of
+    // falling back to the generic noindex "not_found" metadata.
+    expect(PUBLIC_SEO_ROUTES).toHaveLength(19);
+    expect(new Set(PUBLIC_SEO_ROUTES).size).toBe(19);
     for (const resource of RESOURCES) {
       expect(PUBLIC_SEO_ROUTES.includes(`/resources/${resource.slug}`)).toBe(resource.hasGuide);
     }
@@ -44,6 +47,15 @@ describe('route SEO registry', () => {
         canonical: `${SEO_ORIGIN}${path}`,
       });
     }
+  });
+  it('registers the fork-only /herkunft attribution page with its own indexable SEO entry', () => {
+    const herkunft = resolveRouteSeo('/herkunft');
+    expect(herkunft.indexable).toBe(true);
+    expect(herkunft.canonical).toBe(`${SEO_ORIGIN}/herkunft`);
+    expect(herkunft.title).not.toBe(resolveRouteSeo('/unknown').title);
+    expect(createRouteSeoHead('/herkunft').meta).toContainEqual(
+      expect.objectContaining({ name: 'robots', content: 'index, follow' })
+    );
   });
   it('normalizes query, hash, and trailing slash without indexing unknown URLs', () => {
     expect(resolveRouteSeo('/tasks/?search=secret#objective')).toEqual(resolveRouteSeo('/tasks'));

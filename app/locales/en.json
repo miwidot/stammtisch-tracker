@@ -2620,6 +2620,10 @@
         "title": "TarkovTracker Credits",
         "description": "Meet the contributors and community projects behind TarkovTracker."
       },
+      "herkunft": {
+        "title": "Fork Origin & License",
+        "description": "See where this TarkovTracker fork comes from, what changed, and the GPL-3.0 license it ships under."
+      },
       "changelog": {
         "title": "TarkovTracker Changelog",
         "description": "Read the latest TarkovTracker releases, improvements, and fixes."

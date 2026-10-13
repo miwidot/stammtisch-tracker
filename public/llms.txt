@@ -19,6 +19,7 @@ Authentication-required areas include `/account`, `/profile`, `/team`, `/setting
 - [Escape from Tarkov Tools and Guides](https://tarkovtracker.org/resources): Explore community tools and guides for TarkovTracker, TarkovMonitor, RatScanner, and Tarkov.dev.
 - [About TarkovTracker](https://tarkovtracker.org/about): Learn about TarkovTracker and its community project for tracking Escape from Tarkov progression.
 - [TarkovTracker Credits](https://tarkovtracker.org/credits): Meet the contributors and community projects behind TarkovTracker.
+- [Fork Origin & License](https://tarkovtracker.org/herkunft): See where this TarkovTracker fork comes from, what changed, and the GPL-3.0 license it ships under.
 - [TarkovTracker Changelog](https://tarkovtracker.org/changelog): Read the latest TarkovTracker releases, improvements, and fixes.
 - [Support TarkovTracker.org](https://tarkovtracker.org/supporter): Help fund hosting and development. Explore supporter tiers and ways to contribute.
 - [TarkovTracker Privacy Policy](https://tarkovtracker.org/privacy): Read how TarkovTracker handles account information and progression data.
