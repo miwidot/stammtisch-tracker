@@ -79,6 +79,15 @@ Monitor the Cron job and the account-deletion audit after each run. To pause, di
 investigating unexpected eligibility, failures, or missing support evidence. Production writes,
 deployment, and deletion require explicit operator approval.
 
+**Fork deviation (FORK.md category B, 2026-10-13):** this instance permanently disables
+`inactive-account-cleanup` via `supabase/migrations/20261013120000_fork_disable_inactive_account_cleanup.sql`,
+which unschedules the job. We run no user-facing warning/e-mail layer for automatic inactivity
+deletion, so accounts and progress must never disappear this way on our instance. Every other
+part of this feature (activity tracking, `account-activity-snapshot`, user-requested deletion via
+`account-deletion-retry`) stays as upstream intends. Re-check this at every upstream merge:
+`tests/fork-inactive-account-cleanup-guard.test.ts` fails the suite if a later migration
+re-schedules the job, so this cannot silently come back.
+
 Removing inactive accounts does not retire the older `user_progress` layout. It still carries
 metadata and PvP/PvE compatibility copies; see the
 [game-mode storage system](./systems/progress-storage.md#game-mode-and-seasonal-progress-storage).
