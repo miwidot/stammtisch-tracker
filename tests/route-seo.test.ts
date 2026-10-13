@@ -9,12 +9,19 @@ import {
   resolveRouteSeo,
 } from '@/utils/routeSeo';
 describe('route SEO registry', () => {
-  it('uses the chosen compact previews for tasks, supporter, and combined Kappa/Lightkeeper', () => {
+  it('uses the chosen compact previews for tasks and combined Kappa/Lightkeeper', () => {
     expect(resolveRouteSeo('/tasks').title).toBe('Tarkov Quest Tracker · TarkovTracker.org');
-    expect(resolveRouteSeo('/supporter').description).toBe(
-      'Help fund hosting and development. Explore supporter tiers and ways to contribute.'
-    );
     expect(resolveRouteSeo('/kappa').title).toBe('Kappa & Lightkeeper Tracker · TarkovTracker.org');
+  });
+  it('falls back to the generic noindex entry for the disabled /supporter sales page', () => {
+    // This fork has no payment processing (see app/middleware/no-supporter-sales.global.ts),
+    // so /supporter is deliberately NOT in PUBLIC_PAGE_KEYS: it must stay out of the
+    // prerender set, the sitemap, and public/llms.txt rather than fail the build with a
+    // genuine 404 during SSR prerendering.
+    const supporter = resolveRouteSeo('/supporter');
+    expect(supporter.indexable).toBe(false);
+    expect(supporter.title).toBe(resolveRouteSeo('/unknown').title);
+    expect(PUBLIC_SEO_ROUTES).not.toContain('/supporter');
   });
   it('keeps browser titles while avoiding a repeated brand in social titles', () => {
     const head = createRouteSeoHead('/tasks');
@@ -28,16 +35,15 @@ describe('route SEO registry', () => {
     expect(head.meta).toContainEqual(
       expect.objectContaining({ property: 'og:site_name', content: 'TarkovTracker' })
     );
-    expect(createRouteSeoHead('/supporter').meta).toContainEqual(
-      expect.objectContaining({ property: 'og:title', content: 'Support TarkovTracker.org' })
-    );
   });
   it('includes exactly the public pages and every available guide', () => {
-    // 19, not upstream's 18: this fork adds the additive /herkunft attribution page
-    // (FORK.md category B) to PUBLIC_PAGE_KEYS so it gets a real SEO entry instead of
-    // falling back to the generic noindex "not_found" metadata.
-    expect(PUBLIC_SEO_ROUTES).toHaveLength(19);
-    expect(new Set(PUBLIC_SEO_ROUTES).size).toBe(19);
+    // 18, same count as upstream's 18 but a different set: this fork adds the additive
+    // /herkunft attribution page (FORK.md category B, +1) and removes /supporter (-1) since
+    // this instance has no payment processing and the route genuinely 404s (see
+    // app/middleware/no-supporter-sales.global.ts) - it must not be prerendered, sitemapped,
+    // or listed in public/llms.txt.
+    expect(PUBLIC_SEO_ROUTES).toHaveLength(18);
+    expect(new Set(PUBLIC_SEO_ROUTES).size).toBe(18);
     for (const resource of RESOURCES) {
       expect(PUBLIC_SEO_ROUTES.includes(`/resources/${resource.slug}`)).toBe(resource.hasGuide);
     }

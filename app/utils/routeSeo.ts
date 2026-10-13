@@ -13,7 +13,6 @@ const PUBLIC_PAGE_KEYS = {
   '/credits': 'credits',
   '/herkunft': 'herkunft',
   '/changelog': 'changelog',
-  '/supporter': 'supporter',
   '/privacy': 'privacy',
   '/terms-of-service': 'terms_of_service',
 } as const;

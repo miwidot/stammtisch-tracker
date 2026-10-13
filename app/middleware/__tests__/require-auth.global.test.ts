@@ -107,6 +107,34 @@ describe('require-auth global middleware', () => {
     expect(navigateToMock).not.toHaveBeenCalled();
     expect(result).toBeUndefined();
   });
+  // `import.meta.server`/`import.meta.client` are inlined by Nuxt's build macro at transform
+  // time (verified: `vi.stubGlobal('import.meta', ...)` has no effect on an already-transformed
+  // module under this project's vitest config), so the server-skip branch cannot be exercised
+  // by flipping a runtime flag in a unit test here. This source check is a narrow, documented
+  // supplement; the authoritative regression proof is the real `pnpm build` prerender against
+  // the actual Supabase-less SSR context (see FORK.md's require-auth.global.ts entry and the
+  // 2026-10-13 TarkovTracker 1.85.0-sync build log: every PUBLIC_SEO_ROUTES route 500'd with
+  // "Cannot read properties of undefined (reading 'user')" before this guard, and built/served
+  // real HTML after it).
+  it('bails out before touching the Supabase client when rendering on the server', async () => {
+    const { readFile } = await import('node:fs/promises');
+    const { resolve } = await import('node:path');
+    const source = await readFile(
+      resolve(process.cwd(), 'app/middleware/require-auth.global.ts'),
+      'utf8'
+    );
+    // Built as a RegExp (not a plain string literal) deliberately: this project's Nuxt macro
+    // transform rewrites the literal text `import.meta.server` to `false` even inside string
+    // literals, so a plain `source.indexOf('if (import.meta.server) return;')` always reports
+    // -1 once vitest transforms *this* test file too. Splitting the needle across a `.`-joined
+    // array sidesteps the macro's naive text match.
+    const guardPattern = new RegExp(`if \\(${['import', 'meta', 'server'].join('\\.')}\\) return;`);
+    const guardIndex = source.search(guardPattern);
+    const supabaseIndex = source.indexOf('const { $supabase } = useNuxtApp();');
+    expect(guardIndex).toBeGreaterThan(-1);
+    expect(supabaseIndex).toBeGreaterThan(-1);
+    expect(guardIndex).toBeLessThan(supabaseIndex);
+  });
   it('redirects to /login when Supabase bootstrap fails', async () => {
     const bootstrapError = new Error('bootstrap failed');
     state.user.loggedIn = true;
