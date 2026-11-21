@@ -1,15 +1,38 @@
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { API_SUPPORTED_LANGUAGES } from '@/utils/constants';
-import { VALID_GAME_MODES } from '@/server/utils/tarkov-cache-config';
 import { fetchOverlay } from '@/server/utils/overlay';
-import { compareOverlayFleet, type OverlayManifest } from './verify-overlay';
+import { VALID_GAME_MODES } from '@/server/utils/tarkov-cache-config';
+import { API_SUPPORTED_LANGUAGES } from '@/utils/constants';
+import {
+  compareOverlayFleet,
+  compareImportCatalog,
+  type ImportCatalogComparison,
+  type OverlayManifest,
+} from './verify-overlay';
 // This command verifies the production fleet and writes a private, unique report.
-const productionOrigin = 'https://tarkovtracker.org';
+const productionOrigin = process.env.TARKOV_OPERATIONS_ORIGIN || 'https://tarkovtracker.org';
+const operationsUrl = new URL(productionOrigin);
+if (operationsUrl.protocol !== 'https:' || operationsUrl.origin !== productionOrigin) {
+  throw new Error('TARKOV_OPERATIONS_ORIGIN must be an HTTPS origin without a path.');
+}
+const operationsId = process.env.TARKOV_OPERATIONS_CLIENT_ID;
+const operationsSecret = process.env.TARKOV_OPERATIONS_CLIENT_SECRET;
+if (Boolean(operationsId) !== Boolean(operationsSecret)) {
+  throw new Error('Both operations Access credentials are required.');
+}
+// Reusable Access credentials only ever travel to an explicitly configured operations host.
+if (operationsId && !process.env.TARKOV_OPERATIONS_ORIGIN) {
+  throw new Error('TARKOV_OPERATIONS_ORIGIN is required when operations credentials are set.');
+}
+const operationsHeaders: Record<string, string> =
+  operationsId && operationsSecret
+    ? { 'CF-Access-Client-Id': operationsId, 'CF-Access-Client-Secret': operationsSecret }
+    : {};
 const getJson = async (url: string) => {
   const response = await fetch(url, {
-    headers: { 'User-Agent': 'TarkovTracker-overlay-verification/1.0' },
+    headers: { ...operationsHeaders, 'User-Agent': 'TarkovTracker-overlay-verification/1.0' },
+    redirect: 'error',
     signal: AbortSignal.timeout(60000),
   });
   if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
@@ -40,12 +63,27 @@ for (const lang of API_SUPPORTED_LANGUAGES)
     }
   }
 const rows = compareOverlayFleet(published, manifest, served);
+const imports: ImportCatalogComparison[] = [];
+for (const gameMode of VALID_GAME_MODES) {
+  let payload: unknown;
+  try {
+    payload = (await getJson(`${productionOrigin}/api/tarkov/tasks-import?gameMode=${gameMode}`))
+      .payload;
+  } catch (error) {
+    console.error(String(error));
+  }
+  imports.push(compareImportCatalog(gameMode, published, payload));
+}
 const reportDirectory = await mkdtemp(join(tmpdir(), 'tarkov-overlay-fleet-'));
 const output = join(reportDirectory, 'report.json');
-await writeFile(output, JSON.stringify({ checkedAt: new Date().toISOString(), rows }, null, 2), {
-  mode: 0o600,
-  flag: 'wx',
-});
+await writeFile(
+  output,
+  JSON.stringify({ checkedAt: new Date().toISOString(), rows, imports }, null, 2),
+  {
+    mode: 0o600,
+    flag: 'wx',
+  }
+);
 console.log(
   JSON.stringify({
     output,
@@ -54,6 +92,12 @@ console.log(
     propagating: rows.filter((row) => row.status === 'propagating').length,
     drift: rows.filter((row) => row.status === 'drift').length,
     unverified: rows.filter((row) => row.status === 'unverified').length,
+    importMismatches: imports.filter((row) => row.status === 'mismatch').length,
+    importUnverified: imports.filter((row) => row.status === 'unverified').length,
   })
 );
-if (rows.some((row) => row.status === 'drift' || row.status === 'unverified')) process.exitCode = 1;
+if (
+  rows.some((row) => row.status === 'drift' || row.status === 'unverified') ||
+  imports.some((row) => row.status !== 'current')
+)
+  process.exitCode = 1;

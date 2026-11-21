@@ -1,9 +1,20 @@
+import { join } from 'node:path';
 import { defineVitestConfig } from '@nuxt/test-utils/config';
 import { configDefaults } from 'vitest/config';
+const versionedApi = process.env.TARKOV_VERSIONED_API_DIRECTORY;
 const logLevel = process.env.NUXT_PUBLIC_LOG_LEVEL || 'warn';
 const isSharded = Boolean(process.env.VITEST_SHARD);
 const ciReporters = isSharded ? ['default', 'junit', 'github-actions'] : ['default', 'junit'];
 export default defineVitestConfig({
+  resolve: {
+    alias: {
+      ...(versionedApi ? { 'virtual:versioned-api': join(versionedApi, 'src') } : {}),
+      // External parity loads the shim from the exact versioned API checkout.
+      ...(versionedApi
+        ? { 'cloudflare:workers': join(versionedApi, 'src/__tests__/cloudflare-workers.ts') }
+        : {}),
+    },
+  },
   define: {
     'import.meta.env.NUXT_PUBLIC_LOG_LEVEL': JSON.stringify(logLevel),
   },
@@ -13,7 +24,7 @@ export default defineVitestConfig({
     setupFiles: ['./tests/test-setup.ts', './tests/fork-test-setup.ts'],
     exclude: [
       ...configDefaults.exclude,
-      'workers/**',
+      ...(versionedApi ? [] : ['workers/contract-tests/**']),
       '**/*.deno.test.ts',
       '**/node_modules/**',
       '**/.codex/**',
@@ -36,13 +47,14 @@ export default defineVitestConfig({
     testTimeout: 30000,
     hookTimeout: 60000,
     watch: false,
-    reporters: process.env.CI ? ciReporters : ['default'],
+    // Locally, Vitest picks `agent` under coding agents (failures only) and `default` otherwise.
+    reporters: process.env.CI ? ciReporters : undefined,
     outputFile: 'test-report.junit.xml',
     passWithNoTests: false,
     coverage: {
       provider: 'v8',
       reportsDirectory: './coverage',
-      reporter: ['text', 'json-summary', 'lcov', 'cobertura'],
+      reporter: ['text', 'json', 'json-summary', 'lcov', 'cobertura'],
       include: isSharded ? undefined : ['app/**/*.{ts,vue}'],
       exclude: [
         'app/**/*.d.ts',

@@ -24,31 +24,23 @@ const mockToast = {
 const mockSkillCalculation = {
   migrateLegacySkillOffsets: vi.fn(),
 };
-const supporterTierRef = ref<string | null>(null);
-const mockUseSupporter = vi.fn(() => ({
-  activeTier: supporterTierRef,
-}));
-const mockMetadataStore = reactive({
-  loading: false,
-  hideoutLoading: false,
-  updateLanguageAndGameMode: vi.fn(),
-  fetchAllData: vi.fn(async () => {}),
-});
+const createMetadataStore = () =>
+  reactive({
+    loading: false,
+    hideoutLoading: false,
+    updateLanguageAndGameMode: vi.fn(),
+    fetchAllData: vi.fn(async () => {}),
+    hasCriticalLocaleCache: vi.fn(async () => true),
+  });
+let mockMetadataStore = createMetadataStore();
 const mockPreferencesStore = {
   getStreamerMode: false,
   getLocaleOverride: 'en' as string | null,
   setLocaleOverride: vi.fn(),
 };
-const routeState = reactive({
-  name: 'tasks',
-  params: {} as Record<string, unknown>,
-});
 const mockTarkovStore = {
   getCurrentGameMode: vi.fn(() => 'pvp'),
   getDisplayName: vi.fn(() => ''),
-  getModeDisplayName: vi.fn((): string | null => null),
-  getPvEProgressData: vi.fn((): { displayName: string | null } => ({ displayName: null })),
-  getPvPProgressData: vi.fn((): { displayName: string | null } => ({ displayName: null })),
 };
 vi.mock('vue-i18n', async (importOriginal) => ({
   ...(await importOriginal<typeof import('vue-i18n')>()),
@@ -56,22 +48,7 @@ vi.mock('vue-i18n', async (importOriginal) => ({
     availableLocales: ['en', 'de', 'fr'],
     locale: localeRef,
     setLocale,
-    t: (key: string, params?: Record<string, unknown> | string) => {
-      const templates: Record<string, string> = {
-        'common.pve': 'PVE',
-        'common.pvp': 'PVP',
-        'common.seasonal_pvp': 'SEASONAL PVP',
-        'profile.title_with_mode': '{name} Profile {mode}',
-      };
-      if (params && typeof params === 'object' && !Array.isArray(params)) {
-        const template = templates[key] ?? key;
-        return Object.entries(params).reduce(
-          (result, [k, v]) => result.replaceAll(`{${k}}`, String(v)),
-          template
-        );
-      }
-      return templates[key] ?? key;
-    },
+    t: (key: string) => key,
     te: () => false,
   }),
 }));
@@ -93,8 +70,13 @@ vi.mock('@/composables/useKeybinds', () => ({
 vi.mock('@/shell/ActivityLogPanel.vue', () => ({
   default: { name: 'ActivityLogPanel', template: '<div />' },
 }));
-vi.mock('@/features/omnibar/Omnibar.vue', () => ({
-  default: { name: 'Omnibar', template: '<div />' },
+vi.mock('@/features/omnibar/AppSearch.vue', () => ({
+  default: {
+    name: 'AppSearch',
+    props: ['shortcutParts', 'keyShortcuts'],
+    template:
+      '<div data-testid="app-search" :data-shortcut="shortcutParts.join(\'+\')" :data-aria="keyShortcuts" />',
+  },
 }));
 const mockThemeModeRef = ref<'dark' | 'light'>('dark');
 const mockIsLightThemeRef = ref(false);
@@ -106,9 +88,6 @@ vi.mock('@/composables/useTheme', () => ({
     setThemeMode: vi.fn(),
     toggleThemeMode: mockToggleThemeMode,
   }),
-}));
-vi.mock('@/composables/useSupporter', () => ({
-  useSupporter: () => mockUseSupporter(),
 }));
 vi.mock('@/stores/useActivityLogStore', () => ({
   useActivityLogStore: () => ({
@@ -147,9 +126,6 @@ vi.mock('@/utils/logger', () => ({
 mockNuxtImport('useNuxtApp', () => () => ({
   $supabase: mockSupabase,
 }));
-mockNuxtImport('useRoute', () => () => ({
-  ...routeState,
-}));
 mockNuxtImport('useSkillCalculation', () => () => mockSkillCalculation);
 mockNuxtImport('useToast', () => () => mockToast);
 mockNuxtImport('useRuntimeConfig', () => () => ({
@@ -157,12 +133,6 @@ mockNuxtImport('useRuntimeConfig', () => () => ({
     trackerHandoffUrl: 'https://dev.tarkov-stammtisch.de/api/tracker/handoff',
   },
 }));
-const SelectMenuFixedStub = {
-  props: ['items', 'modelValue'],
-  emits: ['update:modelValue'],
-  template:
-    '<label data-testid="select-menu-fixed"><slot name="leading" /><select v-bind="$attrs" :value="modelValue" @change="$emit(\'update:modelValue\', $event.target.value)"><option v-for="item in (items || [])" :key="item.value" :value="item.value">{{ item.label }}</option></select></label>',
-};
 const mountAppBar = async () => {
   const { default: AppBar } = await import('@/shell/AppBar.vue');
   return mount(AppBar, {
@@ -179,17 +149,18 @@ const mountAppBar = async () => {
         NuxtLink: {
           template: '<a><slot /></a>',
         },
-        Omnibar: true,
-        SelectMenuFixed: SelectMenuFixedStub,
+        ProgressSaveStatusIndicator: true,
+        SignOutConfirmModal: true,
         UButton: {
-          props: ['icon'],
+          props: ['icon', 'disabled', 'loading'],
           emits: ['click'],
-          template: '<button :data-icon="icon" @click="$emit(\'click\')"><slot /></button>',
+          template:
+            '<button :data-icon="icon" :disabled="disabled || undefined" @click="$emit(\'click\')"><slot /></button>',
         },
         UDropdownMenu: {
           props: ['items'],
-          template:
-            '<div><slot /><template v-for="(group, groupIndex) in (items || [])" :key="groupIndex"><button v-for="item in group" :key="item.label" type="button" :data-menu-item="item.label" @click="item.onSelect?.()">{{ item.label }}</button></template></div>',
+          data: () => ({ expandedSubmenu: '' }),
+          template: `<div data-dropdown-menu><slot /><template v-for="(group, groupIndex) in (items || [])" :key="groupIndex"><template v-for="item in group" :key="item.label"><button type="button" :disabled="item.disabled" :data-menu-item="item.label" :data-checked="item.type === 'checkbox' ? String(Boolean(item.checked)) : undefined" :data-locale-item="item.type === 'checkbox' ? '' : undefined" @click="item.children ? expandedSubmenu = item.label : item.onSelect?.()">{{ item.label }}</button><div v-if="item.children && expandedSubmenu === item.label" data-submenu><template v-for="(children, childGroupIndex) in item.children" :key="childGroupIndex"><button v-for="child in children" :key="child.label" type="button" :disabled="child.disabled" :data-menu-item="child.label" :data-checked="String(Boolean(child.checked))" @click="child.onSelect?.()">{{ child.label }}</button></template></div></template></template></div>`,
         },
         UIcon: {
           props: ['name'],
@@ -203,12 +174,15 @@ const mountAppBar = async () => {
     },
   });
 };
+/** Picks a language from the app bar language menu by its native name. */
+const chooseLocale = async (wrapper: Awaited<ReturnType<typeof mountAppBar>>, name: string) => {
+  await wrapper.get(`[data-menu-item="${name}"]`).trigger('click');
+};
 describe('AppBar locale switching', () => {
   beforeEach(async () => {
+    mockMetadataStore = createMetadataStore();
     windowWidthRef.value = 1280;
     localeRef.value = 'en';
-    routeState.name = 'tasks';
-    routeState.params = {};
     setLocale.mockClear();
     setLocale.mockImplementation(async (value: string) => {
       localeRef.value = value;
@@ -225,16 +199,10 @@ describe('AppBar locale switching', () => {
       mockPreferencesStore.getLocaleOverride = value;
     });
     mockSkillCalculation.migrateLegacySkillOffsets.mockClear();
-    supporterTierRef.value = null;
-    mockUseSupporter.mockClear();
     mockTarkovStore.getCurrentGameMode.mockClear();
     mockTarkovStore.getCurrentGameMode.mockReturnValue('pvp');
     mockTarkovStore.getDisplayName.mockClear();
     mockTarkovStore.getDisplayName.mockReturnValue('');
-    mockTarkovStore.getPvEProgressData.mockClear();
-    mockTarkovStore.getPvEProgressData.mockReturnValue({ displayName: null });
-    mockTarkovStore.getPvPProgressData.mockClear();
-    mockTarkovStore.getPvPProgressData.mockReturnValue({ displayName: null });
     mockSupabase.user.id = '';
     mockSupabase.user.displayName = '';
     mockSupabase.user.username = '';
@@ -248,20 +216,20 @@ describe('AppBar locale switching', () => {
   });
   it('switches locale with setLocale and refreshes language-bound metadata', async () => {
     const wrapper = await mountAppBar();
-    const select = wrapper.get('select');
-    await select.setValue('de');
+    await chooseLocale(wrapper, 'Deutsch');
     await flushPromises();
     expect(setLocale).toHaveBeenCalledWith('de');
     expect(mockPreferencesStore.setLocaleOverride).toHaveBeenCalledWith('de');
     expect(mockMetadataStore.updateLanguageAndGameMode).toHaveBeenCalledWith('de');
-    expect(mockMetadataStore.fetchAllData).toHaveBeenCalledWith(false);
+    expect(mockMetadataStore.fetchAllData).toHaveBeenCalledWith(false, {
+      signal: expect.any(AbortSignal),
+    });
     expect(mockSkillCalculation.migrateLegacySkillOffsets).toHaveBeenCalledTimes(1);
     wrapper.unmount();
   });
   it('does not run locale switch flow when selecting the active locale', async () => {
     const wrapper = await mountAppBar();
-    const select = wrapper.get('select');
-    await select.setValue('en');
+    await chooseLocale(wrapper, 'English');
     await flushPromises();
     expect(setLocale).not.toHaveBeenCalled();
     expect(mockPreferencesStore.setLocaleOverride).not.toHaveBeenCalled();
@@ -272,10 +240,9 @@ describe('AppBar locale switching', () => {
   });
   it('handles setLocale errors without running metadata refresh side effects', async () => {
     const wrapper = await mountAppBar();
-    const select = wrapper.get('select');
     const localeError = new Error('locale switch failed');
     setLocale.mockRejectedValueOnce(localeError);
-    await select.setValue('de');
+    await chooseLocale(wrapper, 'Deutsch');
     await flushPromises();
     expect(setLocale).toHaveBeenCalledWith('de');
     expect(mockPreferencesStore.setLocaleOverride).not.toHaveBeenCalled();
@@ -283,7 +250,10 @@ describe('AppBar locale switching', () => {
     expect(mockMetadataStore.fetchAllData).not.toHaveBeenCalled();
     expect(mockSkillCalculation.migrateLegacySkillOffsets).not.toHaveBeenCalled();
     const { logger } = await import('@/utils/logger');
-    expect(logger.error).toHaveBeenCalledWith('[AppBar] Error switching locale:', localeError);
+    expect(logger.error).toHaveBeenCalledWith(
+      '[LocaleSwitch] Error switching locale:',
+      localeError
+    );
     wrapper.unmount();
   });
   it('rolls back locale when fetchAllData rejects after setLocale succeeds', async () => {
@@ -291,8 +261,7 @@ describe('AppBar locale switching', () => {
     const previousLocale = localeRef.value;
     mockMetadataStore.fetchAllData.mockRejectedValueOnce(fetchError);
     const wrapper = await mountAppBar();
-    const select = wrapper.get('select');
-    await select.setValue('de');
+    await chooseLocale(wrapper, 'Deutsch');
     await flushPromises();
     expect(setLocale).toHaveBeenNthCalledWith(1, 'de');
     expect(setLocale).toHaveBeenNthCalledWith(2, previousLocale);
@@ -305,35 +274,76 @@ describe('AppBar locale switching', () => {
       'de',
       'en',
     ]);
+    expect(mockMetadataStore.fetchAllData).toHaveBeenCalledTimes(2);
     expect(mockPreferencesStore.getLocaleOverride).toBe('en');
     expect(localeRef.value).toBe(previousLocale);
     const { logger } = await import('@/utils/logger');
-    expect(logger.error).toHaveBeenCalledWith('[AppBar] Error switching locale:', fetchError);
+    expect(logger.error).toHaveBeenCalledWith('[LocaleSwitch] Error switching locale:', fetchError);
     wrapper.unmount();
   });
-  it('ignores stale failures from older locale switch requests', async () => {
-    const staleFetch = createDeferred<undefined>();
+  it('lists languages by native name and marks the active one', async () => {
+    const wrapper = await mountAppBar();
+    const items = wrapper.findAll('[data-locale-item]');
+    expect(items.map((item) => item.text())).toEqual(['English', 'Deutsch', 'Français']);
+    expect(wrapper.get('[data-menu-item="English"]').attributes('data-checked')).toBe('true');
+    expect(wrapper.get('[data-menu-item="Deutsch"]').attributes('data-checked')).toBe('false');
+    const trigger = wrapper.get('[data-testid="app-locale-menu"]');
+    expect(trigger.attributes('aria-label')).toBe('settings.locale: English');
+    expect(trigger.classes()).toEqual(expect.arrayContaining(['h-8', 'w-8', 'hidden']));
+    wrapper.unmount();
+  });
+  it('switches language through the mobile More submenu', async () => {
+    windowWidthRef.value = 375;
+    const wrapper = await mountAppBar();
+    const moreMenu = wrapper
+      .findAll('[data-dropdown-menu]')
+      .find((menu) => menu.find('button[aria-label="common.more"]').exists());
+    expect(moreMenu).toBeDefined();
+    await moreMenu!.get('button[aria-label="common.more"]').trigger('click');
+    expect(moreMenu!.find('[data-submenu]').exists()).toBe(false);
+    await moreMenu!.get('[data-menu-item="settings.locale"]').trigger('click');
+    const submenu = moreMenu!.get('[data-submenu]');
+    expect(submenu.findAll('button').map((item) => item.text())).toEqual([
+      'English',
+      'Deutsch',
+      'Français',
+    ]);
+    expect(submenu.get('[data-menu-item="English"]').attributes('data-checked')).toBe('true');
+    await submenu.get('[data-menu-item="Deutsch"]').trigger('click');
+    await flushPromises();
+    expect(setLocale).toHaveBeenCalledWith('de');
+    expect(mockPreferencesStore.setLocaleOverride).toHaveBeenCalledWith('de');
+    expect(mockMetadataStore.updateLanguageAndGameMode).toHaveBeenCalledWith('de');
+    expect(mockMetadataStore.fetchAllData).toHaveBeenCalledWith(false, {
+      signal: expect.any(AbortSignal),
+    });
+    expect(submenu.get('[data-menu-item="Deutsch"]').attributes('data-checked')).toBe('true');
+    wrapper.unmount();
+  });
+  it('ignores another switch while one is still loading, then allows it', async () => {
+    const pendingFetch = createDeferred<undefined>();
     mockMetadataStore.fetchAllData
-      .mockImplementationOnce(() => staleFetch.promise)
+      .mockImplementationOnce(() => pendingFetch.promise)
       .mockResolvedValueOnce(undefined);
     const wrapper = await mountAppBar();
-    const select = wrapper.get('select');
-    await select.setValue('de');
+    await chooseLocale(wrapper, 'Deutsch');
     await flushPromises();
-    await select.setValue('fr');
+    const trigger = wrapper.get('[data-testid="app-locale-menu"]');
+    expect(trigger.attributes('disabled')).toBeDefined();
+    expect(wrapper.get('[data-menu-item="settings.locale"]').attributes('disabled')).toBeDefined();
+    for (const item of wrapper.findAll('[data-locale-item]')) {
+      expect(item.attributes('disabled')).toBeDefined();
+    }
+    await chooseLocale(wrapper, 'Français');
     await flushPromises();
-    staleFetch.reject(new Error('stale fetch failed'));
+    expect(setLocale.mock.calls.map(([value]) => value)).toEqual(['de']);
+    pendingFetch.resolve(undefined);
     await flushPromises();
-    expect(localeRef.value).toBe('fr');
+    expect(trigger.attributes('disabled')).toBeUndefined();
+    await chooseLocale(wrapper, 'Français');
+    await flushPromises();
     expect(setLocale.mock.calls.map(([value]) => value)).toEqual(['de', 'fr']);
-    expect(mockPreferencesStore.setLocaleOverride.mock.calls.map(([value]) => value)).toEqual([
-      'de',
-      'fr',
-    ]);
-    expect(mockMetadataStore.updateLanguageAndGameMode.mock.calls.map(([value]) => value)).toEqual([
-      'de',
-      'fr',
-    ]);
+    expect(localeRef.value).toBe('fr');
     wrapper.unmount();
   });
 });
@@ -363,6 +373,42 @@ describe('AppBar account menu', () => {
     expect(mockSupabase.signOut).toHaveBeenCalledTimes(1);
     wrapper.unmount();
   });
+  it('asks for confirmation instead of discarding memory-only progress changes', async () => {
+    const status = await import('@/stores/tarkov/progressSaveStatus');
+    const { useSignOut } = await import('@/composables/useSignOut');
+    status.recordLocalSave(false, 'quota');
+    status.setCloudSaveStatus({
+      state: 'failed',
+      failure: 'offline',
+      retryAttempt: 3,
+      nextRetryAt: null,
+    });
+    const wrapper = await mountAppBar();
+    await wrapper.get('[data-menu-item="navigation_drawer.logout"]').trigger('click');
+    await flushPromises();
+    expect(mockSupabase.signOut).not.toHaveBeenCalled();
+    expect(useSignOut().confirmOpen.value).toBe(true);
+    useSignOut().confirmOpen.value = false;
+    status.recordLocalSave(true);
+    status.resetCloudSaveStatus();
+    wrapper.unmount();
+  });
+  it('signs out without confirmation when pending changes are saved locally', async () => {
+    const status = await import('@/stores/tarkov/progressSaveStatus');
+    status.recordLocalSave(true);
+    status.setCloudSaveStatus({
+      state: 'failed',
+      failure: 'offline',
+      retryAttempt: 3,
+      nextRetryAt: null,
+    });
+    const wrapper = await mountAppBar();
+    await wrapper.get('[data-menu-item="navigation_drawer.logout"]').trigger('click');
+    await flushPromises();
+    expect(mockSupabase.signOut).toHaveBeenCalledTimes(1);
+    status.resetCloudSaveStatus();
+    wrapper.unmount();
+  });
 });
 describe('AppBar logged out actions', () => {
   beforeEach(() => {
@@ -375,92 +421,26 @@ describe('AppBar logged out actions', () => {
     expect(wrapper.find('[aria-label="common.settings"]').exists()).toBe(false);
     wrapper.unmount();
   });
-});
-describe('AppBar page title', () => {
-  beforeEach(() => {
-    routeState.name = 'tasks';
-    routeState.params = {};
-    mockPreferencesStore.getStreamerMode = false;
-    mockSupabase.user.id = '';
-    mockSupabase.user.displayName = '';
-    mockSupabase.user.loggedIn = false;
-    mockSupabase.user.username = '';
-    mockTarkovStore.getCurrentGameMode.mockReturnValue('pvp');
-    mockTarkovStore.getDisplayName.mockReturnValue('');
-    mockTarkovStore.getModeDisplayName.mockReturnValue(null);
-    mockTarkovStore.getPvEProgressData.mockReturnValue({ displayName: null });
-    mockTarkovStore.getPvPProgressData.mockReturnValue({ displayName: null });
-  });
-  it('renders profile title with username and route mode for own profile routes', async () => {
-    routeState.name = 'profile-userId-mode';
-    routeState.params = { mode: 'pve', userId: 'user-1' };
-    mockSupabase.user.id = 'user-1';
-    mockSupabase.user.username = 'Alpha';
+  it('sends the login control to the Stammtisch handoff as a plain link, not /login', async () => {
     const wrapper = await mountAppBar();
-    expect(wrapper.text()).toContain('Alpha Profile PVE');
+    const login = wrapper.find('a[aria-label="app_bar.login_aria"]');
+    expect(login.attributes('href')).toBe('https://dev.tarkov-stammtisch.de/api/tracker/handoff');
+    expect(wrapper.find('a[href="/login"]').exists()).toBe(false);
     wrapper.unmount();
   });
-  it.each([
-    ['tasks', 'common.tasks'],
-    ['hideout', 'common.hideout'],
-    ['team', 'common.team'],
-    ['settings', 'common.settings'],
-    ['storyline', 'common.storyline'],
-    ['credits', 'common.credits'],
-    ['needed-items', 'common.needed_items'],
-    ['kappa', 'common.kappa_lightkeeper'],
-  ])('uses the consolidated title for %s', async (routeName, expectedTitle) => {
-    routeState.name = routeName;
+  it('has no supporter, Discord or GitHub entry points in the app bar (fork)', async () => {
     const wrapper = await mountAppBar();
-    expect(wrapper.text()).toContain(expectedTitle);
-    wrapper.unmount();
-  });
-  it('renders shared profile title from route user id instead of local progress data', async () => {
-    routeState.name = 'profile-userId-mode';
-    routeState.params = { mode: 'pve', userId: 'shared-user' };
-    mockSupabase.user.id = 'viewer-user';
-    mockTarkovStore.getDisplayName.mockReturnValue('ViewerDisplay');
-    mockTarkovStore.getPvEProgressData.mockReturnValue({ displayName: 'ViewerProgress' });
-    const wrapper = await mountAppBar();
-    expect(wrapper.text()).toContain('shared-user Profile PVE');
-    expect(wrapper.text()).not.toContain('ViewerProgress Profile PVE');
-    expect(wrapper.text()).not.toContain('ViewerDisplay Profile PVE');
-    wrapper.unmount();
-  });
-  it('uses non-streamer fallback label for own profile title when no name resolves', async () => {
-    routeState.name = 'profile-userId-mode';
-    routeState.params = { mode: 'pvp', userId: 'user-1' };
-    mockSupabase.user.id = 'user-1';
-    const wrapper = await mountAppBar();
-    expect(wrapper.text()).toContain('app_bar.user_label Profile PVP');
-    expect(wrapper.text()).not.toContain('app_bar.hidden_label Profile PVP');
-    wrapper.unmount();
-  });
-  it('masks own profile title in streamer mode', async () => {
-    routeState.name = 'profile-userId-mode';
-    routeState.params = { mode: 'pvp', userId: 'user-1' };
-    mockPreferencesStore.getStreamerMode = true;
-    mockSupabase.user.displayName = 'AccountName';
-    mockSupabase.user.id = 'user-1';
-    mockSupabase.user.username = 'AccountUsername';
-    mockTarkovStore.getDisplayName.mockReturnValue('OwnDisplayName');
-    mockTarkovStore.getModeDisplayName.mockReturnValue('OwnProgressName');
-    mockTarkovStore.getPvPProgressData.mockReturnValue({ displayName: 'OwnProgressName' });
-    const wrapper = await mountAppBar();
-    expect(wrapper.text()).toContain('app_bar.hidden_label Profile PVP');
-    expect(wrapper.text()).not.toContain('OwnProgressName Profile PVP');
-    expect(wrapper.text()).not.toContain('OwnDisplayName Profile PVP');
-    expect(wrapper.text()).not.toContain('AccountName Profile PVP');
-    expect(wrapper.text()).not.toContain('AccountUsername Profile PVP');
+    expect(wrapper.find('a[href="/supporter"]').exists()).toBe(false);
+    expect(wrapper.find('a[aria-label="footer.call_to_action.discord"]').exists()).toBe(false);
+    expect(wrapper.find('a[aria-label="footer.call_to_action.github"]').exists()).toBe(false);
     wrapper.unmount();
   });
 });
 describe('AppBar responsive layout', () => {
   beforeEach(() => {
     mockSupabase.user.loggedIn = false;
-    supporterTierRef.value = null;
   });
-  it('renders the More menu with only the Language item', async () => {
+  it('renders the More menu with Language but no Support, Discord, or GitHub items (fork)', async () => {
     const wrapper = await mountAppBar();
     const moreMenuItems = wrapper.findAll('[data-menu-item]');
     const labels = moreMenuItems.map((el) => el.attributes('data-menu-item'));
@@ -468,6 +448,22 @@ describe('AppBar responsive layout', () => {
     expect(labels).not.toContain('common.support');
     expect(labels).not.toContain('footer.call_to_action.discord');
     expect(labels).not.toContain('footer.call_to_action.github');
+    wrapper.unmount();
+  });
+  it('renders the inline app search with the configured shortcut', async () => {
+    const wrapper = await mountAppBar();
+    const search = wrapper.find('[data-testid="app-search"]');
+    expect(search.attributes('data-shortcut')).toBe('Ctrl+K');
+    expect(search.attributes('data-aria')).toBe('Control+K');
+    wrapper.unmount();
+  });
+  it('renders Log In as icon-only below sm while keeping its accessible label', async () => {
+    const wrapper = await mountAppBar();
+    const login = wrapper.find('a[aria-label="app_bar.login_aria"]');
+    const classes = (login.attributes('class') || '').split(/\s+/);
+    expect(classes).toEqual(expect.arrayContaining(['w-8', 'sm:w-auto']));
+    const label = login.findAll('span').find((s) => s.text() === 'navigation_drawer.login');
+    expect(label?.classes()).toEqual(expect.arrayContaining(['hidden', 'sm:inline']));
     wrapper.unmount();
   });
   it('wraps the More menu in a sm:hidden container for CSS responsive visibility', async () => {
@@ -479,13 +475,13 @@ describe('AppBar responsive layout', () => {
     expect(moreWrappers.length).toBe(1);
     wrapper.unmount();
   });
-  it('gives the bell a 36x36 hit target with aria-label and tooltip', async () => {
+  it('gives the bell a 32x32 hit target with aria-label and tooltip', async () => {
     const wrapper = await mountAppBar();
     const bell = wrapper.find('button[aria-label="common.activity_log"]');
     expect(bell.exists()).toBe(true);
     const classAttr = bell.attributes('class') || '';
-    expect(classAttr).toContain('h-9');
-    expect(classAttr).toContain('w-9');
+    expect(classAttr).toContain('h-8');
+    expect(classAttr).toContain('w-8');
     wrapper.unmount();
   });
   it('renders the Log In button with an accessible primary treatment', async () => {
@@ -496,7 +492,7 @@ describe('AppBar responsive layout', () => {
     expect(classAttr).toContain('bg-primary-500');
     expect(classAttr).toContain('hover:bg-primary-400');
     expect(classAttr).toContain('text-surface-950');
-    expect(classAttr).toContain('h-9');
+    expect(classAttr).toContain('h-8');
     wrapper.unmount();
   });
 });
@@ -515,7 +511,7 @@ describe('AppBar authenticated state', () => {
     const trigger = wrapper.find('button[aria-label="navigation_drawer.account_menu"]');
     expect(trigger.exists()).toBe(true);
     const classAttr = trigger.attributes('class') || '';
-    expect(classAttr).toContain('h-9');
+    expect(classAttr).toContain('h-8');
     expect(trigger.find('img').exists()).toBe(true);
     expect(trigger.find('.i-mdi-chevron-down').exists()).toBe(true);
     wrapper.unmount();

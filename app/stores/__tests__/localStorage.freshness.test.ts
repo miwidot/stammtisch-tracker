@@ -1,10 +1,169 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
 import { defaultState } from '@/stores/progressState';
-import { createProgressStorageSerializer } from '@/stores/tarkov/localStorage';
+import {
+  createProgressStorageSerializer,
+  parsePersistedProgressState,
+  progressPersistStorage,
+} from '@/stores/tarkov/localStorage';
 import { resolveInitialSyncState } from '@/stores/tarkov/resetEngine';
+import { ACTIVE_SEASON_NUMBER } from '@/utils/constants';
 import { parseUserScopedStorage } from '@/utils/userScopedStorage';
 describe('local mode freshness', () => {
+  it('retains acknowledged local history additions when hydration also includes remote entries', () => {
+    const before = structuredClone(defaultState);
+    const snapshot = {
+      state: before,
+      storedUserId: 'user-1',
+      timestamp: 10,
+      hadDeprecatedProgressData: false,
+    };
+    const serializer = createProgressStorageSerializer(() => snapshot);
+    serializer.reset(snapshot);
+    const state = structuredClone(before);
+    const local = {
+      id: 'local',
+      timestamp: 20,
+      type: 'task' as const,
+      action: 'complete' as const,
+      title: 'Local',
+    };
+    const remote = { ...local, id: 'remote', title: 'Remote' };
+    state.pvp.manualActivityHistory = [local];
+    const next = structuredClone(state);
+    next.pvp.manualActivityHistory = [local, remote];
+    serializer.acceptRemote({
+      state,
+      userId: 'user-1',
+      remote: next,
+      next,
+      updatedAtByMode: { pvp: 30, pve: 10, seasonal: 10 },
+      metadataTimestamp: 10,
+    });
+    const raw = serializer.serialize(next, 'user-1', 40);
+    expect(
+      serializer.takeGuestSource(raw)?.hydrationIntent?.after.state.pvp.manualActivityHistory
+    ).toEqual([local]);
+  });
+  it('strips reconciliation evidence before cloning a retained baseline', () => {
+    const state = structuredClone(defaultState);
+    const clone = vi.spyOn(globalThis, 'structuredClone');
+    const serializer = createProgressStorageSerializer(() => ({
+      state,
+      timestamp: 10,
+      storedUserId: 'user-1',
+      hadDeprecatedProgressData: false,
+      confirmationCandidates: { pvp: { task: { requirements: 'historical', timestamp: 1 } } },
+    }));
+    serializer.retainBaseline('user-1', state);
+    expect(clone.mock.calls[0]![0]).toHaveProperty('confirmationCandidates', undefined);
+    clone.mockRestore();
+    state.pvp.level = 42;
+    const saved = JSON.parse(serializer.serialize(state, 'user-1', 30));
+    expect(saved._modeTimestamps).toEqual({ pvp: 30, pve: 10, seasonal: 10 });
+    expect(saved).not.toHaveProperty('confirmationCandidates');
+  });
+  it('retains the same-account baseline across repeated failures and isolates other accounts', () => {
+    const state = structuredClone(defaultState);
+    const readPrevious = vi.fn((userId: string | null) => ({
+      state: structuredClone(state),
+      storedUserId: userId,
+      timestamp: 10,
+      hadDeprecatedProgressData: false,
+    }));
+    const serializer = createProgressStorageSerializer(readPrevious);
+    serializer.retainBaseline('user-1', state);
+    state.pve.displayName = 'Other tab';
+    serializer.retainBaseline('user-1', state);
+    const local = structuredClone(defaultState);
+    local.pvp.level = 42;
+    const saved = parseUserScopedStorage<typeof local>(serializer.serialize(local, 'user-1', 30))!;
+    expect(saved._modeTimestamps).toEqual({ pvp: 30, pve: 10, seasonal: 10 });
+    expect(saved._metadataTimestamp).toBe(10);
+    expect(readPrevious).toHaveBeenCalledTimes(1);
+    serializer.retainBaseline('user-2', state);
+    expect(readPrevious).toHaveBeenLastCalledWith('user-2');
+    serializer.reset();
+    serializer.retainBaseline('user-2', state);
+    expect(readPrevious).toHaveBeenCalledTimes(3);
+  });
+  it('retains an absent baseline as owned state with unknown clocks without crossing owners', () => {
+    const readPrevious = vi.fn(() => null);
+    const serializer = createProgressStorageSerializer(readPrevious);
+    const state = structuredClone(defaultState);
+    state.pve.displayName = 'Hydrated state';
+    serializer.retainBaseline('user-1', state);
+    state.pvp.level = 42;
+    serializer.retainBaseline('user-1', state);
+    const saved = parseUserScopedStorage<typeof state>(serializer.serialize(state, 'user-1', 30))!;
+    expect(saved._modeTimestamps).toEqual({ pvp: 30, pve: 0, seasonal: 0 });
+    expect(saved._metadataTimestamp).toBe(0);
+    expect(readPrevious).toHaveBeenCalledTimes(1);
+    const nextOwner = structuredClone(defaultState);
+    serializer.retainBaseline('user-2', nextOwner);
+    const nextSaved = parseUserScopedStorage<typeof state>(
+      serializer.serialize(nextOwner, 'user-2', 40)
+    )!;
+    expect(nextSaved._modeTimestamps).toEqual({ pvp: 0, pve: 0, seasonal: 0 });
+    expect(nextSaved._metadataTimestamp).toBe(0);
+    expect(readPrevious).toHaveBeenLastCalledWith('user-2');
+    expect(nextSaved._userId).toBe('user-2');
+    expect(nextSaved.data.pvp.level).toBe(defaultState.pvp.level);
+  });
+  it('keeps the original seasonal source across migration and resets stale clocks to zero', () => {
+    const staleSeasonal = {
+      ...structuredClone(defaultState),
+      seasonalSeasonNumber: 999,
+      seasonal: { ...defaultState.seasonal, level: 17 },
+    };
+    const raw = JSON.stringify({
+      _timestamp: 1_000,
+      _modeTimestamps: { pvp: 1_000, pve: 1_000, seasonal: 1_000 },
+      _userId: 'user-1',
+      data: staleSeasonal,
+    });
+    const parsed = parsePersistedProgressState(raw, 'user-1')!;
+    expect(parsed.seasonalSourceSeasonNumber).toBe(999);
+    expect(parsed.state.seasonalSeasonNumber).toBe(ACTIVE_SEASON_NUMBER);
+    expect(parsed.state.seasonal.level).toBe(defaultState.seasonal.level);
+    const serializer = createProgressStorageSerializer(() => null);
+    serializer.reset(parsed);
+    const saved = parseUserScopedStorage(serializer.serialize(parsed.state, 'user-1', 1_001))!;
+    expect(saved._modeTimestamps?.seasonal).toBe(0);
+  });
+  it('records legacy seasonal source provenance before sanitizing it', () => {
+    const raw = JSON.stringify({
+      ...structuredClone(defaultState),
+      seasonalSeasonNumber: 999,
+      seasonal: { ...defaultState.seasonal, level: 17 },
+    });
+    const parsed = parsePersistedProgressState(raw, null)!;
+    expect(parsed.seasonalSourceSeasonNumber).toBe(999);
+    expect(parsed.state.seasonalSeasonNumber).toBe(ACTIVE_SEASON_NUMBER);
+    expect(parsed.state.seasonal.level).toBe(defaultState.seasonal.level);
+  });
+  it('defaults missing season metadata to the active season in snapshots and legacy data', () => {
+    const stateWithoutSeason = structuredClone(defaultState);
+    delete stateWithoutSeason.seasonalSeasonNumber;
+    const serializer = createProgressStorageSerializer(() => null);
+    const wrapped = serializer.serialize(stateWithoutSeason, 'user-1', 10);
+    expect(parsePersistedProgressState(wrapped, 'user-1')?.seasonalSourceSeasonNumber).toBe(
+      ACTIVE_SEASON_NUMBER
+    );
+    const legacy = JSON.stringify(stateWithoutSeason);
+    expect(parsePersistedProgressState(legacy, null)?.seasonalSourceSeasonNumber).toBe(
+      ACTIVE_SEASON_NUMBER
+    );
+  });
+  it('does not write through the persistence adapter when window is unavailable', () => {
+    vi.stubGlobal('window', undefined);
+    try {
+      progressPersistStorage.setItem('non-progress-key', 'value');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(localStorage.getItem('non-progress-key')).toBeNull();
+  });
   it('timestamps only changed modes and ignores other tabs overwriting storage', () => {
     const stored = {
       state: structuredClone(defaultState),
@@ -295,4 +454,8 @@ describe('local mode freshness', () => {
     );
     expect(parsed?._modeTimestamps).toEqual({ pvp: 20 });
   });
+});
+vi.mock('@/stores/tarkov/progressAuthority', async () => {
+  const { createProgressPolicyAuthority } = await import('#tests/test-helpers/progressAuthority');
+  return createProgressPolicyAuthority();
 });

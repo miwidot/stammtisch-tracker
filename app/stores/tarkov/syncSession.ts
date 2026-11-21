@@ -3,26 +3,29 @@ import {
   type SupabaseSyncConfig,
   type SupabaseSyncReturn,
 } from '@/composables/supabase/useSupabaseSync';
+import { clearAcknowledgedModes } from '@/stores/tarkov/acknowledgedModes';
 import { resetApiUpdateState } from '@/stores/tarkov/apiUpdateNotifier';
+import { isDeviceDataRemovalPending } from '@/stores/tarkov/deviceData';
 import {
   progressStorageSerializer,
   readPersistedProgressState,
   type PersistedProgressSnapshot,
 } from '@/stores/tarkov/localStorage';
 import { hasProgress, toProgressEpoch } from '@/stores/tarkov/progressMerge';
-import { cleanupRealtimeListener } from '@/stores/tarkov/realtimeListener';
+import { sendProgressSync } from '@/stores/tarkov/progressPersistence';
+import {
+  CLOUD_SAVE_RETRY_DELAYS_MS,
+  registerCloudRetryHandler,
+  resetCloudSaveStatus,
+  setCloudSaveStatus,
+} from '@/stores/tarkov/progressSaveStatus';
+import { cleanupRealtimeListener, reconcileRemoteSnapshot } from '@/stores/tarkov/realtimeListener';
 import {
   beginLocalSync,
   recordLocalSyncTime,
   resetSyncTimeline,
 } from '@/stores/tarkov/syncTimeline';
-import { delay } from '@/utils/async';
-import {
-  ACTIVE_SEASON_NUMBER,
-  GAME_MODES,
-  GAME_MODE_VALUES,
-  type GameMode,
-} from '@/utils/constants';
+import { GAME_MODES, GAME_MODE_VALUES, type GameMode } from '@/utils/constants';
 import { logger } from '@/utils/logger';
 import { sanitizeOwnedUserState } from '@/utils/progressSanitizers';
 import type { LocalIgnoredReason } from '@/composables/useToastI18n';
@@ -67,20 +70,14 @@ const toSyncPayload = (
     seasonal_data: state.seasonal,
   };
 };
-const sendSyncPayload = async (client: SyncRpcClient, payload: UserProgressSyncPayload) => {
+const sendSyncPayload = async (
+  client: SyncRpcClient,
+  userId: string,
+  payload: UserProgressSyncPayload
+) => {
   const finish = beginLocalSync();
   try {
-    const result = await client.rpc('sync_user_game_mode_progress', {
-      p_current_game_mode: payload.current_game_mode,
-      p_game_edition: payload.game_edition,
-      p_seasonal_season_number: ACTIVE_SEASON_NUMBER,
-      p_tarkov_uid: payload.tarkov_uid,
-      p_modes: {
-        [GAME_MODES.PVP]: payload.pvp_data,
-        [GAME_MODES.PVE]: payload.pve_data,
-        [GAME_MODES.SEASONAL]: payload.seasonal_data,
-      },
-    });
+    const result = await sendProgressSync(client, userId, payload);
     finish(!result.error);
     return result;
   } catch (error) {
@@ -100,15 +97,31 @@ type ControllerOptions = {
   client: SyncRpcClient;
   userId: string;
   hadRemoteData: boolean;
+  initialAcknowledgedState?: UserState;
+  /** Runs after each acknowledged upload while this controller is still the live one. */
+  onSynced?: () => void;
 };
-const createProgressSyncController = (options: ControllerOptions): ProgressSyncController =>
+const createProgressSyncController = (
+  options: ControllerOptions,
+  isLive: () => boolean
+): ProgressSyncController =>
   useSupabaseSync({
     store: options.store,
+    initialAcknowledgedState: options.initialAcknowledgedState,
     table: 'user_progress',
     debounceMs: SYNC_DEBOUNCE_MS,
-    onSynced: () => broadcastProgressUpdate(options.userId),
+    retryDelaysMs: CLOUD_SAVE_RETRY_DELAYS_MS,
+    reconcileBeforeRetry: reconcileRemoteSnapshot,
+    onSaveStatusChange: (status) => {
+      if (isLive()) setCloudSaveStatus(status);
+    },
+    onSynced: () => {
+      if (isLive()) options.onSynced?.();
+      broadcastProgressUpdate(options.userId);
+    },
     transform: (userState: UserState) => toSyncPayload(userState, options.hadRemoteData),
-    sync: (payload: UserProgressSyncPayload) => sendSyncPayload(options.client, payload),
+    sync: (payload: UserProgressSyncPayload) =>
+      sendSyncPayload(options.client, options.userId, payload),
   });
 type PendingResetSnapshot = { snapshot: PersistedProgressSnapshot | null; userId: string | null };
 /**
@@ -128,15 +141,22 @@ export class ProgressSyncSession {
   isActiveFor(userId: string): boolean {
     return this.controller !== null && this.userId === userId;
   }
-  private owns(controller: ProgressSyncController, userId: string): boolean {
-    return this.controller === controller && this.userId === userId;
-  }
   /** Start syncing once; later calls are no-ops while a controller exists. */
   start(options: ControllerOptions): void {
     if (this.controller) return;
     this.clearDeferredStart();
     this.userId = options.userId;
-    this.controller = createProgressSyncController(options);
+    const controller = createProgressSyncController(options, () => this.controller === controller);
+    this.controller = controller;
+    registerCloudRetryHandler(controller.retryNow);
+  }
+  /** One upload attempt; a failure schedules the controller's own retries. */
+  attemptSync(): void {
+    if (this.controller) void attemptSync(this.controller);
+  }
+  /** Without a running controller, acknowledgement of the local copy cannot be proven. */
+  mayHaveUnacknowledgedChanges(): boolean {
+    return !this.controller || (this.controller.hasPendingChanges?.() ?? true);
   }
   /** Defer `start` until the store first has progress, then persist that snapshot. */
   startWhenProgressExists(options: ControllerOptions, isCurrent: () => boolean): void {
@@ -149,30 +169,42 @@ export class ProgressSyncSession {
         this.start(options);
         // The subscription was created after this mutation (including legacy
         // history adoption), so explicitly persist the snapshot that started it.
-        if (this.controller) void this.syncInitialProgress(this.controller, options.userId);
+        // One attempt: a failure schedules the controller's reconciled retries.
+        this.attemptSync();
       },
       { flush: 'post' }
     );
-  }
-  private async syncInitialProgress(controller: ProgressSyncController, userId: string) {
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      if (!this.owns(controller, userId)) return;
-      if (await attemptSync(controller)) return;
-      await delay(1000);
-    }
   }
   private clearDeferredStart(): void {
     this.stopDeferredStart?.();
     this.stopDeferredStart = null;
   }
   /** Capture (or clear) the persisted snapshot a following startup for `userId` may adopt. */
-  preserveSnapshot(options?: { preservePersistedStateForUserId?: string | null }): void {
-    if (!options) {
+  preserveSnapshot(options?: {
+    preservePersistedStateForUserId?: string | null;
+    preservedSnapshot?: PersistedProgressSnapshot | null;
+  }): void {
+    if (!options || !Object.hasOwn(options, 'preservePersistedStateForUserId')) {
       this.pendingResetSnapshot = null;
       return;
     }
     const userId = options.preservePersistedStateForUserId ?? null;
-    this.pendingResetSnapshot = { snapshot: readPersistedProgressState(userId), userId };
+    this.pendingResetSnapshot = isDeviceDataRemovalPending(userId)
+      ? null
+      : {
+          snapshot:
+            options.preservedSnapshot === undefined
+              ? readPersistedProgressState(userId)
+              : options.preservedSnapshot,
+          userId,
+        };
+  }
+  /** Hand `snapshot` to the next startup for `userId`, replacing any captured one. */
+  handOffSnapshot(userId: string, snapshot: PersistedProgressSnapshot): void {
+    this.pendingResetSnapshot = { snapshot: { ...snapshot, isSessionHandoff: true }, userId };
+  }
+  dropPreservedSnapshotFor(userId: string): void {
+    if (this.pendingResetSnapshot?.userId === userId) this.pendingResetSnapshot = null;
   }
   preservedSnapshotFor(userId: string): PersistedProgressSnapshot | null {
     return this.pendingResetSnapshot?.userId === userId ? this.pendingResetSnapshot.snapshot : null;
@@ -190,7 +222,7 @@ export class ProgressSyncSession {
     this.shownLocalIgnoreReasons.delete(reason);
   }
   /** Tear down the controller, watcher, realtime channel, and per-session sync state. */
-  reset(reason?: string): void {
+  reset(reason?: string, baseline?: { userId: string; state: UserState }): void {
     if (this.controller) {
       logger.debug(`[TarkovStore] Clearing Supabase sync${reason ? ` (${reason})` : ''}`);
       this.controller.cleanup();
@@ -198,11 +230,17 @@ export class ProgressSyncSession {
     }
     this.clearDeferredStart();
     cleanupRealtimeListener();
+    resetCloudSaveStatus();
     this.userId = null;
     this.shownLocalIgnoreReasons.clear();
     resetSyncTimeline();
-    progressStorageSerializer.reset();
+    if (baseline) {
+      progressStorageSerializer.retainBaseline(baseline.userId, baseline.state);
+    } else {
+      progressStorageSerializer.reset();
+    }
     resetApiUpdateState();
+    clearAcknowledgedModes();
   }
 }
 const attemptSync = async (controller: ProgressSyncController) => {

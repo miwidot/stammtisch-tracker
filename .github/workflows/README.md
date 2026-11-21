@@ -24,20 +24,24 @@ Automated CI/CD and maintenance workflows for TarkovTracker.
 - `Test (shard 1/4)` … `Test (shard 4/4)` — Vitest with coverage, sharded across 4 parallel jobs. The `github-actions` reporter annotates failed tests directly on the PR diff so the failing test name and assertion are visible without digging into logs. Shards report imported files only to avoid duplicate zero-filled entries, and Codecov merges the per-shard coverage. Unsharded local coverage retains the full `app/**/*.{ts,vue}` denominator.
 - `Validate` — Production Nuxt build (all pull requests, forks included) + artifact upload (main branch only)
 - `Supabase DB` — Reset + pgTAP regressions + lint local migrations
-- `Systems drift check` — verifies `docs/systems.md` invariants against the codebase
-- `Workers` — Validate api-gateway (generated types, typecheck, OpenAPI, deployment dry-run, Node
-  unit tests, and a workerd smoke using the production Wrangler configuration)
+- `Systems drift check` — verifies `docs/systems/` invariants against the codebase
+- `Workers` - Verify immutable frontend contracts pins, then fetch the exact tagged API source,
+  compare compiled contracts, run its standalone types/schema/API/workerd/dry-run checks, and
+  run all-mode frontend integration tests. No local gateway workspace remains.
 
 Heavy jobs run in parallel after classification; systems drift runs independently.
-Lighthouse scope detection runs independently of PR metadata installation and commitlint.
+Lighthouse scope detection runs independently of PR metadata.
 
 ### Crowdin Sync (`.github/crowdin.yml`)
 
-**Triggers:** English source, Crowdin config, or sync workflow changes on `main`; daily at
-04:17 UTC; manual dispatch on `main`. Runs are serialized without cancelling an active sync.
-The workflow uploads `app/locales/en.json` to the Crowdin `main` branch and downloads translations
-to `app/locales/%two_letters_code%.json`, preserving the directory hierarchy. It never uploads
-local translations. The existing `locales` branch supplies translation PRs targeting `main`.
+**Triggers:** English source, Crowdin config, sync workflow, `scripts/ci/crowdin-pr.sh`, or
+`scripts/ci/github-ci-gate.sh` changes on `main`; weekly on Mondays at 04:17 UTC; manual dispatch on
+`main`. Runs are serialized without cancelling an active sync. Every run uploads `app/locales/en.json` to the Crowdin `main` branch so translators see new
+strings immediately. Push runs stop there; only the weekly schedule and manual dispatch download
+translations to `app/locales/%two_letters_code%.json` (preserving the directory hierarchy) and open
+or merge the locale PR. Untranslated strings use the English fallback until then; dispatch the
+workflow manually when translations must ship sooner. It never uploads local translations. The
+existing `locales` branch supplies translation PRs targeting `main`.
 
 Repository secrets `CROWDIN_PROJECT_ID` and `CROWDIN_PERSONAL_TOKEN` authenticate to Crowdin only.
 Synchronization, branch updates, CI dispatch, and the final merge use the built-in `GITHUB_TOKEN`.
@@ -45,7 +49,7 @@ The job grants contents/pull-request write, actions write, and checks read permi
 GitHub token is required. Explicit `workflow_dispatch` starts CI on `locales` before merging and
 on `main` afterward. No write token is passed to dependency installation or project validation.
 
-When new translations are synchronized, `scripts/crowdin-pr.sh` verifies an open, non-draft,
+When new translations are synchronized, `scripts/ci/crowdin-pr.sh` verifies an open, non-draft,
 same-repository `locales` PR targeting `main`. If the branch is behind, it asks GitHub to merge main
 into it using an expected-head guard and waits for the new head; conflicts fail closed. The gate
 explicitly starts CI for the validated candidate. It then captures the candidate head SHA, fetches that exact commit,
@@ -125,13 +129,20 @@ current main, install through the shared `setup-project` action, build, recheck,
 The workflow reuses CI's test shards and database checks. It rejects other refs and events, failed
 or unfinished CI, a moved main, and automation-skip directives before publishing. Releases batch
 every commit since the previous tag; conventional commits outside internal scopes determine
-whether a version is warranted (`scripts/release-scope.mjs`). Publication is serialized without
+whether a version is warranted (`scripts/release/release-scope.mjs`). Publication is serialized without
 cancelling an active release. See `docs/workflow-automation.md` for details.
+
+### PR Title (`pr-title.yml`)
+
+**Trigger:** PR opened/edited/updated/reopened
+**Jobs:** `PR Title` — requires a conventional type prefix (`scripts/checks/check-pr-title.mjs`).
+Squash merges make the title the commit on `main`, so this is the only commit-format check in CI;
+edit the title to re-run it.
 
 ### PR Checks (`pr-checks.yml`)
 
 **Trigger:** PR opened/updated/reopened
-**Jobs:** `PR Meta` (labels, size, commit validation), `Lighthouse scope` (lightweight detection), `Lighthouse` (conditional on UI file changes, Lighthouse configuration/workflow changes, or `ui`/`performance` labels)
+**Jobs:** `PR Meta` (labels, size), `Lighthouse scope` (lightweight detection), `Lighthouse` (conditional on UI file changes, Lighthouse configuration/workflow changes, or `ui`/`performance` labels)
 **Lighthouse server:** Builds the Cloudflare Pages app and serves it with `wrangler pages dev`
 so `/api/*` routes are available during audits. The build sets
 `NUXT_PUBLIC_PROMOTED_TWITCH_ENABLED=false` so audits measure the app itself rather than the
@@ -169,8 +180,8 @@ introduce a new pinned SHA.
 
 Dependabot PRs always change manifests, so they receive full CI. `Main CI freshness` requires
 successful `CI Result` and `Preview Result` from GitHub Actions on an up-to-date branch, with no
-bypass actors. The preview controller reports success without deployment for verified documentation-only
-changes; preview-required changes stay pending until an explicit validated deployment passes.
+bypass actors. The preview controller reports success without deployment for verified change sets with no
+deployable paths; preview-required changes stay pending until an explicit validated deployment passes.
 Reduced CI runs can skip jobs by design without leaving a PR blocked on a missing context. External
 Codecov/Security gates remain unchanged; Codecov statuses default to success when no report exists.
 
@@ -184,10 +195,10 @@ Workflow-specific secrets are not required for the Gitleaks step anymore. The wo
 
 ## AI Review Bots
 
-Codex is the intended primary reviewer, with one best-effort local CodeRabbit pass for substantial
-behavior changes. Existing automatic provider settings remain unchanged until Codex delivery and
-exclusions are verified on representative PRs. See the reviewer transition checklist in
-`docs/workflow-automation.md`; dashboard settings are not proven by checked-in configuration.
+The root `AGENTS.md` owns review requirements. See
+[workflow automation](../../docs/workflow-automation.md#push-cadence) for batching and freshness
+reruns.
+Dashboard settings must be verified separately; checked-in documentation does not prove them.
 
 ## Commands
 

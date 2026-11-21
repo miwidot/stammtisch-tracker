@@ -33,9 +33,17 @@ const waitForWatchCallback = async () => {
   await Promise.resolve();
   await Promise.resolve();
 };
+const idleSaveStatus = () => ({
+  state: 'idle' as const,
+  failure: null,
+  retryAttempt: 0,
+  nextRetryAt: null,
+});
 const createSyncController = () => ({
   isSyncing: ref(false),
   isPaused: ref(false),
+  saveStatus: ref(idleSaveStatus()),
+  retryNow: vi.fn().mockResolvedValue(true),
   cleanup: vi.fn(),
   pause: vi.fn(),
   resume: vi.fn(),
@@ -85,6 +93,8 @@ describe('preferences sync plugin', () => {
     vi.mocked(useSupabaseSync).mockReturnValue({
       isSyncing: ref(false),
       isPaused: ref(false),
+      saveStatus: ref(idleSaveStatus()),
+      retryNow: vi.fn().mockResolvedValue(true),
       cleanup: vi.fn(),
       pause: vi.fn(),
       resume: vi.fn(),
@@ -133,6 +143,8 @@ describe('preferences sync plugin', () => {
     vi.mocked(useSupabaseSync).mockReturnValue({
       isSyncing: ref(false),
       isPaused: ref(false),
+      saveStatus: ref(idleSaveStatus()),
+      retryNow: vi.fn().mockResolvedValue(true),
       cleanup: vi.fn(),
       pause: vi.fn(),
       resume: vi.fn(),
@@ -207,6 +219,8 @@ describe('preferences sync plugin', () => {
     vi.mocked(useSupabaseSync).mockReturnValue({
       isSyncing: ref(false),
       isPaused: ref(false),
+      saveStatus: ref(idleSaveStatus()),
+      retryNow: vi.fn().mockResolvedValue(true),
       cleanup,
       pause: vi.fn(),
       resume: vi.fn(),
@@ -220,6 +234,7 @@ describe('preferences sync plugin', () => {
       $state: {
         localeOverride: 'de',
         profileSharePvePublic: true,
+        useAutomaticLevelCalculation: true,
         profileSharePvpPublic: true,
       },
       localeOverride: 'de',
@@ -257,10 +272,12 @@ describe('preferences sync plugin', () => {
     expect(useSupabaseSync).toHaveBeenCalledTimes(1);
     expect(cleanup).not.toHaveBeenCalled();
   });
-  it('omits legacy profile sharing columns from the preferences sync payload', async () => {
+  it('omits retired automatic-level and legacy profile sharing columns from the preferences sync payload', async () => {
     vi.mocked(useSupabaseSync).mockReturnValue({
       isSyncing: ref(false),
       isPaused: ref(false),
+      saveStatus: ref(idleSaveStatus()),
+      retryNow: vi.fn().mockResolvedValue(true),
       cleanup: vi.fn(),
       pause: vi.fn(),
       resume: vi.fn(),
@@ -268,6 +285,7 @@ describe('preferences sync plugin', () => {
     });
     const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } });
     const preferencesStore = createPreferencesStore({
+      useAutomaticLevelCalculation: true,
       profileSharePvpPublic: true,
       profileSharePvePublic: true,
     });
@@ -287,6 +305,7 @@ describe('preferences sync plugin', () => {
       transform: (state: Record<string, unknown>) => Record<string, unknown>;
     };
     const payload = syncOptions.transform(preferencesStore.$state);
+    expect(payload).not.toHaveProperty('use_automatic_level_calculation');
     expect(payload).not.toHaveProperty('profile_share_pvp_public');
     expect(payload).not.toHaveProperty('profile_share_pve_public');
     expect(payload.user_id).toBe('user-1');
@@ -296,6 +315,8 @@ describe('preferences sync plugin', () => {
     vi.mocked(useSupabaseSync).mockReturnValue({
       isSyncing: ref(false),
       isPaused: ref(false),
+      saveStatus: ref(idleSaveStatus()),
+      retryNow: vi.fn().mockResolvedValue(true),
       cleanup,
       pause: vi.fn(),
       resume: vi.fn(),

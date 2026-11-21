@@ -13,101 +13,115 @@ Complete workflow automation setup for TarkovTracker with CI/CD pipelines, quali
 - Pre-commit hooks for code quality
 - Dependency update automation via Dependabot
 - Conservative auto-merge for low-risk Dependabot updates
-- Codex is the intended primary PR reviewer. GitHub App delivery and exclusions must be verified before disabling existing automatic providers; dashboard state is not inferred from repository configuration.
+- CodeRabbit as the routine reviewer; Codex only on request (see Reviewer settings below)
 
 ## Agent validation and review
 
-`package.json` defines commands; the root `AGENTS.md` defines required validation and review, and
-path-scoped `supabase/AGENTS.md` and `workers/api-gateway/AGENTS.md` add area-specific rules.
-`code_review.md` supplements that contract with risk areas, without requiring the full suite for
-unrelated changes. Worktree setup and the shared CI setup action use `scripts/ensure-pnpm.sh` to
-verify pnpm against `packageManager`, preparing its complete integrity-qualified pin even when the installed version matches.
+`package.json` defines commands; the root `AGENTS.md` (Validation, Workflow and review) and the
+path-scoped `AGENTS.md` files own required validation and review.
+[`code-review.md`](./code-review.md) adds risk areas without requiring the full suite for unrelated changes. Worktree setup and the
+shared CI setup action use `scripts/setup/ensure-pnpm.sh` to verify pnpm against `packageManager`,
+preparing its complete integrity-qualified pin even when the installed version matches.
 
-Run focused checks while implementing, then required checks after the diff stabilizes. Record the
-commit, dirty worktree state, commands, and results in the PR summary. Invalidate affected results
-when their inputs change. Batch substantiated corrections; defer unrelated cleanup and optional
-style suggestions.
+### Discovery brief
 
-Documentation, translation, and mechanical formatting changes need deterministic checks and
-self-review. Routine executable changes also receive Codex PR review. Substantial behavior changes
-(public contracts, persisted state, cross-module behavior, auth, billing, migrations, concurrency)
-also receive one best-effort local CodeRabbit review of the complete branch diff after it stabilizes.
-Auth, billing, migration, and concurrency changes require independent review; another provider or
-human substitutes if needed. Record missing/rate-limited review as incomplete without retry loops.
-Only substantial behavioral corrections or unresolved significant findings warrant a local rerun.
+Before editing, `pnpm run brief` answers "what uses this, what owns it, and what must I run?"
+in one call. Point it at a target with `--file <path>` or `--symbol <file:export>` (both
+repeatable), or at a diff with `--base <ref>`, which briefs the local changes against the merge
+base. Add `--format json` for the uncapped lists.
+Explicit file operands resolve inside the repository; dot segments, Windows separators, and
+absolute paths within the checkout are normalized before scope and runner selection.
+It combines `fallow inspect` (import graph, symbol references, transitive impact), the
+generated `.nuxt/components.d.ts` and `.nuxt/imports.d.ts`, path-literal references in workflows
+and config, doc anchors, scoped `AGENTS.md` files, and the CI path classifier. The output lists
+consumers, owning docs, scoped instructions, candidate tests grouped by runner, and the required
+checks.
+
+Candidate test entries are JSON records with `executable` and `args`, including in text output.
+Directly targeted tests and existing tests in the diff are included even when they have no importers.
+Runnable candidates follow the runner's filename patterns; helpers are traced to their test consumers.
+Scoped instructions and checks include direct and transitive dependents, including test consumers.
+Discovered literal references in executable configs, workflows, SQL, and file-reading tests also
+contribute scope and runnable test candidates. This matches repository-relative path strings;
+computed references and relative fragments still require confirmation.
+Database replay is required for affected SQL paths; Edge Function tests use Deno without an
+automatic database replay. JSON retains every owning-doc anchor. Text caps documents and anchors
+at twelve entries, marking omitted entries and directing readers to JSON for the complete list.
+Owning docs match full target paths to avoid unrelated name references; unqualified name-only
+references still require manual confirmation. Nearby tests include template-only source consumers.
+They are data to review, not shell commands to paste or concatenate. Pass arguments separately
+to a runner that does not use a shell; Windows command shims such as `pnpm.cmd` need a trusted
+platform-specific launcher. Relative file operands start with `./` to avoid runner options;
+Node also receives `--`. Deno keeps file operands before its `--` script-argument delimiter;
+Vitest keeps its positional file filters. No tests are executed
+by the brief. This preserves spaces, quotes, and shell metacharacters without choosing POSIX,
+PowerShell, or cmd quoting rules.
+
+The Deno selection regression can also run against the CI-pinned binary by setting
+`DENO_EXECUTABLE` to its absolute path when running `scripts/ci/change-brief.test.mjs`.
+It uses two inert fixtures and verifies that only the requested file runs with no script arguments;
+without that environment value, the runtime regression is explicitly skipped.
+
+The brief is advisory. It does not replace any required check, and CI stays authoritative.
+Its Uncertainty section names what it cannot prove:
+
+- Fallow does not see Vue template usage of auto-registered components, so the brief adds those
+  consumers from a name text match and labels them UNVERIFIED.
+- Auto-imports are reported only where text hits appear that Fallow missed.
+- Runtime string lookups are never in any graph: i18n keys, Supabase RPC and table names, KV
+  keys, and upstream field names.
+
+Coverage limits: scoped instructions come from tracked files and include known lifecycle/DB
+path mappings from the [brief model](../scripts/ci/change-brief-lib.mjs). Confirm the root
+`AGENTS.md` contract for differently named account/team/token code; path mappings do not prove
+semantic coverage. Generated declarations are checked
+for presence, not freshness. Fallow subprocesses currently have no timeout or output cap.
+Path-reference seeds are limited to 60 affected paths; truncation is reported as uncertainty.
+Some rendered lists remain uncapped. Model tests inject
+I/O. CLI regressions exercise operand handling against a checkout; they do not establish
+generated-declaration freshness or complete Fallow coverage.
+
+The brief was benchmarked on three past fixes: season validation (`f2ad088f`), a
+component/composable change (`a9828505`), and preview tooling (`1676ddda`). In each, it surfaced
+every file the real fix touched or re-tested that consumes a starting file, along with the owning
+doc and the scoped `AGENTS.md`: 5/5, 11/11, and 6/6. A scripted grep-and-read proxy of the
+previous workflow used 23–31 tool calls and returned 68–93 KB. With confirmation reads excluded,
+it still used 4–6 calls and 8–12 KB. That proxy missed the gateway `AGENTS.md` and a consumer's
+test. The brief took one call, under 1.2 s, and returned 1.7–3.8 KB. Fallow alone missed four of
+the component's consumers; the generated-declaration match recovered them. These numbers measure
+discovery context, not end-to-end task time.
+
+### Push cadence
+
+Batching pushes and requesting Codex only exceptionally keep reviewer allowances in budget: PR #965
+reportedly drew over 20 Codex reviews across about 45 pushes. CodeRabbit CLI and PR reviews have
+separate rolling [allowances](https://docs.coderabbit.ai/management/plans).
+
+Reviews attach to the PR's own diff. The `Main CI freshness` ruleset (below) blocks merging a behind
+branch until it incorporates current main (`gh pr update-branch <PR>`); that update reruns
+`CI Result` and `Preview Result` on the new head. Reuse review evidence for an unchanged diff after
+assessing integration with changed base code; a conflict-free merge alone does not establish that
+validation inputs or behavior are unchanged. Follow the root review policy for affected checks and
+re-review triggers. Do not pause other merges for freshness. Repo auto-merge is disabled, so a
+maintainer-authorized merge still needs someone to merge once the refreshed checks pass.
 
 ### Codex request deduplication and waiting
 
-Agents must use `node scripts/codex-review.mjs <PR> --wait-seconds 600` to inspect and wait for
-reviews. Add `--request` only when authorized to post a review request. Use `--repo owner/name`
-when the PR belongs to another repository. Do not post raw `@codex review` comments or issue a
-second request because a polling window expired. Batch corrections before requesting a review.
-Only observed code-review completion exits successfully; pending, unreviewed, or uncertain status
-exits nonzero. A successful exit confirms review completion, not merge readiness.
+`scripts/codex-review/codex-review.mjs` deduplicates Codex review requests across local worktrees
+and waits for exact-commit completion. Usage rules live in the root `AGENTS.md`; guard semantics,
+lock recovery, and command cleanup live in
+[`scripts/codex-review/README.md`](../scripts/codex-review/README.md).
 
-The guard checks live PR review evidence, waits for outstanding requests, and reuses completed
-code reviews for the current commit. Security-review completion alone is not code-review
-completion. A report's top-level security heading or dedicated leading marker identifies a security report; quoted
-security headings inside a code review do not exclude that review. Completion requires an exact full commit identity: abbreviated bot evidence is
-resolved through GitHub's commit endpoint, and ambiguous or unavailable resolution fails closed.
-The PR head, base branch, base SHA, and eligibility are refreshed after collecting evidence;
-head or base changes during collection fail closed. Completion reuse only establishes a review
-for the head commit, not coverage of the current base or diff. After retargeting, independently
-review the current diff through the production-readiness gate before merging. A completed code review can contain findings; the normal feedback-resolution gate
-still applies. Unknown or unavailable status must be reported as incomplete, never treated as
-permission to retry. An unreviewed PR must be quiet for five minutes after creation or its latest
-update before requesting, allowing automatic review to start after opening, pushing, or marking ready.
-This grace period uses the final PR response's GitHub `Date` header, never the local wall clock;
-missing or invalid server time fails closed. Only a literal first-line `@codex review` command
-from a GitHub `OWNER`, `MEMBER`, or `COLLABORATOR` association counts as request evidence;
-prose mentions, fenced examples, indented code, and outsider markers do not. This trusts GitHub's
-association metadata for coordination; it does not grant permission to post a request. Running
-bot activity remains authoritative regardless of who triggered it.
+### Reviewer settings: external verification pending
 
-Request invocations share a lock and durable intent in the Git common directory across local
-worktrees. Repository identity is case-insensitive, including previously saved intents under a
-different casing. Intent is saved before posting, so an ambiguous network failure cannot cause the next
-invocation to blindly post again. Inspect GitHub and the recorded intent before manual recovery;
-agents must not delete the guard state to force another request.
-
-A successful post records GitHub's request timestamp, so request/completion ordering never
-compares the local clock with the server clock. When delivery is uncertain, a matching current
-commit completion can retire the local intent; absence of that evidence remains pending.
-SHA-marked requests for older commits do not block the current commit, while unmarked requests
-require a completion of the current commit at or after the request time. Equality is accepted
-because GitHub timestamps have second precision and exact-commit completion is reusable;
-bot activity still marked running continues to block a new request.
-
-The helper recovers a request lock only when complete owner metadata identifies this host and
-a PID confirmed dead (`ESRCH`). Live PIDs, permission errors, foreign hosts, missing or malformed
-metadata, and an interrupted recovery remain blocked. Lock age never authorizes removal.
-For a lock left between directory creation and metadata writing (or an interrupted recovery),
-an operator must inspect the lock, running processes and GitHub request evidence, ensure no
-request invocation can run concurrently, and remove only the confirmed orphaned lock directory
-or its `.recovery` sibling. Preserve all intent files and rerun read-only inspection before an
-authorized request. Agents must report this condition for operator recovery rather than deleting
-uncertain state themselves.
-
-This is a cooperative agent guard, not a GitHub-wide restriction: unrelated clones, other machines,
-and callers that bypass the helper do not share the local lock. Existing GitHub requests are still
-checked, but GitHub comment creation has no atomic deduplication key. A server-side single request
-owner would be needed to eliminate that cross-machine race. The helper itself neither merges PRs
-nor resolves findings.
-
-GitHub also offers no atomic head condition on comment creation: a push after the final PR read
-can race the POST. The request marker records the observed head; it does not pin the revision the
-bot ultimately reviews. Always inspect fresh exact-head completion and checks before merging.
-
-### Reviewer transition: external verification pending
-
-1. Verify Codex delivers a review on a representative application PR.
-2. Verify a translation-only PR consumes no automatic review, and a mixed translation/code PR is
-   still reviewed. Use selective review requests until exclusions are demonstrated.
-3. After delivery is established, disable duplicate automatic CodeRabbit, Cubic, and Greptile
-   reviews in their repository/dashboard settings; retain manual access. Record the PR links and
-   observed settings here. Existing settings remain unchanged until that evidence exists.
-4. Check an existing-review revision and unavailable/quota-exhausted behavior: preserve completed
-   review evidence by revision and never report an unavailable review as successful.
+1. Verify automatic Codex reviews are disabled in the repository/dashboard settings (policy
+   adopted 2026-09-29; repository configuration does not prove dashboard state).
+2. Keep automatic initial CodeRabbit reviews enabled and incremental reviews disabled as configured
+   in `.coderabbit.yaml`. Verify exclusions on translation-only and mixed translation/code PRs.
+3. Retain manual reviewer access. Record representative PR links and observed dashboard settings;
+   checked-in policy is not proof of integration state.
+4. Verify revision-specific review evidence and unavailable/quota-exhausted behavior. Preserve
+   completed evidence for unchanged inputs and never report unavailable review as successful.
 
 ## GitHub Actions Workflows
 
@@ -123,8 +137,11 @@ active**: documentation-only and translation-only pull requests run the reduced 
 i18n when locales change, systems drift); every other change set runs every job. The job also emits
 `workflows`, which enables workflow linting in `Lint & Format` for non-Markdown automation paths and
 unreadable diffs. The classifier additionally emits an independent `preview` decision (`previewRequired`): only
-known documentation-only change sets need no deployable preview; translations, configuration,
-dependencies, executable changes, and unknown or unreadable paths require one, so a
+change sets that cannot reach the deployed Pages output need no deployable preview — Markdown
+documentation outside `public/` plus the `.github/`, `docs/`, `tests/` and repository tooling
+configuration paths, and `scripts/` apart from its preview pipeline, all owned by
+`scripts/ci/validation-plan.mjs`; translations, configuration,
+dependencies, executable changes, Supabase, Workers, and unknown or unreadable paths require one, so a
 translation-only PR keeps the reduced test selection but still runs `Validate`. `CI Result`
 evaluates the job outcomes against the plan and fails on missing
 classifier data, selected failures/cancellations, or unexpected skips. Systems drift and the
@@ -138,7 +155,7 @@ test-merge commit only if both Git trees match, the base is still current main, 
 remains unchanged. It retries briefly while GitHub calculates the test merge, and a later failed
 dispatch supersedes an earlier merge-commit success. Other dispatched runs report only on their
 own exact SHA. See the Crowdin invariant in
-[systems.md §14](systems.md#14-release-validation-and-publication).
+[release publication spec](systems/ci-and-release.md#release-validation-and-publication).
 
 #### Preview build artifact
 
@@ -155,8 +172,11 @@ rebuilds and never reuses Lighthouse output. Missing or expired artifacts requir
 Candidate builds receive no deployment credentials; the manifest is a set of claims that the
 trusted preview controller verifies (see §8).
 
-The shared setup action uses `.nvmrc`, the full `packageManager` pin, pnpm caching, and a frozen
-installation. Each caller owns checkout history and credential settings. `Lint & Format` runs lint
+The shared setup action always uses `.nvmrc` and the full `packageManager` pin. By default it also
+restores the pnpm cache and performs a frozen installation; `install-dependencies: false` skips
+those two steps. Non-scheduled Security Scan calls use this runtime-only setup because their
+audits read an isolated manifest and lockfile; the weekly outdated check retains installation.
+Each caller owns checkout history and credential settings. `Lint & Format` runs lint
 and Prettier once each (lint already includes blank-line validation), plus i18n and workflow fixtures.
 When automation files change it also runs pinned, checksum-verified release binaries of `actionlint`
 (syntax, expression, and shellcheck errors) and `zizmor` (workflow security) at `low` severity and
@@ -164,7 +184,7 @@ above; `.github/zizmor.yml` records the accepted findings with their justificati
 Node tooling, so both are pinned in the workflow step rather than `package.json`. To update either,
 change the version and the `SHA256` value to the `digest` GitHub records for the release asset.
 The four Vitest shards, dedicated Deno tests, Supabase validation, Worker validation, and production
-build retain their existing commands and environment behavior. Tests in `scripts/ci-tests/` use
+build retain their existing commands and environment behavior. Tests in `scripts/workflow-tests/` use
 Node's built-in runner via `pnpm run test:workflow`; their filenames deliberately avoid Vitest discovery.
 
 #### Local validation selection
@@ -192,7 +212,7 @@ Link validation remains in the existing Link Check workflow for applicable docum
 The reduced selection covers only root `.md` files, Markdown under `docs/` and `.github/`, agent
 instruction files named `AGENTS.md` or `CLAUDE.md` at any depth outside `public/`, and
 Crowdin-owned `app/locales/*.json` translations. The source locale `app/locales/en.json` selects
-full validation: application code and Vitest fixtures consume it, and `scripts/crowdin-pr.sh` draws
+full validation: application code and Vitest fixtures consume it, and `scripts/ci/crowdin-pr.sh` draws
 the same translation-only boundary. `DESIGN.md`, generated code, scripts, dependencies,
 configuration, public assets, and unknown paths select full validation. Renames include both paths
 and deletions remain visible. Empty diffs, missing refs, malformed arguments, and Git errors
@@ -215,7 +235,7 @@ Non-English formatting exclusions and Crowdin ownership remain intact.
 2. Done: the classifier invocation no longer passes `--shadow`; pull requests receive path selection
    while push and dispatch events retain `--full`. Required-check settings were not changed. Roll
    back by restoring `--shadow` in the `Classify changes` step and inverting the `--shadow`
-   assertion in `scripts/ci-tests/workflows.mjs` in the same change (workflow edits select full
+   assertion in `scripts/workflow-tests/workflows.mjs` in the same change (workflow edits select full
    validation, so `test:workflow` runs on the rollback itself); the flag remains supported.
 3. Release deduplication is handled separately in [PR #805](https://github.com/tarkovtracker-org/TarkovTracker/pull/805).
    Path selection does not change release triggers, validation, or main-run cancellation.
@@ -224,12 +244,12 @@ Non-English formatting exclusions and Crowdin ownership remain intact.
 The initial observations come from the pre-rollout baseline collected on 2026-09-06, which was
 archived in git history once the rollout completed (recorded 2026-09-16; no report file remains
 in-tree).
-The read-only `scripts/workflow-metrics.mjs` collector samples the preceding 20 merged PRs and emits
+The read-only `scripts/ci/workflow-metrics.mjs` collector samples the preceding 20 merged PRs and emits
 per-PR CI and release timings as JSON. Run it with authenticated `gh` and save stdout to a report:
 
 ```bash
-node scripts/workflow-metrics.mjs --before <rollout-ISO-time>
-node scripts/workflow-metrics.mjs --after <rollout-ISO-time> --count 20
+node scripts/ci/workflow-metrics.mjs --before <rollout-ISO-time>
+node scripts/ci/workflow-metrics.mjs --after <rollout-ISO-time> --count 20
 ```
 
 The follow-up selects the first 20 merges after the boundary; record the actual rollout timestamp.
@@ -250,7 +270,7 @@ local and configured Git exclusions, while retaining force-tracked files), and k
 `--gate new-only` behavior and configured severities. New error findings fail; inherited findings
 and warning-only findings do not. No persistent finding baseline is maintained.
 
-`scripts/fallow-audit.mjs` creates a temporary local clone and two analysis commits. Both contain
+`scripts/checks/fallow-audit.mjs` creates a temporary local clone and two analysis commits. Both contain
 a physical copy of the current generated `.nuxt` context; the second contains the current source
 tree. This prevents Fallow's internal base snapshot from symlinking the generated tsconfig and
 resolving its relative `@/` aliases against the wrong directory. Dependencies are linked from the
@@ -262,8 +282,8 @@ Use `--format json` for structured findings. Each run uses fresh analysis withou
 The report's Git IDs belong to the temporary analysis commits; the original source base and HEAD
 are printed on stderr. Invalid refs and setup/analyzer failures exit nonzero instead of skipping the gate.
 
-Regression checks live in `scripts/fallow-audit.test.mjs` and run with the regular test suite or
-`pnpm exec vitest run scripts/fallow-audit.test.mjs`.
+Regression checks live in `scripts/checks/fallow-audit.test.mjs` and run with the regular test suite or
+`pnpm exec vitest run scripts/checks/fallow-audit.test.mjs`.
 
 ##### Resolving findings instead of suppressing them
 
@@ -288,22 +308,47 @@ wrong line and leaves the finding unsuppressed. A suppression is a reviewable de
 formality. Existing suppressions are grandfathered; remove them opportunistically when already
 editing that function rather than as unrelated cleanup in someone else's change.
 
+#### Codebase metrics
+
+`pnpm run metrics` prints a JSON snapshot of the working tree: lines and files for runtime code,
+tests, tooling, and migrations, plus the Fallow health score, severity counts, vitals, dead exports,
+and CRAP. Snapshots include the HEAD commit, a `dirty` flag for uncommitted changes, and a
+SHA-256 fingerprint of `.fallowrc.json`; tables label working-tree changes explicitly. `--base <ref>` instead compares the merge base with the working tree as a Markdown table,
+using the same temporary-clone approach as the Fallow gate; `--summary <file>` also appends the
+output to that file. Use the table as before/after evidence in PRs that claim a size or complexity
+improvement. Fewer runtime lines, findings, and CRAP are better; test lines are shown but neutral.
+
+CRAP is estimated (`static_estimated`) unless Istanbul coverage exists. Fallow reads
+`coverage/coverage-final.json` automatically, and `--coverage <dir>` points it elsewhere; run
+`pnpm run test:coverage` first for measured scores. Coverage changes CRAP and every severity count,
+so a comparison fails when the base and head use different models: move `coverage/` aside to
+compare refs. Comparisons also reject different `.fallowrc.json` fingerprints so changing
+analyzer rules cannot masquerade as a code-health improvement. CRAP maxima and threshold counts
+come from all scored files, including functions below the reporting thresholds.
+
+CI runs `--base <event-base-sha>` as an advisory step after the Fallow gate and writes the table
+to the job summary. The step cannot fail the build. Model and CLI tests live in `scripts/ci/metrics*.test.mjs`.
+
 ### 2. Security Scanning (`.github/workflows/security.yml`)
 
 Reusable security gate called by CI, plus the weekly standalone audit:
 
 **Jobs:**
 
-- `security-scan` - `pnpm audit --prod --audit-level=critical` (blocking), informational
+- `security-scan` - `scripts/checks/audit-dependencies.mjs` (blocking): any production advisory at
+  any severity fails unless its reviewed entry names the package, the complete dependency chains
+  reviewed (any other path, or a finding without one, fails), why it cannot reach production, and an expiry; expired or mismatched
+  entries fail and stale ones warn. Informational
   all-dependency audit at `high` (a notice, never a failure), schedule-only outdated check,
-  checksum-verified Gitleaks secret detection (blocking)
+  checksum-verified Gitleaks secret detection (blocking), preceded by a canary check that a
+  generated service-role JWT in `wrangler.toml` is still reported (allowlists stay value-exact)
 - `codeql` - CodeQL static analysis; the analysis must succeed, findings are triaged in code scanning
 
 **Triggers:** `workflow_call` from CI (pull requests, main pushes, explicit dispatches including
 Crowdin and release staging) and the weekly schedule (Sunday 00:00 UTC). The former push and
 pull_request triggers were removed so each revision is scanned once, inside the gated run.
 `CI Result` requires the call's success: scanner errors, cancellation, or a missing result fail the
-aggregate. The trusted aggregate contract (`scripts/validation-plan.mjs`) landed in a compatibility
+aggregate. The trusted aggregate contract (`scripts/ci/validation-plan.mjs`) landed in a compatibility
 change first (an absent `security` job was tolerated, a reported non-success failed); the
 activation change made the job mandatory.
 
@@ -365,10 +410,10 @@ administrator must verify the deployed ruleset's empty bypass list during rollou
 changes. GitHub hides that list from callers without ruleset write access; automation does not
 request administrative permissions merely to inspect it.
 
-**Version-bump commit:** `scripts/release-commit.mjs` prepares the bumped `package.json` and
+**Version-bump commit:** `scripts/release/release-commit.mjs` prepares the bumped `package.json` and
 `CHANGELOG.md` as `chore(release): <version>` with no skip marker. The plugin supports the
 main-only release workflow. It stages only these generated assets and rejects unrelated staged
-files. `scripts/release-commit.sh` pushes the new commit to
+files. `scripts/release/release-commit.sh` pushes the new commit to
 `wip/release-<version>-<run-id>-<attempt>` using the built-in `GITHUB_TOKEN`.
 An explicit `workflow_dispatch` starts full CI on that branch; the job has `actions: write`. After
 that exact CI run and its `CI Result` pass, the trusted Release job dispatches one preview from
@@ -382,7 +427,7 @@ Automation confirms each accepted dispatch creates a new CI run on the requested
 compare the checked-out commit with its parent, so dispatching main does not compare main with itself.
 
 The dispatched CI status-reporting invariant and trusted-code boundary are defined in
-[systems.md §14](systems.md#14-release-validation-and-publication).
+[release publication spec](systems/ci-and-release.md#release-validation-and-publication).
 
 After rechecking main and the policy, an ordinary non-forced push promotes the identical SHA to
 main using `GITHUB_TOKEN`. A concurrent main advance rejects promotion rather than rebasing
@@ -432,7 +477,7 @@ to the platform's branch settings.
 - `BREAKING CHANGE:` → major version bump
 - `refactor:`, `docs:`, `chore:`, `ci:`, `test:`, `style:`, `build:` → no release
 
-**Internal scopes never release.** `scripts/release-scope.mjs` wraps the commit analyzer and
+**Internal scopes never release.** `scripts/release/release-scope.mjs` wraps the commit analyzer and
 release-notes generator (the copies `semantic-release` depends on) and drops commits whose scope is
 internal before either runs, so `fix(ci):` or `feat(preview):` neither bumps the version nor appears
 in `CHANGELOG.md` or the GitHub release. Reverts of those commits (Git's default
@@ -445,7 +490,7 @@ still deploy normally; they are only left out of versioning. Use a product scope
 
 **Release note highlights.** While generating notes, the same plugin reads the `## Release note`
 section of each merged PR (from the `(#123)` suffix of its squash commit, using the release job's
-`GITHUB_TOKEN`; `scripts/release-highlights.mjs`) and lists those sentences under
+`GITHUB_TOKEN`; `scripts/release/release-highlights.mjs`) and lists those sentences under
 `### Highlights` above the generated Features and Bug Fixes in the GitHub release. Highlights are
 not written to `CHANGELOG.md`: semantic-release regenerates notes after the version commit, and
 only that pass adds them, so PR text never enters the committed, secret-scanned file. Empty
@@ -481,8 +526,7 @@ Enhanced PR validation:
 
 **Jobs:**
 
-- `PR Meta` - auto-label based on file changes, PR size classification (S/M/L/XL/XXL), and
-  commit message validation
+- `PR Meta` - auto-label based on file changes and PR size classification (S/M/L/XL/XXL)
 - `Lighthouse scope` - decides whether the Lighthouse audit is relevant
 - `Lighthouse` - Performance checks (runs when the PR touches `app/components/`, `app/features/`,
   `.github/lighthouserc.json`, or the PR Checks workflow, or carries the `performance` or `ui` label)
@@ -501,12 +545,8 @@ issue #647), not re-tightening the gate.
 
 Merges known low-risk Dependabot PRs after the normal PR checks complete:
 
-**Auto-merged groups:**
-
-- lint and format tooling
-- testing tooling
-- tailwind tooling
-- release tooling
+**Auto-merged groups:** every minor/patch npm group except `auth-and-billing` (Stripe and
+Supabase clients), which stays confirm-required. Majors and GitHub Actions updates stay manual.
 
 **Safety rules:**
 
@@ -517,12 +557,13 @@ Merges known low-risk Dependabot PRs after the normal PR checks complete:
   `pull_request_target` token is read-only, so the post-CI workflow owns preview dispatch and merge
 - Only package lockfiles, package manifests, and `pnpm-workspace.yaml` are allowed; any workflow
   change stays manual
-- Runtime Nuxt, Cloudflare, TypeScript compiler, catch-all dependencies, and all GitHub Actions
-  updates stay manual
+- A changed `package.json` line naming `stripe`, `@stripe/*`, `@supabase/*`, or `supabase` keeps
+  the PR manual even if group membership drifts
+- All GitHub Actions updates stay manual
 - GitHub Actions updates may require a repository or organization Actions allowlist change for the
   new pinned SHA, which CI on the Dependabot branch cannot validate reliably
 - PR must stay on the validated head SHA, the GitHub Actions `CI Result` and `PR Meta` check runs
-  must complete, the latest `Preview Result` status must be `success`, and no check run or latest
+  and Socket's `Socket Security: Pull Request Alerts` check run (app `156372`) must succeed, the latest `Preview Result` status must be `success`, and no check run or latest
   status context may fail or remain pending; the merge command also matches the validated head
   commit to close the final race. Individual CI/security job names are no longer listed; the wait
   is bounded to 60 minutes inside a 90-minute job
@@ -558,6 +599,8 @@ availability is advisory and can fail for reasons unrelated to the change.
 
 ### 8. Preview Controller (`.github/workflows/preview.yml`)
 
+Ordinary same-repository ready PRs request previews automatically after current successful PR CI.
+Drafts pause; marking ready or reopening reuses already-passed CI without another build.
 Maintainers and administrators can comment `/preview` once to enable previews for a PR, including
 fork PRs. The current revision is requested immediately if CI is ready; otherwise the next
 successful CI run requests it. Later revisions refresh automatically after successful CI.
@@ -581,12 +624,17 @@ enabled opt-in stays in control; resuming always happens with a fresh command fr
 maintainer. Manual `workflow_dispatch` previews on the trusted default branch own their
 authorization directly: they carry no standing command authority and cannot be revoked by a later
 stop, while requests bound through `request_comment_id` are re-verified before upload.
+Readiness dispatches carry explicit policy provenance and the exact CI attempt; they recheck
+stop state, readiness, current head/base/main and current successful CI immediately before upload.
+Accepted original commands are collapsed with `minimizeComment` (`RESOLVED`); cosmetic API failures
+do not fail previews. Stop receipts are preserved. Repeated enable commands retain an original
+live grant, but any intervening accepted stop revokes that queued grant even after a resume.
 Dependabot retains its dedicated automatic preview owner; `/preview` can request its current
 revision, but does not add a second automatic dispatcher.
 Enabling auto-merge also requests previews when no explicit preview command overrides it.
 The status controller dispatches `preview.yml` on `main`, carrying the CI run ID;
 it checks for a matching active dispatch created after the current CI attempt completed so repeated events preserve in-flight previews
-and fork approval requests. Failed or cancelled dispatches remain retryable. Manual `/preview`
+and fork approval requests. Manual commands use that same lookup. Failed or cancelled dispatches remain retryable. Manual `/preview`
 and workflow dispatch remain available. Repository `allow_auto_merge` must be enabled to use
 this optional request path. Automatic events do not upload artifacts themselves.
 
@@ -597,10 +645,10 @@ maintainer request or trusted merge automation
 dispatch uploads the validated artifact. Cloudflare-managed preview builds are disabled while automatic production deployments
 for `main` remain enabled. The live ruleset requires both `CI Result` and `Preview Result`;
 rollout verifies that enforcement. The design, result contract, and invariants are specified in
-[systems.md §19](systems.md#19-actions-owned-cloudflare-previews).
+[previews spec](systems/previews.md).
 
 **Triggers:** `preview-state.yml` receives `workflow_run` for completed CI and metadata-only
-`pull_request_target` events (`ready_for_review`, `converted_to_draft`, `auto_merge_enabled`,
+`pull_request_target` events (`ready_for_review`, `converted_to_draft`, `reopened`, `auto_merge_enabled`,
 `closed`). Ordinary pushes are evaluated after CI completes; main-push CI completions skip the
 state job. An hourly fallback refreshes only open PRs whose head lacks the required
 status, or is pending only on an unready test merge, after GitHub finishes computing it. It refreshes status without creating deployment
@@ -660,8 +708,8 @@ still-current candidate; any failed stage publishes failure, and a controller cr
 failure on the candidate revision.
 
 **Defaults:** preview-required changes stay pending until explicitly previewed; drafts stay pending;
-documentation-only PRs receive `success: not applicable`; fork PRs need both an explicit dispatch
-and environment approval. A previous success is reused only for the same revision, artifact digest,
+change sets with no deployable paths receive `success: not applicable`; fork PRs need both an
+explicit dispatch and environment approval. A previous success is reused only for the same revision, artifact digest,
 and profile version (`[preview <digest12> v1]` marker).
 
 **Manual preview:** `gh workflow run preview.yml --ref main -f run_id=<ci-run-id>`. Use the
@@ -686,8 +734,8 @@ A fork with a live maintainer opt-in uses the `preview` environment without a se
 an explicit fork dispatch without one retains `preview-fork` approval or an administrator override.
 Repeating a request for an already validated deployment reuses its evidence. Each new head or base
 still requires fresh CI, artifact verification, deployment, and smoke tests.
-Documentation-only commands acknowledge the opt-in and skip the immediate deployment; later
-executable revisions can then refresh after their own successful CI.
+Commands on a revision without deployable changes acknowledge the opt-in and skip the immediate
+deployment; later deployable revisions can then refresh after their own successful CI.
 
 For pull requests, `Preview Result` is published on the validated head commit only. GitHub
 regenerates the test-merge commit (new SHA, same parents and tree) when a merge is attempted, so a
@@ -703,12 +751,12 @@ becomes available after the event retry. One required context appears per PR.
 **Late-build shadow:** `gh workflow run finalization-shadow.yml --ref main -f pull_request=<pr-number> -f ci_run_id=<ci-run-id>`.
 Only a maintain/admin actor can request this non-authoritative rehearsal. It checks the current
 PR, base, test merge, CI run and attempt, then builds a deployable candidate in an isolated
-credential-free container unless the PR is docs-only. A trusted host step rejects links and special
+credential-free container unless the PR has no deployable changes. A trusted host step rejects links and special
 files before upload; a fresh trusted runner seals the output as
 `pages-preview-shadow`. The shadow does not deploy, publish `CI Result`/`Preview Result`, or change
 merge behavior. Ordinary PR CI continues to build and upload `pages-preview`. Re-dispatch after a
 push or base change; dispatch from `main` so the trusted default-branch workflow definition runs.
-Docs-only requests recheck the revision before finishing. Fork runs without a CI API base snapshot
+Requests without deployable changes recheck the revision before finishing. Fork runs without a CI API base snapshot
 fail closed in the shadow; the existing protected `preview-fork` deployment path is unaffected.
 
 **Trusted automation:** Crowdin translation merges and release staging request one preview after
@@ -754,7 +802,7 @@ Ordered rollout (verify `Preview Result` enforcement; apply the ruleset only if 
    ```
 
 2. The trusted aggregate compatibility change (`optionalJobs` tolerance in
-   `scripts/validation-plan.mjs`) and the preview controller/manifest pipeline are already on
+   `scripts/ci/validation-plan.mjs`) and the preview controller/manifest pipeline are already on
    `main`.
 3. The operator created a Pages-only token and stored it in both protected GitHub environments;
    the repository secret was removed on 2026-09-23. This had to precede the bootstrap merge because
@@ -814,40 +862,45 @@ pre-commit becomes a silent no-op. After `git worktree add`, from the worktree
 root:
 
 ```bash
-bash scripts/setup-worktree.sh
+bash scripts/setup/setup-worktree.sh
 ```
 
 That runs `pnpm install --frozen-lockfile` and `pnpm exec husky`. If install is
 impossible, format staged paths yourself before committing (for example
 `prettier --write` on touched markdown, `eslint --fix` on touched app files, and
-`node scripts/lint-blank-lines.mjs --fix` on supported source/config files).
+`node scripts/checks/lint-blank-lines.mjs --fix` on supported source/config files).
 
 ### Hooks
 
 **pre-commit (`.husky/pre-commit`):**
 
+- Regenerates `.nuxt` in development mode when `.nuxt/eslint.config.mjs` is missing
+  (a plain `postinstall` `nuxt prepare` omits `@nuxt/eslint` output)
 - Runs `lint-staged` for fast, targeted formatting and linting
 
 **commit-msg (`.husky/commit-msg`):**
 
-- Validates commit messages via commitlint
-- Enforces conventional commit format
+- Runs commitlint, which only checks for an allowed conventional type prefix
 
 ### Commit Message Format
 
 ```text
 <type>(<scope>): <subject>
-
-[optional body]
-
-[optional footer]
 ```
 
-**Types:** feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert, wip
+Only the type prefix is enforced. CI checks the **PR title** (`.github/workflows/pr-title.yml` →
+`scripts/checks/check-pr-title.mjs`), because squash merges turn it into the commit on `main`;
+editing the title re-runs the check. Branch commits are not checked in CI.
 
-_Note: `wip` is a project-specific extension and is not part of the Conventional Commits spec._
+The repository allows squash merges only. The squash commit title is the PR title (GitHub appends
+`(#N)`, which release highlights use to find the PR's `## Release note`), and the squash commit
+body is blank.
 
-**Scopes:** app, workers, api, ui, tasks, hideout, maps, team, settings, admin, i18n, deps, config, ci, test, docs, release
+**Types:** listed with their release impact in `scripts/checks/commit-types.mjs`. Do not use the
+`!` breaking-change marker; the angular release parser cannot read it.
+
+**Scopes:** free-form. Internal scopes listed in `scripts/release/release-scope.mjs` (for example
+`ci`, `deps`, `docs`, `preview`, `no-release`) never trigger a release.
 
 **Examples:**
 
@@ -864,20 +917,22 @@ Automated via Dependabot (`.github/dependabot.yml`):
 
 **Features:**
 
-- Weekly dependency update batches for the pnpm workspace (root + `workers/api-gateway`)
+- Weekly dependency update batches for the frontend pnpm workspace (API updates are owned by TarkovTracker-API)
 - Monthly grouped GitHub Actions updates for manual review
 - Official GitHub Actions are allowed to propose major updates so runtime migrations do not get stuck
   behind a minor/patch-only rule
 - Cooldown windows to avoid immediate churn from fresh releases
-- Patch cooldown is short so safe patch updates do not sit for a full week
+- Cooldown: 30 days for majors, 7 for minors, 3 for patches; security updates skip the cooldown
+  and are vetted in review instead
 - Grouped minor/patch updates for low-risk tooling families
 - Version updates limited to direct dependencies; vulnerable transitives still surface through security updates
 - Maximum 3 concurrent dependency PRs and 1 GitHub Actions PR
-- Conservative auto-merge for allowlisted low-risk Dependabot groups after CI/security checks pass
+- Auto-merge for minor/patch groups other than `auth-and-billing` after CI, Socket, and preview pass
 - Gitleaks runs via a pinned CLI download in CI with release checksum verification instead of the deprecated `gitleaks-action` runtime
 
 **Current package groups:**
 
+- auth and billing (`stripe`, `@stripe/*`, `@supabase/*`, `supabase`; never auto-merged)
 - nuxt ecosystem
 - lint and format tooling
 - testing tooling
@@ -890,14 +945,14 @@ Automated via Dependabot (`.github/dependabot.yml`):
 **Review strategy:**
 
 - Let Dependabot batch low-risk tooling updates for scheduled review windows
-- Let the auto-merge workflow clear allowlisted npm tooling PRs after checks pass
+- Let the auto-merge workflow clear minor/patch npm group PRs after checks pass
 - Review every GitHub Actions PR manually, including minor and patch updates; update repository and
   organization Actions allowlists first when the pinned SHA is restricted
 - Keep major upgrades explicit
 - Allow official GitHub-maintained actions to propose major updates when GitHub changes required
   action runtimes, but do not auto-merge them
 - Keep transitive lockfile churn out of version-update PRs unless GitHub raises a security fix
-- Keep Nuxt/runtime, Cloudflare deployment tooling, TypeScript compiler, and catch-all dependency updates manual
+- Keep auth and billing client updates manual; they need confirmation before merge
 - Review security PRs promptly; they remain separate from the scheduled version-update batches unless GitHub grouped security updates are enabled in repository settings
 
 ## Development Environment Setup
@@ -958,7 +1013,8 @@ duplicated here:
 ```bash
 # Local deployment (run from project root: /home/lab/TarkovTracker or equivalent)
 pnpm run build
-pnpm --filter api-gateway exec wrangler deploy
+# Public API deploys are separately authorized and run only in the API checkout:
+# pnpm run deploy (TarkovTracker-API repository)
 ```
 
 > **Note:** All local deployment commands assume you are in the project root directory.
@@ -1056,7 +1112,7 @@ pnpm run lint:fix
 
 - Verify Cloudflare Worker Git deployment status or deploy with `wrangler`
 - Check worker-specific secrets and bindings
-- Validate `wrangler.toml` and test locally with `pnpm --filter api-gateway run dev`
+- Validate the API repository's `wrangler.toml` and run `pnpm run dev` in the TarkovTracker-API checkout; this repository's Wrangler config belongs to Pages.
 
 ## Best Practices
 
@@ -1091,14 +1147,15 @@ pnpm run lint:fix
 
 - `.github/workflows/*.yml` - GitHub Actions workflows
 - `.husky/*` - Git hooks
-- `commitlint.config.js` - Commit message rules
+- `commitlint.config.js` - Commit header rules (type prefix only)
+- `scripts/checks/commit-types.mjs` - Allowed conventional types (PR title and commits)
 - `.github/dependabot.yml` - Dependabot update config
 - `.releaserc.json` - Semantic release config
 
 **Development:**
 
 - `.github/labeler.yml` - Auto-labeling rules
-- `scripts/setup-dev-environment.sh` - Setup automation
+- `scripts/setup/setup-dev-environment.sh` - Setup automation
 
 ## Additional Resources
 

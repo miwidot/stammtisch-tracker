@@ -8,8 +8,7 @@ work. Extends the root `AGENTS.md`; paths below are relative to the repository r
 - Relevant checks: `pnpm run supabase:check` (local database replay) for migration or SQL changes.
   Edge Functions run on Deno; their `supabase/functions/_shared/*.deno.test.ts` tests are not
   covered by root Vitest.
-- Auth, billing, migration, and concurrency changes require independent review (root `AGENTS.md`
-  → Review).
+- Independent-review triggers: root `AGENTS.md` → Workflow and review.
 
 ## Functions and grants
 
@@ -24,22 +23,29 @@ Full procedure: `docs/runbook.md#database-migrations`.
   formatting or static-analysis findings. Treat migrations on `main` as applied unless proven
   otherwise. Use a new forward migration for behavior changes; disposition historical lint findings
   individually.
-- Before migration work, compare the migration diff with `origin/main`
-  (`git diff --name-status origin/main...HEAD -- supabase/migrations`) and obtain operator evidence
-  of remote history and pending migrations. Matching timestamps do not prove matching SQL or schema.
-- Consolidate only unmerged migrations proven unapplied to every shared environment. Never run
-  remote history repair, reset, or squash as routine cleanup.
+- After `git fetch`, `git diff --name-status origin/main...HEAD -- supabase/migrations` must list
+  only added files, timestamped after the latest migration on `origin/main`.
+- Edit, rename, or consolidate an unmerged migration only with verified evidence that it is
+  unapplied to every shared environment; matching timestamps do not prove matching SQL or schema.
 - Never put bulk data rewrites in migrations. Ship schema separately and make reads tolerate missing
   rows.
 
 ## Production database
 
-Inspect production only through the read-only `scripts/prod-db` observer
-(`docs/runbook.md#production-database-observer`, `docs/systems.md` §9), using a dedicated observer
-role; never supply `service_role`, `postgres`, migration, or Management API credentials.
+Prefer the read-only `scripts/ops/prod-db` observer (`docs/runbook.md#production-database-observer`,
+`docs/systems/prod-db-observer.md`) with a dedicated observer role; never supply privileged credentials
+as observer credentials. Agents collect migration evidence directly; operator-provided records and
+human review are not mandatory. Authenticated Supabase MCP may supply project identity, migration
+history and bounded catalog-only SELECT queries for dependencies, function contracts, grants and
+triggers. CLI migration lists and `db push --dry-run --skip-vault` are authorized read-only checks;
+use the observer connection when possible. Follow the target verification, secret handling and
+assessment requirements in the runbook. No remote mutation is authorized by an inspection request.
 
 ## Account lifecycle
 
+- The public API Worker reads/calls the relations, columns and RPCs pinned in
+  `supabase/tests/database/api_gateway_surface.test.sql` (from the API repo's `supabase-surface.json`).
+  Keep them, their argument names and `service_role` grants; add new objects before the Worker uses them.
 - API token renames update only the owner-scoped `note` (`docs/api.md#active-token-cap`).
 - Team owners disband through the confirmed owner function
   (`docs/api.md#team-mutation-edge-functions`).

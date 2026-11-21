@@ -10,14 +10,41 @@ import {
   type UserState,
 } from '@/stores/progressState';
 import {
+  hasAccountRecoveryCopy,
+  isAccountRecoveryRetentionBlocked,
+  mayHoldAccountRecoveryCopy,
+  markAccountRecoveryRetentionBlocked,
+  preserveForeignActiveCopy,
+  readAccountRecoveryCopy,
+  removeAccountRecoveryCopy,
+  retryBlockedAccountRecoveryRetention,
+  saveAccountRecoveryCopy,
+  selectFreshestOwnerProgressSnapshot,
+} from '@/stores/tarkov/accountRecovery';
+import { deepEqual } from '@/stores/tarkov/deepEqual';
+import {
+  clearDeviceDataRemoval,
+  clearIncompleteDeviceDataRemoval,
+  isDeviceDataRemovalPending,
+  registerDeviceDataRemovalCleanup,
+  removeAccountDeviceData,
+} from '@/stores/tarkov/deviceData';
+import {
   enforceHideoutPrereqs,
   notifyHideoutPrereqEnforcement,
 } from '@/stores/tarkov/hideoutPrereqs';
 import {
-  clearProgressStorageSafely,
+  clearActiveProgressStorage,
   cloneStateSnapshot,
+  getPendingProgressWritesForOwners,
   getPreservedProgressStorageValue,
-  safeSetItem,
+  parsePersistedProgressState,
+  progressStorageSerializer,
+  readPersistedProgressState,
+  persistActiveProgressValue,
+  invalidateActiveProgressWrites,
+  setActiveProgressWritesBlocked,
+  type PersistedProgressSnapshot,
 } from '@/stores/tarkov/localStorage';
 import {
   markProgressMetadataHydrated,
@@ -32,6 +59,10 @@ import {
   type PrestigeRunRecord,
   type UserPrestigeRunRow,
 } from '@/stores/tarkov/prestige';
+import {
+  initializeProgressAuthority,
+  isProgressAuthorityReady,
+} from '@/stores/tarkov/progressAuthority';
 import { getNextProgressEpoch, hasProgress } from '@/stores/tarkov/progressMerge';
 import {
   countStoryIdChanges,
@@ -40,9 +71,21 @@ import {
   reconcileStoryObjectiveIds,
   type StoryIdChanges,
 } from '@/stores/tarkov/progressMigration';
-import { syncProgressState } from '@/stores/tarkov/progressPersistence';
+import {
+  executeProgressMutation,
+  onTarkovUidConflict,
+  syncProgressState,
+} from '@/stores/tarkov/progressPersistence';
 import { repairCompletedProgress, repairFailedProgress } from '@/stores/tarkov/progressRepair';
-import { progressStorePersist } from '@/stores/tarkov/progressStorePersist';
+import {
+  acknowledgeStartupSync,
+  hasUnsavedProgressChanges,
+  resetCloudSaveStatus,
+} from '@/stores/tarkov/progressSaveStatus';
+import {
+  progressStorePersist,
+  resetProgressStoreMemory,
+} from '@/stores/tarkov/progressStorePersist';
 import {
   registerSyncControllerGetter,
   setupRealtimeListener,
@@ -59,8 +102,14 @@ import { recordLocalSyncTime } from '@/stores/tarkov/syncTimeline';
 import { useMetadataStore } from '@/stores/useMetadata';
 import { GAME_MODES, type GameMode } from '@/utils/constants';
 import { logger } from '@/utils/logger';
-import { STORAGE_KEYS } from '@/utils/storageKeys';
-import { getCurrentSupabaseUserId } from '@/utils/userScopedStorage';
+import { sanitizeOwnedUserState } from '@/utils/progressSanitizers';
+import {
+  effectiveStoryProgress,
+  isAutomaticStoryObjective,
+  isEffectiveStoryObjectiveComplete,
+  storyCatalogForMode,
+} from '@/utils/storylineCompletion';
+import { getCurrentSupabaseUserId, parseUserScopedStorage } from '@/utils/userScopedStorage';
 export type { PrestigeRunRecord } from '@/stores/tarkov/prestige';
 type TarkovStoreInstance = UserState & {
   $state: UserState;
@@ -69,7 +118,6 @@ type TarkovStoreInstance = UserState & {
 };
 const assertPrestigeMode = (mode: GameMode) => {
   if (mode === GAME_MODES.SEASONAL) throw new Error('Prestige is not supported for Seasonal PvP.');
-  if (mode === GAME_MODES.PVE) throw new Error('Prestige is not supported for PvE.');
 };
 const requirePrestigeSession = () => {
   const { $supabase } = useNuxtApp();
@@ -104,11 +152,18 @@ const persistOnlineReset = async (
   client: ReturnType<typeof useNuxtApp>['$supabase']['client'],
   userId: string
 ) => {
+  const revision = sessionTransitionRevision;
+  const isCurrent = () =>
+    revision === sessionTransitionRevision && getCurrentSupabaseUserId() === userId;
   const freshState = buildOnlineResetState(store);
   const { error } = await syncProgressState(client, userId, freshState);
+  if (!isCurrent()) return;
   throwSyncError(error, 'Failed to reset online profile');
-  clearProgressStorage();
+  const cleared = await clearActiveProgressStorage(userId, true);
+  if (!isCurrent()) return;
   patchProgressState(store, freshState);
+  if (!cleared)
+    throw new Error('Online profile reset saved, but local progress could not be cleared');
 };
 const persistPrestigeLevel = async (
   store: TarkovStoreInstance,
@@ -123,20 +178,26 @@ const persistPrestigeLevel = async (
   if (error) throw new Error(`Failed to sync prestige level: ${error.message}`);
   recordLocalSyncTime();
 };
-const syncProgressIfLoggedIn = async (store: TarkovStoreInstance, errorMessage: string) => {
+/** Resolves true once the cloud holds the state, or immediately for local-only sessions. */
+const syncProgressIfLoggedIn = async (
+  store: TarkovStoreInstance,
+  errorMessage: string
+): Promise<boolean> => {
   const { $supabase } = useNuxtApp();
   const userId = $supabase.user.id;
-  if (!$supabase.user.loggedIn || !userId) return;
+  if (!$supabase.user.loggedIn || !userId) return true;
   try {
     recordLocalSyncTime();
     const { error } = await syncProgressState($supabase.client, userId, store.$state);
     throwSyncError(error, errorMessage);
+    return true;
   } catch (error) {
     logger.error(errorMessage, error);
+    return false;
   }
 };
 const archivePrestigeRun = async (store: TarkovStoreInstance, mode: GameMode) => {
-  const { $supabase } = useNuxtApp();
+  const { $supabase, userId } = requirePrestigeSession();
   const currentPrestige = clampPrestigeLevel(store[mode].prestigeLevel ?? 0);
   if (currentPrestige >= 6) throw new Error('Maximum prestige level reached.');
   const nextPrestige = currentPrestige + 1;
@@ -147,7 +208,7 @@ const archivePrestigeRun = async (store: TarkovStoreInstance, mode: GameMode) =>
   const currentGameMode = store.$state.currentGameMode;
   const gameEdition = store.$state.gameEdition;
   const tarkovUid = store.$state.tarkovUid;
-  const { error } = await $supabase.client.rpc('archive_prestige_run_and_reset_progress', {
+  const args = {
     p_archived_progress: archivedProgress,
     p_created_at: new Date().toISOString(),
     p_current_game_mode: currentGameMode,
@@ -159,21 +220,67 @@ const archivePrestigeRun = async (store: TarkovStoreInstance, mode: GameMode) =>
     p_pvp_data: nextState.pvp,
     p_summary: buildPrestigeRunSummary(archivedProgress),
     p_tarkov_uid: tarkovUid,
+  };
+  const modes = { pvp: nextState.pvp, pve: nextState.pve };
+  const { error } = await executeProgressMutation(userId, {
+    modes,
+    expected: { ...modes, currentGameMode, gameEdition, tarkovUid },
+    send: () => $supabase.client.rpc('archive_prestige_run_and_reset_progress', args),
+    canContinue: () => $supabase.user.loggedIn && $supabase.user.id === userId,
+    onSuccess: () => {
+      recordLocalSyncTime();
+      store.$patch((state) => {
+        state[mode] = resetModeData;
+      });
+    },
   });
   throwSyncError(error, 'Failed to update prestige progress');
-  recordLocalSyncTime();
-  store.$patch((state) => {
-    state[mode] = resetModeData;
-  });
 };
 // ============================================================================
 // Store Definition
 // ============================================================================
 const tarkovGetters = {
   ...getters,
+  getEffectiveStoryProgress: (state: UserState) => () =>
+    effectiveStoryProgress(state[state.currentGameMode]?.storyChapters, currentStoryCatalog(state)),
+  isStoryObjectiveComplete: (state: UserState) => (chapterId: string, objectiveId: string) =>
+    isEffectiveStoryObjectiveComplete(
+      catalogStoryObjective(state, chapterId, objectiveId) ?? {},
+      getters.isStoryObjectiveComplete(state)(chapterId, objectiveId)
+    ),
 } satisfies _GettersTree<UserState>;
+/** Metadata store hydration normalizes objectives to ID-keyed records. */
+const currentStoryCatalog = (state: UserState) => {
+  const metadata = useMetadataStore();
+  return storyCatalogForMode(
+    metadata.storyChapters ?? [],
+    metadata.storyChaptersGameMode,
+    state.currentGameMode
+  );
+};
+const catalogStoryObjective = (state: UserState, chapterId: string, objectiveId: string) =>
+  currentStoryCatalog(state).find((chapter) => chapter.id === chapterId)?.objectives?.[objectiveId];
+const automaticStoryObjective = (
+  state: UserState,
+  chapterId: string,
+  objectiveId: string
+): boolean => {
+  return isAutomaticStoryObjective(catalogStoryObjective(state, chapterId, objectiveId));
+};
 const tarkovActions = {
   ...(actions as UserActions),
+  setStoryObjectiveComplete(this: TarkovStoreInstance, chapterId: string, objectiveId: string) {
+    if (automaticStoryObjective(this, chapterId, objectiveId)) return;
+    actions.setStoryObjectiveComplete.call(this, chapterId, objectiveId);
+  },
+  setStoryObjectiveUncomplete(this: TarkovStoreInstance, chapterId: string, objectiveId: string) {
+    if (automaticStoryObjective(this, chapterId, objectiveId)) return;
+    actions.setStoryObjectiveUncomplete.call(this, chapterId, objectiveId);
+  },
+  toggleStoryObjectiveComplete(this: TarkovStoreInstance, chapterId: string, objectiveId: string) {
+    if (automaticStoryObjective(this, chapterId, objectiveId)) return;
+    actions.toggleStoryObjectiveComplete.call(this, chapterId, objectiveId);
+  },
   setHideoutModuleUncomplete(this: TarkovStoreInstance, hideoutId: string) {
     actions.setHideoutModuleUncomplete.call(this, hideoutId);
     const removedModules = enforceHideoutPrereqs(this);
@@ -217,6 +324,10 @@ const tarkovActions = {
     actions.switchGameMode.call(this, mode);
     await syncProgressIfLoggedIn(this, 'Error syncing gamemode to backend:');
   },
+  /** Saves now instead of after the sync debounce; false when a signed-in save fails. */
+  saveProgressNow(this: TarkovStoreInstance): Promise<boolean> {
+    return syncProgressIfLoggedIn(this, 'Error saving progress to backend:');
+  },
   async migrateDataIfNeeded(this: TarkovStoreInstance) {
     const needsMigration = needsGameModeMigration(this.$state);
     const schemaChanges = this.migrateTaskCompletionSchema();
@@ -253,7 +364,8 @@ const tarkovActions = {
   },
   /** Ensure every completed task has all its objectives complete. Returns changes made. */
   repairCompletedTaskObjectives(this: TarkovStoreInstance) {
-    return repairCompletedProgress(this, useMetadataStore().tasks ?? []);
+    const metadata = useMetadataStore();
+    return repairCompletedProgress(this, metadata.tasks ?? [], metadata.storyChapters ?? []);
   },
   async resetOnlineProfile(this: TarkovStoreInstance) {
     const { $supabase } = useNuxtApp();
@@ -374,6 +486,7 @@ const tarkovActions = {
   },
 } satisfies UserActions & {
   switchGameMode(mode: GameMode): Promise<void>;
+  saveProgressNow(): Promise<boolean>;
   migrateDataIfNeeded(): Promise<void>;
   migrateStoryObjectiveIds(mode?: GameMode): StoryIdChanges;
   migrateTaskCompletionSchema(): number;
@@ -397,7 +510,12 @@ const tarkovActions = {
 export const useTarkovStore = defineStore('swapTarkov', {
   state: () => structuredClone(defaultState),
   getters: tarkovGetters,
-  actions: tarkovActions,
+  actions: {
+    ...tarkovActions,
+    $reset() {
+      resetProgressStoreMemory(this);
+    },
+  },
   persist: progressStorePersist,
 });
 type TarkovStore = ReturnType<typeof useTarkovStore>;
@@ -406,6 +524,7 @@ type TarkovStore = ReturnType<typeof useTarkovStore>;
 // ============================================================================
 const progressSync = new ProgressSyncSession();
 registerSyncControllerGetter(progressSync.getController);
+registerDeviceDataRemovalCleanup((userId) => progressSync.dropPreservedSnapshotFor(userId));
 registerTarkovMetadataHooks({
   getCurrentGameMode: () => useTarkovStore().getCurrentGameMode(),
   repairCompletedTaskObjectives: () => {
@@ -486,35 +605,212 @@ const syncMetadataAfterStartup = (
  */
 export function resetTarkovSync(
   reason?: string,
-  options?: { preservePersistedStateForUserId?: string | null }
+  options?: {
+    preservePersistedStateForUserId?: string | null;
+    preservedSnapshot?: PersistedProgressSnapshot | null;
+    preserveStorageBaselineForUserId?: string;
+  }
 ) {
   invalidateStartupOwnership();
+  stopTarkovUidConflictWatch?.();
+  stopTarkovUidConflictWatch = null;
   progressSync.preserveSnapshot(options);
-  progressSync.reset(reason);
+  const userId = options?.preserveStorageBaselineForUserId;
+  progressSync.reset(
+    reason,
+    userId ? { userId, state: sanitizeOwnedUserState(useTarkovStore().$state) } : undefined
+  );
 }
-export function resetTarkovStoreForSessionTransition(
+/**
+ * Memory-only edits made while sync was unavailable exist only in the store. Before a retry
+ * reruns the startup load, which rehydrates from storage, hand them over as the session
+ * snapshot for `userId` so the startup merge keeps them. The serializer's clocks mark only the
+ * edited modes and metadata as new, so untouched modes still yield to newer remote progress.
+ */
+export function preserveUnsavedSessionProgress(userId: string): void {
+  if (!hasUnsavedProgressChanges() || getCurrentSupabaseUserId() !== userId) return;
+  const state = cloneStateSnapshot(sanitizeOwnedUserState(useTarkovStore().$state));
+  const snapshot = parsePersistedProgressState(
+    progressStorageSerializer.serialize(state, userId, Date.now()),
+    userId
+  );
+  if (snapshot) progressSync.handOffSnapshot(userId, snapshot);
+}
+/**
+ * Whether local progress may be waiting for the cloud when initialization fails: tracked
+ * progress, a failed local save, or a recovery copy that exists, is unreadable, or is blocked. A
+ * default account has nothing to save.
+ */
+export function mayHoldUnsyncedProgress(userId: string): boolean {
+  return (
+    hasProgress(useTarkovStore().$state) ||
+    hasUnsavedProgressChanges() ||
+    mayHoldAccountRecoveryCopy(userId)
+  );
+}
+/**
+ * Unacknowledged changes stay recoverable for their owner after sign-out, even if another
+ * account or a guest session later overwrites the active copy. An explicit device-data
+ * removal for that owner retains nothing.
+ */
+const retainPreviousOwnerCopy = (preservedState: string | null, previousUserId: string | null) => {
+  if (isDeviceDataRemovalPending(previousUserId)) return true;
+  if (!preservedState || !previousUserId) return true;
+  if (parseUserScopedStorage<unknown>(preservedState)?._userId !== previousUserId) return true;
+  if (!progressSync.mayHaveUnacknowledgedChanges()) return true;
+  const retained = saveAccountRecoveryCopy(preservedState, previousUserId);
+  setActiveProgressWritesBlocked(!retained);
+  return retained;
+};
+const isSessionResetPlaceholder = (): boolean =>
+  deepEqual(sanitizeOwnedUserState(useTarkovStore().$state), sanitizeOwnedUserState(defaultState));
+/** Returns `true` when the previous owner's active copy was restored for a guest session. */
+const restorePreviousOwnerCopy = async (
+  preservedState: string | null,
+  previousUserId: string | null,
+  currentUserId: string | null
+): Promise<boolean> => {
+  if (isDeviceDataRemovalPending(previousUserId)) {
+    await removeAccountDeviceData(previousUserId as string);
+    return false;
+  }
+  return (
+    Boolean(preservedState && currentUserId === null && isSessionResetPlaceholder()) &&
+    (await persistActiveProgressValue(
+      preservedState as string,
+      false,
+      undefined,
+      parsePersistedProgressState(preservedState, previousUserId)
+    ))
+  );
+};
+const resetSessionMemory = (
+  reason: string | undefined,
+  userId: string | null,
+  preservedState: string | null
+) => {
+  resetProgressMetadataHydration();
+  resetTarkovSync(reason, {
+    preservePersistedStateForUserId: userId,
+    preservedSnapshot: userId ? parsePersistedProgressState(preservedState, userId) : undefined,
+  });
+  // A reset placeholder has no edits; only changes made in the incoming session earn clocks.
+  progressStorageSerializer.reset({
+    state: sanitizeOwnedUserState(defaultState),
+    storedUserId: getCurrentSupabaseUserId(),
+    timestamp: 0,
+    hadDeprecatedProgressData: false,
+  });
+  resetProgressStoreMemory(useTarkovStore());
+};
+/** Retains the previous owner's copy, or blocks active-copy writes when that is impossible. */
+const retainForSessionTransition = (
+  preservedState: string | null,
+  previousUserId: string | null
+): boolean => {
+  if (!retryBlockedAccountRecoveryRetention() || isAccountRecoveryRetentionBlocked()) {
+    setActiveProgressWritesBlocked(true);
+    return false;
+  }
+  if (retainPreviousOwnerCopy(preservedState, previousUserId)) return true;
+  markAccountRecoveryRetentionBlocked();
+  setActiveProgressWritesBlocked(true);
+  return false;
+};
+let sessionTransitionRevision = 0;
+export const hasPendingProgressHandoff = (): boolean =>
+  getPendingProgressWritesForOwners([null]).length > 0;
+const pendingHandoffWritesFor = (owners: (string | null)[]) =>
+  getPendingProgressWritesForOwners(owners).filter(
+    ({ value }) =>
+      !isDeviceDataRemovalPending(parseUserScopedStorage<unknown>(value)?._userId ?? null)
+  );
+const startProgressHandoff = (writes: ReturnType<typeof getPendingProgressWritesForOwners>) =>
+  writes.map(({ value, cloudHeld, expected, baseline }) =>
+    persistActiveProgressValue(value, cloudHeld, expected, baseline)
+  );
+const isCurrentSessionTransition = (revision: number, userId: string | null): boolean =>
+  revision === sessionTransitionRevision && userId === getCurrentSupabaseUserId();
+const activateSessionProgressAuthority = async (revision: number, userId: string | null) => {
+  try {
+    await initializeProgressAuthority(userId, false, () =>
+      isCurrentSessionTransition(revision, userId)
+    );
+  } catch (error) {
+    // A failed former session must not block the replacement owner's writes.
+    if (isCurrentSessionTransition(revision, userId)) setActiveProgressWritesBlocked(true);
+    throw error;
+  }
+};
+const isMatchingGuestProgress = (
+  guest: PersistedProgressSnapshot | null,
+  state: UserState
+): guest is PersistedProgressSnapshot =>
+  guest !== null &&
+  hasProgress(guest.state) &&
+  deepEqual(guest.state, sanitizeOwnedUserState(state));
+/** Finish an older auth handoff without resetting guest edits awaiting normal login adoption. */
+export async function settlePendingProgressHandoffs(): Promise<void> {
+  const userId = getCurrentSupabaseUserId();
+  const revision = sessionTransitionRevision;
+  const writes = pendingHandoffWritesFor([null, userId]);
+  const guest = readPersistedProgressState(null);
+  invalidateActiveProgressWrites();
+  await Promise.all(startProgressHandoff(writes));
+  // An intervening tab's envelope may supersede the transferred baseline chain. Keep guest
+  // edits available to normal login adoption without overwriting that newer owner's copy.
+  if (
+    userId &&
+    isCurrentSessionTransition(revision, userId) &&
+    isMatchingGuestProgress(guest, useTarkovStore().$state)
+  )
+    progressSync.handOffSnapshot(userId, guest);
+}
+export async function resetTarkovStoreForSessionTransition(
   previousUserId: string | null = null,
   reason?: string
 ) {
+  const revision = ++sessionTransitionRevision;
   const preservedState = getPreservedProgressStorageValue(previousUserId);
+  const pendingWrites = pendingHandoffWritesFor([previousUserId]);
   const currentUserId = getCurrentSupabaseUserId();
-  resetProgressMetadataHydration();
-  resetTarkovSync(reason, {
-    preservePersistedStateForUserId: previousUserId,
-  });
-  useTarkovStore().$reset();
+  invalidateActiveProgressWrites();
+  if (!retainForSessionTransition(preservedState, previousUserId)) {
+    resetSessionMemory(reason, previousUserId, preservedState);
+    return;
+  }
+  setActiveProgressWritesBlocked(false);
+  // Transfer the owner's pending baseline chain before placeholders retain obsolete clocks.
+  const handoffWrites = startProgressHandoff(pendingWrites);
+  resetSessionMemory(reason, previousUserId, preservedState);
   if (!import.meta.client) {
     return;
   }
-  if (preservedState && currentUserId === null) {
-    if (safeSetItem(STORAGE_KEYS.progress, preservedState)) {
+  if (handoffWrites.length) {
+    await Promise.all(handoffWrites);
+    if (revision !== sessionTransitionRevision || currentUserId !== getCurrentSupabaseUserId())
       return;
-    }
   }
-  clearProgressStorageSafely();
+  await activateSessionProgressAuthority(revision, currentUserId);
+  if (!isCurrentSessionTransition(revision, currentUserId)) return;
+  const restored = await restorePreviousOwnerCopy(preservedState, previousUserId, currentUserId);
+  if (revision !== sessionTransitionRevision || currentUserId !== getCurrentSupabaseUserId())
+    return;
+  // Edits made while the handoff waited belong to the new session, beyond its reset placeholder.
+  if (restored || !isSessionResetPlaceholder()) return;
+  // Only the active copy is cleared: recovery copies belong to their owners. The reset above
+  // may have persisted a default placeholder for the new owner; it is not their progress.
+  const cleared = await clearActiveProgressStorage(currentUserId);
+  if (revision !== sessionTransitionRevision || currentUserId !== getCurrentSupabaseUserId())
+    return;
+  if (!cleared)
+    logger.error('[TarkovStore] Failed to clear active progress during session transition');
 }
 /** Returns false when a sync for `userId` is already running; resets a sync owned by another user. */
 const claimSyncStartup = (userId: string): boolean => {
+  if (!isProgressAuthorityReady()) {
+    throw new DOMException('Progress authority is unavailable', 'InvalidStateError');
+  }
   if (progressSync.isActiveFor(userId)) {
     logger.debug('[TarkovStore] Supabase sync already initialized, skipping');
     return false;
@@ -568,19 +864,117 @@ const persistPostLoadChanges = async (
     throw error;
   }
 };
+let stopTarkovUidConflictWatch: (() => void) | null = null;
+/** A UID another account owns is dropped locally so later syncs stop resubmitting it. */
+const watchTarkovUidConflicts = (
+  store: TarkovStore,
+  ownerId: string,
+  toastI18n: ReturnType<typeof useToastI18n>,
+  isCurrent: StartupOwnershipGuard
+): void => {
+  stopTarkovUidConflictWatch?.();
+  stopTarkovUidConflictWatch = onTarkovUidConflict((userId, conflict) => {
+    if (!isCurrent()) return;
+    if (userId !== ownerId || store.$state.tarkovUid !== conflict.rejectedUid) return;
+    store.setTarkovUid(conflict.storedUid);
+    toastI18n.showTarkovUidConflict(conflict.rejectedUid);
+  });
+};
+const failBlockedRetention = (toastI18n: ReturnType<typeof useToastI18n>): never => {
+  setActiveProgressWritesBlocked(true);
+  toastI18n.showLoadFailed();
+  throw new Error('Account recovery retention is blocked');
+};
+/**
+ * Retain another account's active copy, then pick the freshest of this user's recovery copy,
+ * persisted copy, and handed-off snapshot. Throws while retention is blocked.
+ */
+const selectStartupSnapshot = (userId: string, toastI18n: ReturnType<typeof useToastI18n>) => {
+  // A new sign-in ends any device-data removal requested for the previous session.
+  clearDeviceDataRemoval();
+  clearIncompleteDeviceDataRemoval(userId);
+  if (!retryBlockedAccountRecoveryRetention(userId) || !preserveForeignActiveCopy(userId)) {
+    failBlockedRetention(toastI18n);
+  }
+  const snapshot = selectFreshestOwnerProgressSnapshot(
+    readAccountRecoveryCopy(userId),
+    readPersistedProgressState(userId),
+    progressSync.preservedSnapshotFor(userId)
+  );
+  if (isAccountRecoveryRetentionBlocked()) failBlockedRetention(toastI18n);
+  return snapshot;
+};
+type StartupCloudState = {
+  /** A recovery copy holds changes the cloud has not acknowledged yet. */
+  awaitsUpload: boolean;
+  /** The recovery copy must be retired by the next acknowledged upload. */
+  retirementPending: boolean;
+};
+/**
+ * The startup merge reconciled local changes with the cloud; a previous failed attempt's
+ * unavailable status no longer applies. Memory-only local changes are acknowledged only when
+ * the cloud now holds them, which also retires the recovery copy. A removal the browser rejects
+ * stays pending for the next acknowledged upload.
+ */
+const settleStartupCloudState = (
+  userId: string,
+  cloudHoldsResolvedState: boolean
+): StartupCloudState => {
+  if (!cloudHoldsResolvedState) {
+    resetCloudSaveStatus();
+    const awaitsUpload = hasAccountRecoveryCopy(userId);
+    return { awaitsUpload, retirementPending: awaitsUpload };
+  }
+  acknowledgeStartupSync();
+  return { awaitsUpload: false, retirementPending: !removeAccountRecoveryCopy(userId) };
+};
+/**
+ * The first acknowledged upload carries the recovered state, whichever attempt it was. A removal
+ * the browser rejects stays pending so a later acknowledged upload retries it.
+ */
+const retireRecoveryCopyOnFirstSync = (userId: string, retirementPending: boolean) => {
+  let pending = retirementPending;
+  return () => {
+    if (pending) pending = !removeAccountRecoveryCopy(userId);
+  };
+};
+type ProgressSyncStart = {
+  hadRemoteData: boolean;
+  initialAcknowledgedState?: UserState;
+  /** Memory-only or recovered changes the startup load did not upload. */
+  hasUnsavedHandoff: boolean;
+  onSynced: () => void;
+};
+const shouldStartSyncNow = (store: TarkovStore, start: ProgressSyncStart): boolean =>
+  start.hadRemoteData || hasProgress(store.$state) || start.hasUnsavedHandoff;
+/** A deferred controller adopts its current state; only retained startup intent needs a seed. */
+const initialHandoffAcknowledgement = (start: ProgressSyncStart): UserState | undefined =>
+  start.hasUnsavedHandoff ? start.initialAcknowledgedState : undefined;
 const startProgressSync = (
   store: TarkovStore,
   userId: string,
-  hadRemoteData: boolean,
+  start: ProgressSyncStart,
   isStartupCurrent: StartupOwnershipGuard
 ): void => {
   const { $supabase } = useNuxtApp();
-  const options = { store, client: $supabase.client, userId, hadRemoteData };
-  if (hadRemoteData || hasProgress(store.$state)) {
-    if (isStartupCurrent()) progressSync.start(options);
+  const { hadRemoteData, onSynced } = start;
+  const options = {
+    store,
+    client: $supabase.client,
+    userId,
+    hadRemoteData,
+    onSynced,
+    initialAcknowledgedState: initialHandoffAcknowledgement(start),
+  };
+  if (!shouldStartSyncNow(store, start)) {
+    progressSync.startWhenProgressExists(options, isStartupCurrent);
     return;
   }
-  progressSync.startWhenProgressExists(options, isStartupCurrent);
+  if (!isStartupCurrent()) return;
+  progressSync.start(options);
+  // Handed-off changes have no other path to the cloud; a failed attempt schedules the
+  // controller's retries, which merge remote state first.
+  if (start.hasUnsavedHandoff) progressSync.attemptSync();
 };
 export async function initializeTarkovSync() {
   const tarkovStore = useTarkovStore();
@@ -594,8 +988,9 @@ export async function initializeTarkovSync() {
   }
   if (!claimSyncStartup(userId)) return;
   const isStartupCurrent = beginOwnedStartup(userId);
+  watchTarkovUidConflicts(tarkovStore, userId, toastI18n, isStartupCurrent);
   logger.debug('[TarkovStore] Setting up Supabase sync and listener');
-  const preservedSnapshot = progressSync.preservedSnapshotFor(userId);
+  const preservedSnapshot = selectStartupSnapshot(userId, toastI18n);
   // Load completes BEFORE sync starts, so empty local state never overwrites server data.
   const loadResult = await loadInitialProgress({
     store: tarkovStore,
@@ -613,15 +1008,25 @@ export async function initializeTarkovSync() {
     throw new Error('Supabase initial load failed');
   }
   markProgressMetadataHydrated();
+  const startupCloudState = settleStartupCloudState(
+    userId,
+    loadResult.hadRemoteData || loadResult.migratedLocalState
+  );
   syncMetadataAfterStartup(tarkovStore, isStartupCurrent);
   if (preservedSnapshot) progressSync.consumePreservedSnapshot();
   if (applyPostLoadRepairs(tarkovStore) > 0 || loadResult.needsRemoteCleanup) {
     await persistPostLoadChanges(tarkovStore, userId, isStartupCurrent);
     if (!isStartupCurrent()) return;
   }
-  startProgressSync(tarkovStore, userId, loadResult.hadRemoteData, isStartupCurrent);
-  // MULTI-DEVICE CONFLICT RESOLUTION: awaited so initialization does not report success before
-  // Realtime acknowledges the channel; failed or stalled joins reject to the app init boundary.
+  const syncStart = {
+    hadRemoteData: loadResult.hadRemoteData,
+    initialAcknowledgedState: loadResult.initialAcknowledgedState,
+    hasUnsavedHandoff: hasUnsavedProgressChanges() || startupCloudState.awaitsUpload,
+    onSynced: retireRecoveryCopyOnFirstSync(userId, startupCloudState.retirementPending),
+  };
+  startProgressSync(tarkovStore, userId, syncStart, isStartupCurrent);
+  // Register the REST reconciliation reader and start live updates. A join outage
+  // falls back to polling without resetting the successfully loaded save controller.
   if (!isStartupCurrent()) return;
   await setupRealtimeListener(tarkovStore);
 }

@@ -9,7 +9,52 @@ Quoting: quote in TOML, unquoted in .env/.dev.vars unless dotenv requires it.
 
 ## Overview
 
-TarkovTracker is a sophisticated single-page application (SPA) for tracking progress in Escape from Tarkov. Built with Nuxt 4, Vue 3, and Supabase, it provides real-time multi-device synchronization, team collaboration, and comprehensive task/hideout tracking.
+TarkovTracker uses prerendered public documents and a client-side application for tracking progress in Escape from Tarkov. Built with Nuxt 4, Vue 3, and Supabase, it provides real-time multi-device synchronization, team collaboration, and comprehensive task/hideout tracking.
+
+## Public rendering and discovery
+
+[`nuxt.config.ts`](../nuxt.config.ts) enables rendering but defaults application routes to
+client rendering. The explicit public inventory in [`routeSeo.ts`](../app/utils/routeSeo.ts)
+opts into prerendering; link crawling is disabled and missing required documents fail the build.
+Payload extraction is off: prerendered documents inline their Nuxt payload because
+`_payload.json` URLs match the client-rendered catch-all and would return HTML; a required public
+or client document that references one fails the build.
+Public route entrypoints in `app/features/seo-pages/` pass the shared `PageHeader` into each
+client-only tracker module's `header` slot and render the same header in a matching container as the
+prerendered fallback, so each page keeps one `h1` in one position. The `pages:extend` hook maps those
+routes to wrappers while preserving the existing modules in `app/pages/`.
+Resource guides render their full article. Navigation, personal state, supporter checkout,
+changelog requests, and application initialization run only in the browser. English HTML hydrates
+before saved/browser locale selection; initialization mounts once per application.
+
+The same registry owns canonical `.org` URLs, indexing directives, descriptions, social tags,
+structured data, and sitemap membership. Filter queries and fragments never enter canonicals.
+Finite settings/account/auth/team/admin/profile shells contain initial `noindex`; robots.txt allows
+crawlers to read that directive while excluding API and overlay paths. A bounded profile Function
+validates UUID/mode paths and reads the static profile shell without querying a database.
+`index.html` stays the prerendered homepage; top-level `404.html` gives unknown paths and invalid
+resource slugs real 404 responses. Legacy aliases remain HTTP 301 redirects.
+
+Preview title, card, and image-tag behavior is implemented in
+[`routeSeo.ts`](../app/utils/routeSeo.ts). The global `theme-color` is configured in
+[`nuxt.config.ts`](../nuxt.config.ts). Guide image settings are declared in
+[`resourceData.ts`](../app/features/resources/resourceData.ts).
+
+The [prerender validator](../app/utils/prerenderOutput.ts) checks initial link-preview metadata
+at build time. The [SEO preview smoke suite](../scripts/preview/smoke/seo.smoke.mjs) checks deployed
+documents and metadata changes during navigation.
+
+Use [Discord's Embed Debugger](https://discord.com/developers/embeds) while signed in to inspect
+Discord's actual selected tags and layout. Previews are cached for about 30 minutes; append a fresh
+`?v=<revision>` when testing changed cards. The [link-preview reference](https://docs.discord.com/developers/link-previews/overview)
+defines the fetch requirements, supported layouts, limits, and cache behavior. Do not treat an
+HTML check or a local mockup as evidence of Discord's rendered card.
+
+Search Console indexing/canonical evidence and fresh Discord embeds require access to those
+services. Capture a 28-day query/page baseline before release; after release submit the registry's
+sitemap and inspect home, tasks, Kappa, and representative guides. Compare results at 4, 8, and
+12 weeks across tracker, quests/hideout/items, Kappa/Lightkeeper, and game-mode query groups.
+Ranking causes and improvements must be measured separately from these rendering fixes.
 
 ## Technology Stack
 
@@ -45,7 +90,7 @@ TarkovTracker is a sophisticated single-page application (SPA) for tracking prog
 │   │   ├── kappa/           # Kappa completion tracker
 │   │   ├── maps/            # Interactive maps
 │   │   ├── neededitems/     # Required items tracker
-│   │   ├── omnibar/         # Global search/command omnibar
+│   │   ├── omnibar/         # Inline app-bar search and jump results
 │   │   ├── profile/         # Profile and shared progress views
 │   │   ├── resources/       # Resource guides
 │   │   ├── settings/        # User settings
@@ -175,6 +220,9 @@ Manages isolated progress for persistent PvP, persistent PvE, and numbered Seaso
 
 - A linked tarkov.dev account is represented by a single persisted `tarkovUid`.
 - The app does **not** persist a long-lived "linked mode" or "imported mode" field.
+- A Tarkov UID is linked to at most one account. An import reports success only after the cloud save
+  accepts it; a UID already linked elsewhere is reported and not linked, while the imported progress
+  is still saved.
 - Unlinking a tarkov.dev account clears only the saved `tarkovUid`; it does not roll back imported
   progress, profile, skill, level, edition, or prestige fields.
 - Refetching a linked profile asks for a profile mode because PvP, PvE, and Seasonal profile JSON
@@ -267,8 +315,8 @@ sequenceDiagram
 
 Persistent PvP and PvE use season number `0`. Seasonal PvP uses the active positive season number
 (`1` for the initial integration). The legacy `user_progress` row remains the account-metadata
-source and temporarily mirrors PvP/PvE for rolling compatibility; Seasonal progress exists only in
-`user_game_mode_progress`. See [`systems.md`](./systems.md#7-game-mode-and-seasonal-progress-storage)
+source; its frozen PvP/PvE columns are no longer written (#1028) and Seasonal progress exists only in
+`user_game_mode_progress`. See [`systems/progress-storage.md`](./systems/progress-storage.md#game-mode-and-seasonal-progress-storage)
 for the storage, RLS, team, sharing, prestige, backup, and compatibility invariants.
 
 ## Authentication
@@ -330,11 +378,27 @@ sequenceDiagram
 
 ### Tarkov Data API
 
+Network requests from metadata, shared profiles and log imports use
+[`tarkovApiFetch`](../app/utils/tarkovApiFetch.ts). When enabled it shares an initial access
+probe and one renewal per clearance generation. It inspects `cf-mitigated: challenge`
+before JSON parsing and retries each challenged data request at most once. Caller aborts
+do not cancel other waiters. Existing IndexedDB hits remain independent of verification.
+The root-mounted [`TarkovAccessGate`](../app/components/TarkovAccessGate.vue) can render while
+startup waits. Only a flow that met a challenge parks callers behind the gate's manual retry
+(a failed retry stays parked); dismissing the gate rejects them, and later requests fail fast
+until its non-modal verify action retries. The first release after any failed access check
+reloads metadata and open shared profiles. A rate-limited verification keeps retry disabled
+for the server's `Retry-After` delay. An ordinary probe
+failure rejects its callers without showing the gate, and the next request probes again.
+Gated GETs keep `$fetch`'s single transient retry. Shared-profile loads start their request budget after access is released.
+Cloudflare owns clearance; application
+verification does not authorize CDN hits. Cache and overlay ordering are unchanged.
+
 All game data is fetched through Nuxt server routes that proxy to `json.tarkov.dev` static data.
 Internal modes map to upstream endpoints as `pvp` → `regular`, `pve` → `pve`, and
 `seasonal` → `pvp-season`.
 
-> Canonical endpoint details: [`systems.md` §1](./systems.md#1-tarkovdev-data-integration) and
+> Canonical endpoint details: [`systems/game-data.md`](./systems/game-data.md#tarkovdev-data-integration) and
 > [`api.md`](./api.md). The table below is a quick map.
 
 | Endpoint                       | Purpose                   | Cache TTL   |
@@ -367,7 +431,7 @@ Layer 1 of the server cache is the optional precomputed `TARKOV_DATA` KV (popula
 the scheduled precompute workflow; currently only `/api/tarkov/tasks-core` reads it via
 `precomputed: true` — other game-data routes start at the per-colo Cache API); the full four-layer
 fall-through is specified in
-[`systems.md` §3](./systems.md#3-multi-layer-caching). The diagram below shows the
+[`systems/game-data.md`](./systems/game-data.md#multi-layer-caching). The diagram below shows the
 client → edge → upstream path.
 
 ```mermaid
@@ -409,7 +473,7 @@ runtimeConfig: {
     trustedIpRanges: process.env.API_TRUSTED_IP_RANGES,
     requireAuth: process.env.API_REQUIRE_AUTH !== 'false',
     publicRoutes:
-      '/api/tarkov/*,/api/tarkov-dev/profile,/api/changelog,/api/contributors,/api/logs/client,/api/profile/*,/api/streamer/*,/api/twitch/*',
+      '/api/tarkov/*,/api/tarkov-dev/profile,/api/changelog,/api/contributors,/api/logs/client,/api/security/tarkov-verify,/api/profile/*,/api/streamer/*,/api/twitch/*',
     trustProxy: resolveTrustProxySetting({
       API_TRUST_PROXY: process.env.API_TRUST_PROXY,
       NITRO_PRESET: process.env.NITRO_PRESET,
@@ -438,8 +502,8 @@ pnpm run test
 # Watch mode
 pnpm run test:watch
 
-# API Gateway tests
-pnpm run test:api-gateway
+# Versioned API parity (fetches/builds the pinned external source)
+pnpm run verify:api-parity
 ```
 
 **Test Organization:**
@@ -459,14 +523,31 @@ Build command: pnpm run build
 Build output: dist
 Root directory: /
 Node.js version: 24.x
-# Pages Functions only handle /api/* and /overlay/*; the build promotes Nuxt's
-# 200.html SPA fallback to index.html so Pages serves all app routes statically.
+# Pages Functions handle only /api/*, /overlay/*, and bounded /profile/* paths.
+# Public pages and finite private shells are static; 404.html prevents SPA catch-all responses.
 # Optional build-tool pin (Pages build image). Detection also works from
 # pnpm-lock.yaml + packageManager without this env var.
 # PNPM_VERSION: 10.34.5
 ```
 
 ### Environment Variables
+
+Browser-clearance settings:
+
+- `NUXT_PUBLIC_TARKOV_ACCESS_ENABLED`: explicitly enable browser coordination per environment.
+- `NUXT_PUBLIC_TARKOV_ACCESS_SITE_KEY`: dedicated widget public sitekey.
+- `NUXT_TARKOV_ACCESS_SECRET_KEY`: server-only dedicated widget secret.
+- `NUXT_TARKOV_ACCESS_EXPECTED_HOSTNAMES`: comma-separated exact hostname allowlist.
+- `NUXT_TARKOV_VERIFY_RATE_LIMIT_PER_MINUTE`: verification-endpoint limit, default 10.
+- `PREVIEW_ACCESS_CLIENT_ID` / `PREVIEW_ACCESS_CLIENT_SECRET`: trusted smoke-runner secrets,
+  never application/build environment variables.
+- `TARKOV_OPERATIONS_ORIGIN` and `TARKOV_OPERATIONS_CLIENT_ID` / `TARKOV_OPERATIONS_CLIENT_SECRET`:
+  overlay-verification runner configuration for an approved Access-protected operations host;
+  credentials are refused unless the origin is set explicitly.
+
+Production and protected staging require distinct reviewed widget configuration; ordinary
+local/preview builds leave the browser gate disabled. See the
+[rollout gates](./tarkov-clearance-rollout.md) before changing these values.
 
 Naming convention: `SUPABASE_*` for shared Supabase project settings, `NUXT_*` for Nuxt private
 runtime config (server-only), `NUXT_PUBLIC_*` for Nuxt public runtime config (browser-exposed), and
@@ -534,43 +615,49 @@ or `on` before starting the dev server or building the app to enable timing logs
 `app/utils/perf.ts` through the shared client logger. Leave it unset or set it to `false` for normal
 builds. This is a Vite build-time variable, not Nuxt runtime configuration.
 
-**Server-side (Nuxt private runtime config):**
+**Server-side (Nuxt private runtime config and direct process environment):**
 
-| Variable                                        | Description                                         | Required   |
-| ----------------------------------------------- | --------------------------------------------------- | ---------- |
-| `NUXT_SUPABASE_SERVICE_KEY`                     | Supabase service role key                           | Yes (prod) |
-| `NUXT_TARKOV_JSON_BASE_URL`                     | Static game-data JSON base URL override             | No         |
-| `NUXT_LOG_SINK_URL`                             | Centralized server log sink (HTTPS)                 | No         |
-| `NUXT_TWITCH_CLIENT_ID`                         | Twitch API client ID                                | No         |
-| `NUXT_GITHUB_CONTRIBUTORS_EXCLUDE`              | Bot accounts excluded from contributors             | No         |
-| `NUXT_GITHUB_TIMEOUT_MS`                        | GitHub API timeout                                  | No         |
-| `NUXT_GITHUB_TOKEN`                             | GitHub API token                                    | No         |
-| `NUXT_CACHE_BYPASS_ENABLED`                     | Enable server-side cache bypass header              | No         |
-| `API_ALLOWED_HOSTS`                             | Allowed origin hosts                                | No         |
-| `API_TRUSTED_IP_RANGES`                         | Trusted IP ranges (CIDR)                            | No         |
-| `API_REQUIRE_AUTH`                              | Require auth for protected routes (default true)    | No         |
-| `API_PUBLIC_ROUTES`                             | Routes exempt from auth                             | No         |
-| `API_TRUST_PROXY`                               | Trust proxy headers (auto-detected on Cloudflare)   | No         |
-| `STRIPE_SECRET_KEY`                             | Stripe API secret key                               | Yes (prod) |
-| `STRIPE_PRICE_SCAV_MONTHLY`                     | Stripe price ID for Scav monthly plan               | Yes (prod) |
-| `STRIPE_PRICE_SCAV_6MONTH`                      | Stripe price ID for Scav 6-month plan               | Yes (prod) |
-| `STRIPE_PRICE_SCAV_YEARLY`                      | Stripe price ID for Scav yearly plan                | Yes (prod) |
-| `STRIPE_PRICE_TIMMY_MONTHLY`                    | Stripe price ID for Timmy monthly plan              | Yes (prod) |
-| `STRIPE_PRICE_TIMMY_6MONTH`                     | Stripe price ID for Timmy 6-month plan              | Yes (prod) |
-| `STRIPE_PRICE_TIMMY_YEARLY`                     | Stripe price ID for Timmy yearly plan               | Yes (prod) |
-| `STRIPE_PRICE_CHAD_MONTHLY`                     | Stripe price ID for Chad monthly plan               | Yes (prod) |
-| `STRIPE_PRICE_CHAD_6MONTH`                      | Stripe price ID for Chad 6-month plan               | Yes (prod) |
-| `STRIPE_PRICE_CHAD_YEARLY`                      | Stripe price ID for Chad yearly plan                | Yes (prod) |
-| `NUXT_ACCOUNT_IP_HASH_SECRET`                   | HMAC secret for account-level IP audit records      | Yes (prod) |
-| `NUXT_TARKOV_DEV_PROFILE_CACHE_TTL_MS`          | Tarkov.dev profile shared-cache TTL in milliseconds | No         |
-| `NUXT_TARKOV_DEV_PROFILE_RATE_LIMIT_PER_MINUTE` | Per-IP profile-import requests per minute           | No         |
-| `NUXT_TARKOV_DEV_PROFILE_RATE_LIMIT_PER_HOUR`   | Per-IP profile-import requests per hour             | No         |
-| `NUXT_TARKOV_DEV_PROFILE_MAX_UPDATED_AGE_DAYS`  | Reject older profile snapshots; `0` disables        | No         |
-| `NUXT_TEAM_MEMBERS_RATE_LIMIT_PER_MINUTE`       | Per-IP team-members requests per minute             | No         |
-| `NUXT_TEAM_MEMBERS_CACHE_TTL_MS`                | Team-members shared-cache TTL in milliseconds       | No         |
-| `NUXT_SHARED_PROFILE_RATE_LIMIT_PER_MINUTE`     | Per-IP shared-profile requests per minute           | No         |
-| `NUXT_SHARED_PROFILE_CACHE_TTL_MS`              | Shared-profile shared-cache TTL in milliseconds     | No         |
-| `NUXT_TURNSTILE_SECRET_KEY`                     | Server-side Turnstile secret for profile imports    | No²        |
+| Variable                                        | Description                                                     | Required   |
+| ----------------------------------------------- | --------------------------------------------------------------- | ---------- |
+| `NUXT_SUPABASE_SERVICE_KEY`                     | Supabase service role key                                       | Yes (prod) |
+| `NUXT_TARKOV_JSON_BASE_URL`                     | Static game-data JSON base URL override                         | No         |
+| `NUXT_LOG_SINK_URL`                             | Centralized server log sink (HTTPS)                             | No         |
+| `NUXT_TWITCH_CLIENT_ID`                         | Twitch API client ID                                            | No         |
+| `NUXT_GITHUB_CONTRIBUTORS_EXCLUDE`              | Bot accounts excluded from contributors                         | No         |
+| `NUXT_GITHUB_TIMEOUT_MS`                        | GitHub API timeout                                              | No         |
+| `NUXT_GITHUB_TOKEN`                             | GitHub API token                                                | No         |
+| `OVERLAY_TOKEN`                                 | Read-only Contents token scoped to `tarkov-data-overlay`        | Yes        |
+| `NUXT_CACHE_BYPASS_ENABLED`                     | Enable server-side cache bypass header                          | No         |
+| `API_ALLOWED_HOSTS`                             | Allowed origin hosts                                            | No         |
+| `API_TRUSTED_IP_RANGES`                         | Trusted IP ranges (CIDR)                                        | No         |
+| `API_REQUIRE_AUTH`                              | Require auth for protected routes (default true)                | No         |
+| `API_PUBLIC_ROUTES`                             | Routes exempt from auth (the Siteverify relay is always public) | No         |
+| `API_TRUST_PROXY`                               | Trust proxy headers (auto-detected on Cloudflare)               | No         |
+| `STRIPE_SECRET_KEY`                             | Stripe API secret key                                           | Yes (prod) |
+| `STRIPE_PRICE_SCAV_MONTHLY`                     | Stripe price ID for Scav monthly plan                           | Yes (prod) |
+| `STRIPE_PRICE_SCAV_6MONTH`                      | Stripe price ID for Scav 6-month plan                           | Yes (prod) |
+| `STRIPE_PRICE_SCAV_YEARLY`                      | Stripe price ID for Scav yearly plan                            | Yes (prod) |
+| `STRIPE_PRICE_TIMMY_MONTHLY`                    | Stripe price ID for Timmy monthly plan                          | Yes (prod) |
+| `STRIPE_PRICE_TIMMY_6MONTH`                     | Stripe price ID for Timmy 6-month plan                          | Yes (prod) |
+| `STRIPE_PRICE_TIMMY_YEARLY`                     | Stripe price ID for Timmy yearly plan                           | Yes (prod) |
+| `STRIPE_PRICE_CHAD_MONTHLY`                     | Stripe price ID for Chad monthly plan                           | Yes (prod) |
+| `STRIPE_PRICE_CHAD_6MONTH`                      | Stripe price ID for Chad 6-month plan                           | Yes (prod) |
+| `STRIPE_PRICE_CHAD_YEARLY`                      | Stripe price ID for Chad yearly plan                            | Yes (prod) |
+| `NUXT_ACCOUNT_IP_HASH_SECRET`                   | HMAC secret for account-level IP audit records                  | Yes (prod) |
+| `NUXT_TARKOV_DEV_PROFILE_CACHE_TTL_MS`          | Tarkov.dev profile shared-cache TTL in milliseconds             | No         |
+| `NUXT_TARKOV_DEV_PROFILE_RATE_LIMIT_PER_MINUTE` | Per-IP profile-import requests per minute                       | No         |
+| `NUXT_TARKOV_DEV_PROFILE_RATE_LIMIT_PER_HOUR`   | Per-IP profile-import requests per hour                         | No         |
+| `NUXT_TARKOV_DEV_PROFILE_MAX_UPDATED_AGE_DAYS`  | Reject older profile snapshots; `0` disables                    | No         |
+| `NUXT_TEAM_MEMBERS_RATE_LIMIT_PER_MINUTE`       | Per-IP team-members requests per minute                         | No         |
+| `NUXT_TEAM_MEMBERS_CACHE_TTL_MS`                | Team-members shared-cache TTL in milliseconds                   | No         |
+| `NUXT_SHARED_PROFILE_RATE_LIMIT_PER_MINUTE`     | Per-IP shared-profile requests per minute                       | No         |
+| `NUXT_SHARED_PROFILE_CACHE_TTL_MS`              | Shared-profile shared-cache TTL in milliseconds                 | No         |
+| `NUXT_TURNSTILE_SECRET_KEY`                     | Server-side Turnstile secret for profile imports                | No²        |
+
+`OVERLAY_TOKEN` is required for private overlay fetches in production, previews, precompute, and
+local/operator checks such as `pnpm run verify:overlay`. Server and precompute consumers read it
+directly from the process environment; see
+[overlay authentication](systems/overlay-and-precompute.md#invariants).
 
 **Build-time / platform:**
 
@@ -594,7 +681,7 @@ Edge Functions. `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_SUPPORTER_ROLE
 Edge-only tier roles for supporter sync (role sync skips the tier role when one is unset). See
 `supabase/functions/.env.example`.
 
-**Cloudflare Workers** (`workers/api-gateway`, set via `wrangler secret put`):
+**Cloudflare Workers** (TarkovTracker-API, set via `wrangler secret put` in that checkout):
 
 | Variable                    | Description                                                    | Required   |
 | --------------------------- | -------------------------------------------------------------- | ---------- |

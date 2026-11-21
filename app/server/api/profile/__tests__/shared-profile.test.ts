@@ -7,11 +7,13 @@ import {
   stubEdgeCache,
 } from '@/server/utils/__tests__/eventStubs';
 import type { H3Event } from 'h3';
-const { mockGetRequestHeader, mockGetRouterParam, mockFetch } = vi.hoisted(() => ({
+const { mockGetRequestHeader, mockGetRouterParam, mockFetch, mockOverlay } = vi.hoisted(() => ({
   mockGetRequestHeader: vi.fn(),
   mockGetRouterParam: vi.fn(),
   mockFetch: vi.fn(),
+  mockOverlay: vi.fn(),
 }));
+vi.mock('@/server/utils/overlay', () => ({ fetchOverlay: mockOverlay }));
 const runtimeConfig = {
   apiProtection: {
     trustProxy: false,
@@ -83,6 +85,9 @@ describe('Shared Profile API', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', mockFetch as typeof fetch);
     vi.clearAllMocks();
+    mockFetch.mockReset();
+    mockOverlay.mockReset();
+    mockOverlay.mockResolvedValue({ overlay: null });
     runtimeConfig.apiProtection.trustProxy = false;
     runtimeConfig.sharedProfileCacheTtlMs = 5000;
     runtimeConfig.sharedProfileRateLimitPerMinute = 120;
@@ -116,8 +121,84 @@ describe('Shared Profile API', () => {
     });
     const { default: handler } = await import('@/server/api/profile/[userId]/[mode].get');
     await expect(handler(mockEvent as H3Event)).rejects.toThrow('Invalid profile id');
+    expect(mockOverlay).not.toHaveBeenCalled();
   });
+  it.each(['pvp', 'pve', 'seasonal'])(
+    'returns the %s effective baseline without modifying recorded progress',
+    async (mode) => {
+      const recorded = {
+        level: 24,
+        storyChapters: {
+          tour: {
+            objectives: {
+              escape: { complete: false, timestamp: 31 },
+              therapist: { complete: false },
+            },
+          },
+        },
+      };
+      mockOverlay.mockResolvedValue({
+        overlay: {
+          storyChapters: {
+            tour: {
+              id: 'tour',
+              order: 1,
+              objectives: {
+                escape: {
+                  id: 'escape',
+                  type: 'main',
+                  description: 'Escape',
+                  completionPolicy: 'tutorial',
+                },
+                therapist: { id: 'therapist', type: 'main', description: 'Talk' },
+              },
+            },
+          },
+        },
+      });
+      mockGetRouterParam.mockImplementation((_, key: string) =>
+        key === 'mode' ? mode : '11111111-1111-4111-8111-111111111111'
+      );
+      let empty = false;
+      mockFetch.mockImplementation(async (url: string) => {
+        if (url.includes('/rpc/')) return { ok: true, json: async () => 2 };
+        if (url.includes('user_game_mode_progress'))
+          return modeProgressResponse(empty ? {} : recorded);
+        if (url.includes('user_preferences')) return preferencesResponse();
+        return progressResponse();
+      });
+      const before = JSON.stringify(recorded);
+      const { default: handler } = await import('@/server/api/profile/[userId]/[mode].get');
+      const result = await handler(mockEvent as H3Event);
+      expect(result.data?.storyChapters?.tour?.objectives).toEqual({
+        escape: { complete: true },
+        therapist: { complete: false },
+      });
+      expect(result.data?.storyChapters?.tour?.complete).not.toBe(true);
+      expect(JSON.stringify(recorded)).toBe(before);
+      empty = true;
+      const blank = await handler(mockEvent as H3Event);
+      expect(blank.data).toEqual({
+        storyChapters: { tour: { objectives: { escape: { complete: true } } } },
+      });
+      empty = false;
+      mockOverlay.mockResolvedValue({ overlay: { storyChapters: {} } });
+      expect((await handler(mockEvent as H3Event)).data?.storyChapters).toEqual(
+        recorded.storyChapters
+      );
+      mockOverlay.mockRejectedValueOnce(new Error('Metadata unavailable'));
+      expect((await handler(mockEvent as H3Event)).data?.storyChapters).toEqual(
+        recorded.storyChapters
+      );
+      expect(
+        mockFetch.mock.calls
+          .filter(([url]) => String(url).includes('/rest/v1/user_game_mode_progress'))
+          .every(([, init]) => !init?.method || init.method === 'GET')
+      ).toBe(true);
+    }
+  );
   it('rejects invalid mode', async () => {
+    // No metadata fetch may bypass the validated account/mode boundary.
     mockGetRouterParam.mockImplementation((_, key: string) => {
       if (key === 'userId') return '11111111-1111-4111-8111-111111111111';
       if (key === 'mode') return 'invalid';
@@ -125,6 +206,7 @@ describe('Shared Profile API', () => {
     });
     const { default: handler } = await import('@/server/api/profile/[userId]/[mode].get');
     await expect(handler(mockEvent as H3Event)).rejects.toThrow('Invalid profile mode');
+    expect(mockOverlay).not.toHaveBeenCalled();
   });
   it('returns 500 when Supabase config is missing', async () => {
     runtimeConfig.supabaseUrl = '';
@@ -168,17 +250,21 @@ describe('Shared Profile API', () => {
     }
   });
   it('serves shared profiles in production mode', async () => {
+    // Old/unavailable policy metadata retains the existing recorded read model.
     const originalNodeEnv = process.env.NODE_ENV;
+    const storyChapters = { tour: { objectives: { escape: { complete: false, timestamp: 29 } } } };
     process.env.NODE_ENV = 'production';
     vi.resetModules();
     try {
       mockFetch
         .mockResolvedValueOnce(progressResponse())
-        .mockResolvedValueOnce(modeProgressResponse({ displayName: 'PublicPlayer', level: 24 }))
+        .mockResolvedValueOnce(
+          modeProgressResponse({ displayName: 'PublicPlayer', level: 24, storyChapters })
+        )
         .mockResolvedValueOnce(preferencesResponse());
       const { default: handler } = await import('@/server/api/profile/[userId]/[mode].get');
       await expect(handler(mockEvent as H3Event)).resolves.toEqual({
-        data: { displayName: 'PublicPlayer', level: 24 },
+        data: { displayName: 'PublicPlayer', level: 24, storyChapters },
         gameEdition: 4,
         mode: 'pvp',
         userId: '11111111-1111-4111-8111-111111111111',
@@ -318,60 +404,27 @@ describe('Shared Profile API', () => {
       restCalls.find((url) => url.pathname.endsWith('/user_progress'))?.searchParams.get('select')
     ).toBe('user_id,game_edition');
   });
-  it.each(['network', 'json'])('normalizes deferred legacy %s failures to 502', async (failure) => {
+  it('keeps missing normalized profiles private despite legacy sharing preferences', async () => {
     mockFetch
-      .mockResolvedValueOnce(progressResponse(3))
+      .mockResolvedValueOnce(progressResponse(3, { pvp_data: { level: 39 } }))
       .mockResolvedValueOnce({ ok: true, json: async () => [] })
-      .mockResolvedValueOnce(preferencesResponse(false, { pvp: true }));
-    if (failure === 'network') mockFetch.mockRejectedValueOnce(new Error('offline'));
-    else
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => {
-          throw new Error('invalid json');
-        },
-      });
+      .mockResolvedValueOnce(preferencesResponse(false, { pvp: true }))
+      .mockResolvedValueOnce({ ok: true, json: async () => [{ pvp_data: { level: 39 } }] });
     const { default: handler } = await import('@/server/api/profile/[userId]/[mode].get');
-    await expect(handler(mockEvent as H3Event)).rejects.toMatchObject({ statusCode: 502 });
+    await expect(handler(mockEvent as H3Event)).rejects.toMatchObject({ statusCode: 403 });
+    expect(mockFetch).toHaveBeenCalledTimes(3);
   });
-  it.each(['missing', 'placeholder'])(
-    'loads deferred legacy data for a %s normalized row',
-    async (kind) => {
-      mockFetch
-        .mockResolvedValueOnce(progressResponse(3))
-        .mockResolvedValueOnce(
-          kind === 'missing'
-            ? { ok: true, json: async () => [] }
-            : modeProgressResponse({ taskCompletions: {} }, true)
-        )
-        .mockResolvedValueOnce(preferencesResponse(false, { pvp: true }))
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => [{ pvp_data: { displayName: 'LegacyPlayer', level: 39 } }],
-        });
-      const { default: handler } = await import('@/server/api/profile/[userId]/[mode].get');
-      expect(await handler(mockEvent as H3Event)).toMatchObject({
-        data: { displayName: 'LegacyPlayer', level: 39 },
-        gameEdition: 3,
-        mode: 'pvp',
-        visibility: 'public',
-      });
-    }
-  );
-  it.each(['http', 'abort', 'timeout'])('normalizes deferred legacy %s errors', async (failure) => {
+  it('returns empty progress for public normalized placeholders without reading legacy data', async () => {
     mockFetch
-      .mockResolvedValueOnce(progressResponse(3))
-      .mockResolvedValueOnce({ ok: true, json: async () => [] })
-      .mockResolvedValueOnce(preferencesResponse(false, { pvp: true }));
-    if (failure === 'http') mockFetch.mockResolvedValueOnce({ ok: false });
-    else
-      mockFetch.mockRejectedValueOnce(
-        failure === 'abort' ? createAbortError() : { statusCode: 504 }
-      );
+      .mockResolvedValueOnce(progressResponse(3, { pvp_data: { level: 39 } }))
+      .mockResolvedValueOnce(
+        modeProgressResponse({ displayName: 'Placeholder', taskCompletions: {} })
+      )
+      .mockResolvedValueOnce(preferencesResponse())
+      .mockResolvedValueOnce({ ok: true, json: async () => [{ pvp_data: { level: 39 } }] });
     const { default: handler } = await import('@/server/api/profile/[userId]/[mode].get');
-    await expect(handler(mockEvent as H3Event)).rejects.toMatchObject({
-      statusCode: failure === 'http' ? 502 : 504,
-    });
+    expect(await handler(mockEvent as H3Event)).toMatchObject({ data: {}, gameEdition: 3 });
+    expect(mockFetch).toHaveBeenCalledTimes(3);
   });
   it('loads Seasonal profiles from the active season row', async () => {
     mockGetRouterParam.mockImplementation((_, key: string) => {

@@ -1,3 +1,4 @@
+import { capApiTaskUpdates } from '@tarkovtracker/progress-contracts/apiTaskUpdates';
 import {
   MANUAL_ACTIVITY_ACTIONS,
   MANUAL_ACTIVITY_TYPES,
@@ -13,7 +14,7 @@ import {
   type GameMode,
 } from '@/utils/constants';
 import { sanitizeTaskAvailabilityMap } from '@/utils/taskAvailabilityConfirmation';
-import type { ApiTaskUpdate, ApiUpdateMeta, UserState } from '@/stores/progressState';
+import type { ApiUpdateMeta, UserState } from '@/stores/progressState';
 type UserProgressData = UserState['pvp'];
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value && typeof value === 'object' && !Array.isArray(value));
@@ -224,7 +225,6 @@ export const createDefaultOwnedProgressData = (): UserProgressData => ({
   level: 1,
   pmcFaction: 'USEC',
   displayName: null,
-  xpOffset: 0,
   taskObjectives: {},
   taskCompletions: {},
   taskAvailability: {},
@@ -240,18 +240,7 @@ export const createDefaultOwnedProgressData = (): UserProgressData => ({
   manualActivityHistory: [],
   manualActivityEpoch: 0,
 });
-const sanitizeApiTaskUpdates = (value: unknown): ApiTaskUpdate[] => {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.filter(
-    (entry): entry is ApiTaskUpdate =>
-      isRecord(entry) &&
-      typeof entry.id === 'string' &&
-      ['completed', 'failed', 'uncompleted'].includes(entry.state as string)
-  );
-};
-export const sanitizeApiUpdateMeta = (value: unknown): ApiUpdateMeta | undefined => {
+const sanitizeApiUpdateMeta = (value: unknown): ApiUpdateMeta | undefined => {
   if (!isRecord(value)) {
     return undefined;
   }
@@ -259,12 +248,13 @@ export const sanitizeApiUpdateMeta = (value: unknown): ApiUpdateMeta | undefined
   if (value.source !== 'api' || typeof value.id !== 'string' || !value.id || at === null) {
     return undefined;
   }
-  const tasks = sanitizeApiTaskUpdates(value.tasks);
+  const { tasks, taskCount } = capApiTaskUpdates(value.tasks, value.taskCount);
   return {
     at: Math.max(0, Math.trunc(at)),
     id: value.id,
     source: 'api',
     ...(tasks.length > 0 ? { tasks } : {}),
+    ...(taskCount !== undefined ? { taskCount } : {}),
   };
 };
 /** Keep only the newest entry per id, preserving first-seen order of the survivors. */
@@ -299,7 +289,7 @@ const sanitizeHistory = <T extends { id: string }>(
     .sort((left, right) => getTimestamp(right) - getTimestamp(left))
     .slice(0, limit);
 };
-export const sanitizeApiUpdateHistory = (value: unknown): ApiUpdateMeta[] =>
+const sanitizeApiUpdateHistory = (value: unknown): ApiUpdateMeta[] =>
   sanitizeHistory(value, sanitizeApiUpdateMeta, (entry) => entry.at, API_UPDATE_HISTORY_LIMIT);
 const sanitizeManualActivityType = (value: unknown): ManualActivityType | null =>
   MANUAL_ACTIVITY_TYPE_VALUES.has(value) ? (value as ManualActivityType) : null;
@@ -329,7 +319,7 @@ const sanitizeRequiredManualActivityFields = (
   };
   return Object.values(fields).includes(null) ? null : (fields as RequiredManualActivityFields);
 };
-export const sanitizeManualActivityEntry = (value: unknown): ManualActivityEntry | undefined => {
+const sanitizeManualActivityEntry = (value: unknown): ManualActivityEntry | undefined => {
   if (!isRecord(value)) {
     return undefined;
   }
@@ -405,15 +395,19 @@ export const hasDeprecatedTarkovDevProfileData = (value: unknown): boolean => {
   }
   return ['pvp', 'pve', 'seasonal'].some((mode) => hasDeprecatedTarkovDevProfileData(value[mode]));
 };
-// Keep this canonical sanitizer aligned with the persisted DB sanitizer in the
-// tarkovDevProfile cleanup migration when changing stored progress fields.
+/** Retire only the legacy XP offset while preserving opaque progress extensions. */
+export const stripLegacyXpOffset = <T extends UserProgressData>(value: T): T => {
+  const stripped = { ...value };
+  Reflect.deleteProperty(stripped, 'xpOffset');
+  return stripped;
+};
+// Keep this canonical sanitizer aligned with the persisted DB sanitizer when changing stored fields.
 export const sanitizeOwnedProgressData = (value: unknown): UserProgressData => {
   const sanitized: UserProgressData = createDefaultOwnedProgressData();
   if (!isRecord(value)) {
     return sanitized;
   }
   const level = toFiniteNumber(value.level);
-  const xpOffset = toFiniteNumber(value.xpOffset);
   const prestigeLevel = toFiniteNumber(value.prestigeLevel);
   const progressEpoch = toFiniteNumber(value.progressEpoch);
   const lastApiUpdate = sanitizeApiUpdateMeta(value.lastApiUpdate);
@@ -438,9 +432,6 @@ export const sanitizeOwnedProgressData = (value: unknown): UserProgressData => {
   sanitized.manualActivityEpoch = sanitizeManualActivityEpoch(value.manualActivityEpoch);
   if (level !== null) {
     sanitized.level = Math.max(1, Math.trunc(level));
-  }
-  if (xpOffset !== null) {
-    sanitized.xpOffset = Math.trunc(xpOffset);
   }
   if (prestigeLevel !== null) {
     sanitized.prestigeLevel = Math.max(0, Math.min(6, Math.trunc(prestigeLevel)));
@@ -497,7 +488,6 @@ export const sanitizeTeammateProgressData = (value: unknown): Partial<UserProgre
     return {};
   }
   const level = toFiniteNumber(value.level);
-  const xpOffset = toFiniteNumber(value.xpOffset);
   const prestigeLevel = toFiniteNumber(value.prestigeLevel);
   const sanitized: Partial<UserProgressData> = {
     displayName: sanitizeDisplayName(value.displayName),
@@ -514,9 +504,6 @@ export const sanitizeTeammateProgressData = (value: unknown): Partial<UserProgre
   };
   if (level !== null) {
     sanitized.level = Math.max(1, Math.trunc(level));
-  }
-  if (xpOffset !== null) {
-    sanitized.xpOffset = Math.trunc(xpOffset);
   }
   if (prestigeLevel !== null) {
     sanitized.prestigeLevel = Math.max(0, Math.min(6, Math.trunc(prestigeLevel)));

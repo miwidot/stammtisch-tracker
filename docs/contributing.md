@@ -9,7 +9,7 @@ contribution workflow overview (issues, branches, labels, project board), see
 
 ### Prerequisites
 
-- **Node.js** >= 24.19.0
+- **Node.js** at the version in [`.nvmrc`](../.nvmrc) (`fnm use` / `nvm use`)
 - **pnpm** 11.14.0 (via Corepack; matches `packageManager` in `package.json`)
 - **Git**
 
@@ -45,7 +45,10 @@ source — do not duplicate its rules here. Key reminders for new contributors:
 - **Add an API endpoint:** create the route in `app/server/api/` and add types in `app/types/`.
 - **Add translations:** add snake_case keys to `app/locales/en.json` **only**, then run
   `pnpm run i18n:check`. Use `$t('key.path', 'Fallback')`. Crowdin propagates the other locales —
-  never edit them by hand.
+  never edit them by hand. Remove a key from `en.json` when its last usage goes; the check fails on
+  keys with no possible reference in `app/` and on broken locales (invalid JSON or message syntax,
+  unknown placeholders, structure mismatches). Untranslated keys fall back to English and never
+  fail it.
 - **Tarkov.dev import/linking:** follow the rules in [`./architecture.md`](./architecture.md)
   (persist only `tarkovUid`; the import destination mode is chosen at import time, not stored).
 
@@ -68,16 +71,23 @@ source — do not duplicate its rules here. Key reminders for new contributors:
 
 ### Commit conventions
 
-- Follow [Conventional Commits](https://www.conventionalcommits.org/): `type(scope): summary`. The
-  commit-msg hook runs commitlint locally and CI re-checks every commit.
-- Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`,
-  `revert`, `wip`.
-- Use an allowed scope from `commitlint.config.js` (e.g. `app`, `ui`, `api`, `tasks`, `team`,
-  `i18n`, `docs`) or omit the scope if none fits — do not invent scopes.
-- Keep the subject imperative and not ALL-CAPS; header max 100 chars.
-- Reference issue numbers when applicable and keep commits focused and atomic.
+- PR titles and commit headers start with a [Conventional Commits](https://www.conventionalcommits.org/)
+  type: `type: summary` or `type(scope): summary`. That prefix is the only rule.
+- PRs are squash-merged, so the **PR title** becomes the commit on `main` that drives releases. CI
+  checks only the PR title (`PR Title` workflow); fix a failure by editing the title — no rewording
+  or force-pushing. The local commit-msg hook checks the same prefix on branch commits.
+- Allowed types and their release impact are listed in
+  [`scripts/checks/commit-types.mjs`](../scripts/checks/commit-types.mjs). Do not use the `!`
+  breaking-change marker; the release parser cannot read it.
+- Scopes are free-form. Internal scopes such as `ci`, `deps`, `docs`, `preview` or `no-release`
+  never trigger a release (`scripts/release/release-scope.mjs`).
+- Length, casing and body formatting are not enforced.
 
 ## Pull request process
+
+For automatic ready-PR previews, draft pauses, stop commands and fork approvals, see the
+[preview system spec](systems/previews.md). Mark an ordinary same-repository PR ready after
+validation; successful current CI requests its preview without another command.
 
 ### Branching strategy
 
@@ -120,8 +130,8 @@ changes may be requested to be split or closed.
 
 ### PR requirements
 
-- Commits follow [Conventional Commits](https://www.conventionalcommits.org/) (e.g.
-  `feat(tasks): add objective filter`) — enforced by commitlint on commit messages
+- PR title starts with a conventional type (e.g. `feat(tasks): add objective filter`) — checked by
+  the `PR Title` workflow
 - All template sections completed
 - Linked to related issue(s)
 - Passes all CI checks
@@ -139,15 +149,13 @@ asks for the following sections. Complete every section:
   effect, not the implementation. Notes from contributors without write access are not published
   automatically; a maintainer adds them to the release.
 - **Changes** — a list of the key changes made.
-- **Type of Change** — mark the relevant option(s): bug fix, new feature, enhancement, refactoring,
-  documentation update, dependency update, or other.
-- **Area(s) Affected** — mark all that apply: Frontend, Backend, Tasks/Quests, Team Features,
-  Hideout, Maps, Traders, API, i18n/Translations, or Other.
 - **Related Issues** — link related issues using keywords (`Fixes #123`, `Closes #456`,
   `Related to #789`).
 - **Testing** — mark how you tested (locally, production-like environment, unit tests, manual) and
   describe your test plan.
 - **Screenshots/Videos** — add screenshots or videos for UI changes.
+- **Documentation impact** — select whether behavior changed and whether docs were updated or a
+  follow-up issue tracks them; tick the documents reviewed.
 - **Checklist** — confirm your code follows conventions, you self-reviewed, documentation is updated,
   no new warnings/errors, tests pass, and breaking changes are checked.
 - **Additional Notes** — anything reviewers should know.
@@ -162,8 +170,8 @@ asks for the following sections. Complete every section:
 5. Your contribution deploys once merged and appears in the next release (with its release note
    under Highlights)!
 
-> The full review gate (including rate-limit handling and out-of-scope deferrals) is in
-> [`../AGENTS.md`](../AGENTS.md) under "Review".
+> The full review gate, including rate-limit handling, is in [`../AGENTS.md`](../AGENTS.md) under
+> "Workflow and review".
 
 For finding and claiming work, see
 [`../.github/CONTRIBUTING.md`](../.github/CONTRIBUTING.md) ("How to Find and Claim Work").

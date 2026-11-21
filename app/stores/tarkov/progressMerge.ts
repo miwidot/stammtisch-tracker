@@ -1,13 +1,20 @@
 import {
+  capApiTaskUpdates,
+  isApiTaskUpdateEntry,
+} from '@tarkovtracker/progress-contracts/apiTaskUpdates';
+import { hasMaterializedProgress } from '@tarkovtracker/progress-contracts/modeProgress';
+import {
   defaultState,
   type ApiTaskUpdate,
   type ApiUpdateMeta,
   type UserProgressData,
   type UserState,
 } from '@/stores/progressState';
+import { deepEqual } from '@/stores/tarkov/deepEqual';
 import { GAME_MODES, type GameMode } from '@/utils/constants';
 import { logger } from '@/utils/logger';
 import {
+  stripLegacyXpOffset,
   sanitizeManualActivityEpoch,
   sanitizeManualActivityHistory,
   sanitizeOwnedProgressData,
@@ -24,6 +31,14 @@ type TimestampedCompletionEntry = { complete?: boolean; timestamp?: number };
 export const coerceGameMode = (mode?: string | null): GameMode => {
   return Object.values(GAME_MODES).includes(mode as GameMode) ? (mode as GameMode) : GAME_MODES.PVP;
 };
+const RESET_CLOCK_KEYS = new Set(['progressEpoch', 'manualActivityEpoch']);
+const DEFAULT_MODE_PROGRESS = defaultState.pvp as unknown as Record<string, unknown>;
+/** True when a mode differs from default progress in anything but its reset clocks. */
+export const hasRetainableModeProgress = (modeData: UserProgressData | undefined): boolean =>
+  hasMaterializedProgress(modeData) &&
+  Object.entries(modeData as UserProgressData).some(
+    ([key, value]) => !RESET_CLOCK_KEYS.has(key) && !deepEqual(value, DEFAULT_MODE_PROGRESS[key])
+  );
 export const hasProgress = (data: unknown): boolean => {
   const state = data as UserState;
   if (!state) return false;
@@ -241,17 +256,8 @@ export const normalizeTaskCompletionsMap = (
   }
   return migrated;
 };
-const API_TASK_STATES = ['completed', 'failed', 'uncompleted'] as const;
-const isApiTaskState = (state: unknown): state is ApiTaskUpdate['state'] => {
-  return API_TASK_STATES.includes(state as ApiTaskUpdate['state']);
-};
-export const normalizeApiTaskUpdates = (updates: ApiUpdateMeta['tasks']): ApiTaskUpdate[] => {
-  if (!Array.isArray(updates)) return [];
-  return updates.filter(
-    (update): update is ApiTaskUpdate =>
-      Boolean(update) && typeof update.id === 'string' && isApiTaskState(update.state)
-  );
-};
+export const normalizeApiTaskUpdates = (updates: ApiUpdateMeta['tasks']): ApiTaskUpdate[] =>
+  Array.isArray(updates) ? updates.filter(isApiTaskUpdateEntry) : [];
 export const normalizeApiUpdateMetaEntry = (value: unknown): ApiUpdateMeta | null => {
   if (!value || typeof value !== 'object') return null;
   const candidate = value as Partial<ApiUpdateMeta>;
@@ -264,13 +270,22 @@ export const normalizeApiUpdateMetaEntry = (value: unknown): ApiUpdateMeta | nul
   ) {
     return null;
   }
-  const tasks = normalizeApiTaskUpdates(candidate.tasks);
+  const { tasks, taskCount } = capApiTaskUpdates(candidate.tasks, candidate.taskCount);
   return {
     at: candidate.at,
     id: candidate.id,
     source: 'api',
     ...(tasks.length ? { tasks } : {}),
+    ...(taskCount !== undefined ? { taskCount } : {}),
   };
+};
+/** Newer entry wins (ties favor `incoming`); the same entry keeps its largest known `taskCount`. */
+const pickApiUpdate = (current: ApiUpdateMeta, incoming: ApiUpdateMeta): ApiUpdateMeta => {
+  if (current.id !== incoming.id || current.at !== incoming.at) {
+    return incoming.at >= current.at ? incoming : current;
+  }
+  const taskCount = Math.max(current.taskCount ?? 0, incoming.taskCount ?? 0);
+  return normalizeApiUpdateMetaEntry({ ...incoming, taskCount }) ?? incoming;
 };
 const normalizeApiUpdateHistoryEntries = (value: unknown): ApiUpdateMeta[] => {
   if (!Array.isArray(value)) return [];
@@ -279,9 +294,7 @@ const normalizeApiUpdateHistoryEntries = (value: unknown): ApiUpdateMeta[] => {
     const normalized = normalizeApiUpdateMetaEntry(entry);
     if (!normalized) continue;
     const existing = deduped.get(normalized.id);
-    if (!existing || normalized.at >= existing.at) {
-      deduped.set(normalized.id, normalized);
-    }
+    deduped.set(normalized.id, existing ? pickApiUpdate(existing, normalized) : normalized);
   }
   return Array.from(deduped.values())
     .sort((a, b) => b.at - a.at)
@@ -330,6 +343,8 @@ export function mergeProgressData(
   remote: UserProgressData | undefined,
   preferNewerCount = false
 ): UserProgressData {
+  local = local ? stripLegacyXpOffset(local) : local;
+  remote = remote ? stripLegacyXpOffset(remote) : remote;
   if (!local && !remote) return {} as UserProgressData;
   if (!local) return structuredClone(remote!);
   if (!remote) return structuredClone(local);
@@ -384,7 +399,7 @@ export function mergeProgressData(
     const normalizedRemote = normalizeApiUpdateMetaEntry(remoteUpdate);
     if (!normalizedLocal) return normalizedRemote ?? undefined;
     if (!normalizedRemote) return normalizedLocal;
-    return normalizedRemote.at >= normalizedLocal.at ? normalizedRemote : normalizedLocal;
+    return pickApiUpdate(normalizedLocal, normalizedRemote);
   };
   const mergedState: UserProgressData = {
     ...local,
@@ -394,7 +409,6 @@ export function mergeProgressData(
     prestigeLevel: Math.max(local.prestigeLevel || 0, remote.prestigeLevel || 0),
     displayName: remote.displayName || local.displayName,
     pmcFaction: remote.pmcFaction || local.pmcFaction,
-    xpOffset: remote.xpOffset !== undefined ? remote.xpOffset : local.xpOffset,
     lastApiUpdate: resolveApiUpdate(local.lastApiUpdate, remote.lastApiUpdate),
     apiUpdateHistory: mergeApiUpdateHistory(local, remote),
     ...mergeManualActivityHistory(local, remote),
@@ -467,3 +481,17 @@ export function mergeProgressData(
     Object.entries(mergedState).filter(([, value]) => value !== undefined)
   ) as UserProgressData;
 }
+/**
+ * Merges two copies of one mode where `preferred` is the newer copy: unions progress like
+ * `mergeProgressData`, but takes single-value fields from `preferred` so its deletions stick.
+ */
+export const mergePreferringSingleValues = (
+  other: UserProgressData,
+  preferred: UserProgressData
+): UserProgressData => ({
+  ...mergeProgressData(other, preferred, true),
+  level: preferred.level,
+  displayName: preferred.displayName,
+  pmcFaction: preferred.pmcFaction,
+  skillOffsets: preferred.skillOffsets,
+});

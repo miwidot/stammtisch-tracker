@@ -122,12 +122,12 @@
         :color="tier.featured ? 'primary' : 'neutral'"
         :variant="tier.featured ? 'solid' : 'soft'"
         size="lg"
-        :loading="(isActiveSubscriber ? manageLoading : checkoutLoading) || !authResolved"
+        :loading="(isSubscribed ? manageLoading : checkoutLoading) || !authResolved"
         :disabled="!authResolved"
-        @click="isActiveSubscriber ? handleManage() : handleCheckout()"
+        @click="isSubscribed ? handleManage() : handleCheckout()"
       >
         {{
-          isActiveSubscriber
+          isSubscribed
             ? t('page.supporter.tier_change_cta', 'Change plan in billing portal')
             : t('page.supporter.tier_cta')
         }}
@@ -158,8 +158,8 @@
   const { locale, t } = useI18n({ useScope: 'global' });
   const { $supabase } = useNuxtApp();
   const {
-    activeTier,
-    isActiveSubscriber,
+    billingSubscription,
+    isSubscribed,
     openBillingPortal,
     createCheckout,
     error: composableError,
@@ -171,10 +171,11 @@
   const authResolved = ref(false);
   const loginLink = '/login?redirect=/supporter';
   const isCurrentTier = computed(
-    () => isActiveSubscriber.value && activeTier.value === props.tier.id
+    () => isSubscribed.value && billingSubscription.value?.tier === props.tier.id
   );
   onMounted(async () => {
     try {
+      await $supabase.ready();
       const { data } = await $supabase.client.auth.getUser();
       currentUserId.value = data?.user?.id ?? null;
     } catch (err) {
@@ -285,8 +286,7 @@
       t('page.supporter.perk_discord'),
       t('page.supporter.perk_tier_role', { tier: t(`page.supporter.tier_${props.tier.id}_name`) }),
       t('page.supporter.perk_api_rate_limit'),
-      t('page.supporter.perk_data_retention'),
-      t('page.supporter.perk_early_access'),
+      t('page.supporter.perk_subscription_retention'),
     ];
     if (props.tier.id === 'timmy' || props.tier.id === 'chad') {
       base.push(t('page.supporter.perk_priority_support'));

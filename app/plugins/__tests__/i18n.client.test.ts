@@ -2,9 +2,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { STORAGE_KEYS } from '@/utils/storageKeys';
 import { serializeUserScopedStorage } from '@/utils/userScopedStorage';
+const mountHooks: Array<() => Promise<void>> = [];
+const hook = (_name: string, callback: () => Promise<void>) => {
+  mountHooks.push(callback);
+};
+const runMountHooks = async () => {
+  for (const callback of mountHooks.splice(0)) await callback();
+};
 describe('i18n-ready plugin', () => {
   beforeEach(() => {
     vi.resetModules();
+    mountHooks.length = 0;
     localStorage.clear();
     Object.defineProperty(window.navigator, 'language', {
       configurable: true,
@@ -24,6 +32,7 @@ describe('i18n-ready plugin', () => {
     const setLocale = vi.fn();
     const plugin = (await import('@/plugins/i18n.client')).default;
     await plugin.setup?.({
+      hook,
       $i18n: {
         global: {
           setLocale,
@@ -35,6 +44,8 @@ describe('i18n-ready plugin', () => {
         },
       },
     } as unknown as Parameters<NonNullable<typeof plugin.setup>>[0]);
+    expect(setLocale).not.toHaveBeenCalled();
+    await runMountHooks();
     expect(setLocale).toHaveBeenCalledWith('en');
   });
   it('applies an anonymous scoped locale while auth hydration is in progress', async () => {
@@ -46,6 +57,7 @@ describe('i18n-ready plugin', () => {
     const setLocale = vi.fn();
     const plugin = (await import('@/plugins/i18n.client')).default;
     await plugin.setup?.({
+      hook,
       $i18n: {
         global: {
           setLocale,
@@ -57,6 +69,8 @@ describe('i18n-ready plugin', () => {
         },
       },
     } as unknown as Parameters<NonNullable<typeof plugin.setup>>[0]);
+    expect(setLocale).not.toHaveBeenCalled();
+    await runMountHooks();
     expect(setLocale).toHaveBeenCalledWith('de');
   });
   it('does not apply a prior user-scoped locale when no session is hydrating', async () => {
@@ -67,6 +81,7 @@ describe('i18n-ready plugin', () => {
     const setLocale = vi.fn();
     const plugin = (await import('@/plugins/i18n.client')).default;
     await plugin.setup?.({
+      hook,
       $i18n: {
         global: {
           setLocale,
@@ -78,6 +93,8 @@ describe('i18n-ready plugin', () => {
         },
       },
     } as unknown as Parameters<NonNullable<typeof plugin.setup>>[0]);
+    expect(setLocale).not.toHaveBeenCalled();
+    await runMountHooks();
     expect(setLocale).toHaveBeenCalledWith('en');
   });
   it('applies a prior user-scoped locale once the matching user is known', async () => {
@@ -88,6 +105,7 @@ describe('i18n-ready plugin', () => {
     const setLocale = vi.fn();
     const plugin = (await import('@/plugins/i18n.client')).default;
     await plugin.setup?.({
+      hook,
       $i18n: {
         global: {
           setLocale,
@@ -99,16 +117,22 @@ describe('i18n-ready plugin', () => {
         },
       },
     } as unknown as Parameters<NonNullable<typeof plugin.setup>>[0]);
+    expect(setLocale).not.toHaveBeenCalled();
+    await runMountHooks();
     expect(setLocale).toHaveBeenCalledWith('de');
   });
-  it('falls back to the app default when the browser locale is not supported by the UI', async () => {
+  it.each([
+    ['Japanese (not offered by the fork)', 'ja-JP'],
+    ['an unsupported language', 'ar-SA'],
+  ])('falls back to the app default German for %s browser locales', async (_label, language) => {
     Object.defineProperty(window.navigator, 'language', {
       configurable: true,
-      value: 'ja-JP',
+      value: language,
     });
     const setLocale = vi.fn();
     const plugin = (await import('@/plugins/i18n.client')).default;
     await plugin.setup?.({
+      hook,
       $i18n: {
         global: {
           setLocale,
@@ -120,6 +144,8 @@ describe('i18n-ready plugin', () => {
         },
       },
     } as unknown as Parameters<NonNullable<typeof plugin.setup>>[0]);
+    expect(setLocale).not.toHaveBeenCalled();
+    await runMountHooks();
     expect(setLocale).toHaveBeenCalledWith('de');
   });
   it('falls back to the app default when a stored override is no longer supported and the browser locale is also unsupported', async () => {
@@ -134,6 +160,7 @@ describe('i18n-ready plugin', () => {
     const setLocale = vi.fn();
     const plugin = (await import('@/plugins/i18n.client')).default;
     await plugin.setup?.({
+      hook,
       $i18n: {
         global: {
           setLocale,
@@ -145,6 +172,7 @@ describe('i18n-ready plugin', () => {
         },
       },
     } as unknown as Parameters<NonNullable<typeof plugin.setup>>[0]);
+    await runMountHooks();
     expect(setLocale).toHaveBeenCalledWith('de');
   });
 });
