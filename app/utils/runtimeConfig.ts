@@ -79,6 +79,9 @@ export const resolveTrackerHandoffUrl = (env: NodeJS.ProcessEnv): string => {
   }
   return configuredUrl;
 };
+/** Aggregate progress metrics have their own opt-in; never enable general browser forwarding. */
+export const resolveProgressDiagnosticSinkUrl = (env: NodeJS.ProcessEnv): string =>
+  resolveEnvValue(env.NUXT_PUBLIC_PROGRESS_DIAGNOSTIC_SINK_URL);
 export const isPagesPreviewHostname = (hostname?: string): boolean => {
   const normalizedHostname = resolveHostname(hostname);
   return normalizedHostname.endsWith('.pages.dev');

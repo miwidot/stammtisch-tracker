@@ -179,6 +179,17 @@ graph TB
     Gateway --> CF
 ```
 
+## Settings navigation
+
+The [player-level card](../app/features/settings/PlayerLevelCard.vue) reserves the translated
+loading hint's height while displaying the current range hint. Loading level metadata can shorten
+that hint; keeping its footprint stable prevents nested `#skills` links below it from moving under
+the fixed header after scrolling. The hidden reservation is excluded from assistive output. Existing
+route scrolling, aliases, refresh and Back/Forward behavior stay in
+[`settings.vue`](../app/pages/settings.vue). The settings navigation
+[browser smoke test](../scripts/preview/smoke/settings-navigation.smoke.mjs) covers the metadata
+transition and verifies geometry after scrolling settles.
+
 ## State Management
 
 ### Three-Store Pattern + Facade
@@ -594,14 +605,15 @@ Placement is enabled for both environments through the top-level `[placement]` b
 
 **Client-side (browser) — Nuxt public runtime config:**
 
-| Variable                                         | Description                                              | Required |
-| ------------------------------------------------ | -------------------------------------------------------- | -------- |
-| `SUPABASE_URL`                                   | Shared Supabase project URL for auth and sync            | Yes¹     |
-| `SUPABASE_ANON_KEY`                              | Shared Supabase anon key for auth and sync               | Yes¹     |
-| `NUXT_PUBLIC_CLIENT_LOG_SINK_URL`                | Optional browser log collector URL (disabled by default) | No       |
-| `NUXT_PUBLIC_LOG_LEVEL`                          | Client log level (debug, info, warn, error)              | No       |
-| `NUXT_PUBLIC_TURNSTILE_SITE_KEY`                 | Turnstile widget sitekey for Tarkov.dev profile imports  | No²      |
-| `NUXT_PUBLIC_TARKOV_DEV_IMPORT_COOLDOWN_MINUTES` | Browser cooldown after a confirmed profile import        | No       |
+| Variable                                         | Description                                                                                         | Required |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------- | -------- |
+| `SUPABASE_URL`                                   | Shared Supabase project URL for auth and sync                                                       | Yes¹     |
+| `SUPABASE_ANON_KEY`                              | Shared Supabase anon key for auth and sync                                                          | Yes¹     |
+| `NUXT_PUBLIC_PROGRESS_DIAGNOSTIC_SINK_URL`       | Optional aggregate progress byte/count collector; independent of general logs (disabled by default) | No       |
+| `NUXT_PUBLIC_CLIENT_LOG_SINK_URL`                | Optional browser log collector URL (disabled by default)                                            | No       |
+| `NUXT_PUBLIC_LOG_LEVEL`                          | Client log level (debug, info, warn, error)                                                         | No       |
+| `NUXT_PUBLIC_TURNSTILE_SITE_KEY`                 | Turnstile widget sitekey for Tarkov.dev profile imports                                             | No²      |
+| `NUXT_PUBLIC_TARKOV_DEV_IMPORT_COOLDOWN_MINUTES` | Browser cooldown after a confirmed profile import                                                   | No       |
 
 > **¹ Required in production.** These shared names are consumed by Nuxt, Pages, Workers, and Edge
 > Functions. Without Supabase configuration, auth, sync, realtime, and team features are unavailable;
@@ -668,6 +680,23 @@ directly from the process environment; see
 | `GA_MEASUREMENT_ID`  | Google Analytics measurement ID        |
 | `CLARITY_PROJECT_ID` | Microsoft Clarity project ID           |
 | `VITE_PERF_DEBUG`    | Client performance timing logs         |
+
+**Analytics privacy:** When analytics integrations are enabled and the Clarity project ID
+is valid, Microsoft Clarity skips documents on `/oauth`, `/oauth/*`, and `/auth/callback`
+(including encoded or case-varied paths). It also skips URLs with credential query or
+hash parameters, including Discord linking callbacks on `/settings`, and documents
+whose same-origin referrer contains one of these sensitive URLs. Malformed URLs also
+skip recording and do not install the router guard, allowing Nuxt's forced initial
+route replacement to finish without reloading the document. On recorded documents,
+the router guard starts a native full page navigation and cancels the
+SPA navigation. If only the fragment changes on the current path and query, it appends
+the existing `_tt_retry` cache-busting parameter to force a new document. This keeps
+the sensitive destination out of the current recorder's
+`pushState`/`replaceState` hooks. The destination still appears in normal browser
+navigation history; its new document skips Clarity. Consent denial alone does not
+prevent URL/referrer collection. Ordinary routes retain SPA navigation and the existing
+analytics consent flow. Skipped documents remain unrecorded until a full page load
+with a benign URL and referrer.
 
 **Supabase Edge Functions** (set in Supabase Dashboard, not Cloudflare Pages):
 

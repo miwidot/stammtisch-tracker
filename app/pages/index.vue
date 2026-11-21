@@ -4,8 +4,8 @@
       <div class="mx-auto max-w-350 xl:max-w-400 2xl:max-w-450">
         <h1 class="sr-only">Tarkov Stammtisch Quest-Tracker</h1>
         <slot name="header" />
-        <DashboardNextActions />
         <DashboardProgressSummary />
+        <DashboardUpNext />
         <div id="dashboard-traders" class="mb-8 scroll-mt-16">
           <div class="mb-4 flex w-full items-center">
             <button

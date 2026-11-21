@@ -1,23 +1,23 @@
 ---
 version: alpha
-name: TarkovTracker
+name: Tarkov Stammtisch Quest-Tracker
 description: Agent-facing design contract for the TarkovTracker Nuxt 4 SPA.
 colors:
-  canvas: '#0a0c10'
-  shell: '#101319'
-  panel: '#12151c'
-  raised: '#151a23'
-  text: '#e6e6e6'
-  text-secondary: '#b7bcc2'
-  text-muted: '#9da2aa'
-  primary: '#00d884'
-  primary-strong: '#00ff9c'
-  secondary: '#1e7777'
-  accent: '#3c83f6'
-  success: '#10b77f'
-  warning: '#f59f0a'
-  error: '#ff3d5e'
-  info: '#00b2ff'
+  canvas: '#0a0b09'
+  shell: '#10110e'
+  panel: '#151612'
+  raised: '#1a1c16'
+  text: '#e0e0de'
+  text-secondary: '#a7a8a5'
+  text-muted: '#777a6b'
+  primary: '#697a3a'
+  primary-strong: '#7d9146'
+  secondary: '#339199'
+  accent: '#6a8a9a'
+  success: '#697a3a'
+  warning: '#b8922a'
+  error: '#a63d3d'
+  info: '#5a7a8a'
   pvp: '#c9bfaa'
   pve: '#5a99b0'
 typography:
@@ -155,6 +155,11 @@ Surface token mapping:
 
 State colors are semantic: `success`, `warning`, `error`, and `info`. Game-mode colors should use
 `pvp` and `pve`, not ad hoc tan or blue classes.
+
+Status count badges use `app/utils/statusTones.ts`; white info/success numerals use deeper fills
+that meet AA in both HSL and OKLCH palettes. Card header and hideout avatar gradients share the
+complete `SemanticColor` mapping in `app/utils/cardHighlights.ts`. Keep its classes literal so
+Tailwind can discover every stop.
 
 Note: Nuxt UI maps its semantic `info` color to the `accent` (muted blue, `#3B82F6`-based) palette in
 `app.config.ts`, so `<UButton color="info">` renders the muted accent blue, while the CSS

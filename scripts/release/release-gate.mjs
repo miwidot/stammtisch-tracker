@@ -1,9 +1,37 @@
+import { queuedRelease } from './release-promotion.mjs';
 import { findReleaseRecovery } from './release-recovery.mjs';
 const CI_PATH = '.github/workflows/ci.yml';
 const MAIN_REF = 'refs/heads/main';
 const FULL_SHA = /^[0-9a-f]{40}$/;
-// Releases are batched: only the weekly schedule or an explicit maintainer dispatch publishes.
+// Daily opportunities catch up missed releases; only one scheduled publication per seven days.
 const RELEASE_EVENTS = new Set(['schedule', 'workflow_dispatch']);
+const RELEASE_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
+function parsePublicationDate(value) {
+  const invalid = () => new Error('Invalid stable release publication date.');
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(value)) throw invalid();
+  const timestamp = Date.parse(value);
+  if (
+    !Number.isFinite(timestamp) ||
+    new Date(timestamp).toISOString() !== value.replace('Z', '.000Z')
+  )
+    throw invalid();
+  return timestamp;
+}
+function publicationTime(release) {
+  if (release.draft || release.prerelease) return 0;
+  return parsePublicationDate(release.published_at);
+}
+async function scheduledCooldown({ github, context, now }) {
+  if (context.eventName !== 'schedule') return null;
+  const releases = await github.paginate(github.rest.repos.listReleases, {
+    ...context.repo,
+    per_page: 100,
+  });
+  const latest = Math.max(0, ...releases.map(publicationTime));
+  if (!latest || now >= latest + RELEASE_INTERVAL_MS) return null;
+  const due = new Date(latest + RELEASE_INTERVAL_MS).toISOString();
+  return `Weekly release is not due until ${due}; recent stable publication includes manual releases.`;
+}
 function mainCiRun(run) {
   return ['push', 'workflow_dispatch'].includes(run?.event) && run.head_branch === 'main';
 }
@@ -28,8 +56,14 @@ function explicitlySkipsAutomation(run) {
  * and reused by reruns, so interrupted publication can still identify the original commit.
  */
 function candidateSha(context) {
-  const releaseRun = RELEASE_EVENTS.has(context.eventName) && context.ref === MAIN_REF;
-  return releaseRun && FULL_SHA.test(String(context.sha)) ? context.sha : null;
+  if (context.ref !== MAIN_REF) return null;
+  if (![...RELEASE_EVENTS, 'workflow_run'].includes(context.eventName)) return null;
+  const sha = eventSha(context);
+  return FULL_SHA.test(String(sha)) ? sha : null;
+}
+function eventSha(context) {
+  if (context.eventName === 'workflow_run') return context.payload.workflow_run?.head_sha;
+  return context.sha;
 }
 // A rerun keeps its run id but restarts, so order by the latest attempt's start time, then id.
 function latestAttempt(a, b) {
@@ -56,18 +90,33 @@ function ciProblem(run) {
   if (explicitlySkipsAutomation(run)) return 'The commit skips automation.';
   return null;
 }
+async function publicationProblem(evidence) {
+  const cooldown = await scheduledCooldown(evidence);
+  if (cooldown) return cooldown;
+  const problem = await mainValidationProblem(evidence);
+  return problem ? `${problem} Publication is not authorized.` : null;
+}
 // Re-read CI and main each time: a CI rerun or a newer merge can supersede the candidate.
-export async function releaseEligibility({ github, context, allowRecovery = false }) {
+export async function releaseEligibility({
+  github,
+  context,
+  allowRecovery = false,
+  validatePromotion = false,
+  now = Date.now(),
+}) {
   const skip = (reason) => ({ release: false, reason });
-  const sha = candidateSha(context);
-  if (!sha) return skip('Only scheduled or dispatched release runs on main may publish.');
-  const problem = ciProblem(await latestCiRun({ github, context, sha }));
-  if (problem) return skip(`${problem} Publication is not authorized.`);
+  const sha = await validatedCandidateSha(github, context);
+  if (!sha)
+    return skip(
+      'Only scheduled/dispatched main preparation or trusted main CI finalization may publish.'
+    );
+  const problem = await publicationProblem({ github, context, sha, now });
+  if (problem) return skip(problem);
   const { data: main } = await github.rest.git.getRef({ ...context.repo, ref: 'heads/main' });
   if (main.object.sha !== sha) {
     return staleMain({ github, context, baseSha: sha, sha: main.object.sha }, allowRecovery);
   }
-  return { release: true, sha, reason: `Release validated main commit ${sha}.` };
+  return currentRelease({ github, context, sha, validatePromotion });
 }
 // A retry can resume publication only for the exact validated version child, never arbitrary main.
 async function staleMain(evidence, allowRecovery) {
@@ -83,4 +132,49 @@ async function staleMain(evidence, allowRecovery) {
     recovery,
     reason: `Recover validated release ${recovery.version} at ${recovery.sha}.`,
   };
+}
+async function currentRelease({ github, context, sha, validatePromotion }) {
+  const promotion = await queuedRelease({
+    github,
+    context,
+    sha,
+    requireValidation: validatePromotion,
+  });
+  if (promotion) return promotion;
+  if (!RELEASE_EVENTS.has(context.eventName))
+    return {
+      release: false,
+      reason:
+        'Main CI wakeups finalize only pending reviewed versions; preparation retains schedule/dispatch cadence.',
+    };
+  return { release: true, sha, reason: `Release validated main commit ${sha}.` };
+}
+/** Shared read-only main CI proof for the operator's local recovery preparation. */
+export async function mainValidationProblem(evidence) {
+  return ciProblem(await latestCiRun(evidence));
+}
+async function trustedFinalizationWakeup(github, context, sha) {
+  if (context.eventName !== 'workflow_run') return true;
+  const source = context.payload.workflow_run;
+  if (!Number.isSafeInteger(source.id)) return false;
+  const { data: run } = await github.rest.actions.getWorkflowRun({
+    ...context.repo,
+    run_id: source.id,
+  });
+  return verifiedFinalizationRun(run, source, context.payload.repository.id, sha);
+}
+function verifiedFinalizationRun(run, source, repositoryId, sha) {
+  return [
+    run.id === source.id,
+    run.run_attempt === source.run_attempt,
+    trustedRun(run, repositoryId, sha),
+    completedSuccessfully(run),
+    !explicitlySkipsAutomation(run),
+  ].every(Boolean);
+}
+async function validatedCandidateSha(github, context) {
+  const sha = candidateSha(context);
+  if (!sha) return null;
+  if (!(await trustedFinalizationWakeup(github, context, sha))) return null;
+  return sha;
 }

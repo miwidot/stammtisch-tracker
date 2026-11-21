@@ -1,3 +1,5 @@
+import { controlPreviewRecords } from './control-intents.mjs';
+import { selectPreviewAuthorization, previewAuthorizationRequest } from './intent-policy.mjs';
 const COMMANDS = new Map([
   ['/preview', true],
   ['/preview stop', false],
@@ -245,21 +247,17 @@ async function effectiveCommand(github, repo, comment, permissions, comments, ed
  * later successful revisions refresh automatically. A later /preview stop revokes that intent.
  * Exhaust pagination before choosing a command; a newer stop must never be hidden by a page cap.
  */
-export async function readPreviewRequest(github, repo, pullRequest, boundCommentId = null) {
+async function readCommentPreviewRequest(github, repo, pullRequest, boundCommentId = null) {
   // Commands predating rollout activation used the one-revision contract and must never become
   // standing grants. Unset configuration falls back to the contract start; malformed values fail.
   const enabledAt = previewRolloutStart();
   if (![Boolean(pullRequest), Number.isFinite(enabledAt)].every(Boolean)) return null;
-  const comments = await github.paginate(github.rest.issues.listComments, {
-    ...repo,
-    issue_number: pullRequest,
-    per_page: 100,
-  });
-  const editTimes = await readCommentEditTimes(github, repo, pullRequest);
-  assertMatchingCommentSnapshots(comments, editTimes);
-  const originalCommands = comments
-    .filter((comment) => originalCommand(comment, enabledAt, editTimes))
-    .toSorted((a, b) => b.id - a.id);
+  const { comments, editTimes, originalCommands } = await commentEvidence(
+    github,
+    repo,
+    pullRequest,
+    enabledAt
+  );
   const commands = originalCommands.filter((comment) =>
     retainedForBinding(comment, boundCommentId)
   );
@@ -319,5 +317,75 @@ function retainedForBinding(comment, boundCommentId) {
     !boundCommentId ||
     comment.id === boundCommentId ||
     (comment.id > boundCommentId && previewCommand(comment.body) === false)
+  );
+}
+const COMMENT_SNAPSHOT_ATTEMPTS = 3;
+/** A comment posted between the two reads is ordinary activity, so re-read before failing closed. */
+async function matchingCommentSnapshots(github, repo, pullRequest) {
+  for (let attempt = 1; ; attempt += 1) {
+    const comments = await github.paginate(github.rest.issues.listComments, {
+      ...repo,
+      issue_number: pullRequest,
+      per_page: 100,
+    });
+    const editTimes = await readCommentEditTimes(github, repo, pullRequest);
+    if (attempt === COMMENT_SNAPSHOT_ATTEMPTS || snapshotsMatch(comments, editTimes)) {
+      assertMatchingCommentSnapshots(comments, editTimes);
+      return { comments, editTimes };
+    }
+  }
+}
+function snapshotsMatch(comments, editTimes) {
+  try {
+    assertMatchingCommentSnapshots(comments, editTimes);
+    return true;
+  } catch {
+    return false;
+  }
+}
+async function commentEvidence(github, repo, pullRequest, enabledAt) {
+  const { comments, editTimes } = await matchingCommentSnapshots(github, repo, pullRequest);
+  const originalCommands = comments
+    .filter((comment) => originalCommand(comment, enabledAt, editTimes))
+    .toSorted((a, b) => b.id - a.id);
+  return { comments, editTimes, originalCommands };
+}
+async function trustedCommentRecords(github, repo, pullRequest) {
+  const enabledAt = previewRolloutStart();
+  if (![Boolean(pullRequest), Number.isFinite(enabledAt)].every(Boolean)) return [];
+  const { comments, editTimes, originalCommands } = await commentEvidence(
+    github,
+    repo,
+    pullRequest,
+    enabledAt
+  );
+  const permissions = new Map();
+  const records = [];
+  for (const comment of originalCommands) {
+    if (!(await effectiveCommand(github, repo, comment, permissions, comments, editTimes)))
+      continue;
+    records.push({
+      kind: 'comment',
+      key: `comment-${comment.id}`,
+      sequence: comment.id,
+      at: comment.created_at,
+      request: commandIdentity(comment),
+    });
+  }
+  return records;
+}
+export async function readPreviewAuthorization(github, repo, pullRequest, options = {}) {
+  const controls = await controlPreviewRecords(github, repo, pullRequest, options);
+  const comments = await trustedCommentRecords(github, repo, pullRequest);
+  return selectPreviewAuthorization([...controls, ...comments]);
+}
+export async function readPreviewRequest(github, repo, pullRequest, boundCommentId = null) {
+  const controls = await controlPreviewRecords(github, repo, pullRequest);
+  if (controls.length === 0)
+    return readCommentPreviewRequest(github, repo, pullRequest, boundCommentId);
+  const comments = await trustedCommentRecords(github, repo, pullRequest);
+  return previewAuthorizationRequest(
+    selectPreviewAuthorization([...controls, ...comments]),
+    boundCommentId
   );
 }

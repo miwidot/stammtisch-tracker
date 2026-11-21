@@ -1,4 +1,4 @@
-import { writeToClipboard } from '@/composables/useCopyToClipboard';
+import { useCopyToClipboard, writeToClipboard } from '@/composables/useCopyToClipboard';
 import { useWikiLink } from '@/composables/useWikiLink';
 import { openExternalUrl } from '@/utils/redirect';
 import type { Task } from '@/types/tarkov';
@@ -25,6 +25,7 @@ export function useTaskCardLinks(options: UseTaskCardLinksOptions): UseTaskCardL
   const { task } = options;
   const router = useRouter();
   const { toWikiUrl } = useWikiLink();
+  const { copyToClipboard } = useCopyToClipboard();
   const selectedItem = ref<SelectedTaskItem | null>(null);
   const tarkovDevTaskUrl = computed(() => `https://tarkov.dev/task/${task().id}`);
   const copyTextToClipboard = async (text: string): Promise<boolean> => {
@@ -32,7 +33,7 @@ export function useTaskCardLinks(options: UseTaskCardLinksOptions): UseTaskCardL
   };
   const copyTaskLink = async (): Promise<boolean> => {
     const href = router.resolve(`/tasks?task=${task().id}`).href;
-    return copyTextToClipboard(`${window.location.origin}${href}`);
+    return copyToClipboard(`${window.location.origin}${href}`, { revealValue: false });
   };
   const openTaskWiki = () => {
     const wikiLink = toWikiUrl(task().wikiLink);
