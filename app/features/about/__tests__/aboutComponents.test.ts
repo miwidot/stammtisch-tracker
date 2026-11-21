@@ -22,13 +22,10 @@ const global = {
   },
 };
 describe('about member presentation', () => {
-  it('shows a decorative avatar and safe profile link, falling back after an image error', async () => {
+  it('shows a monogram and a safe profile link, never a remote GitHub avatar', () => {
     const wrapper = mount(AboutMemberCard, { props: { member }, global });
-    expect(wrapper.get('img').attributes()).toMatchObject({
-      src: 'https://github.com/maintainer.png?size=96',
-      alt: '',
-      loading: 'lazy',
-    });
+    expect(wrapper.find('img').exists()).toBe(false);
+    expect(wrapper.html()).not.toContain('.png');
     expect(wrapper.get('a').attributes()).toMatchObject({
       href: 'https://github.com/maintainer',
       target: '_blank',
@@ -36,8 +33,6 @@ describe('about member presentation', () => {
     });
     expect(wrapper.text()).toContain(member.roleKey);
     expect(wrapper.get('span.border').classes()).toContain('text-primary-300');
-    await wrapper.get('img').trigger('error');
-    expect(wrapper.find('img').exists()).toBe(false);
     expect(wrapper.get('span[aria-hidden="true"]').text()).toBe('M');
   });
   it('shows an unlinked monogram for support members without verified profiles', () => {

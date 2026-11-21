@@ -1,12 +1,12 @@
 // @vitest-environment happy-dom
 import { formatWithOptions } from 'node:util';
 import { mockNuxtImport } from '@nuxt/test-utils/runtime';
-import { createFetch } from 'ofetch';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BASE_SITE_CONTEXT, createRouterStub } from '@/server/utils/__tests__/eventStubs';
 import type { H3Event } from 'h3';
 const {
   mockComputeStreamerKappaMetrics,
+  mockFetchOverlay,
   mockGetRequestHeader,
   mockGetRouterParam,
   mockProcessTaskData,
@@ -14,6 +14,7 @@ const {
   mockUseRuntimeConfig,
 } = vi.hoisted(() => ({
   mockComputeStreamerKappaMetrics: vi.fn(),
+  mockFetchOverlay: vi.fn(),
   mockGetRequestHeader: vi.fn(),
   mockGetRouterParam: vi.fn(),
   mockProcessTaskData: vi.fn(),
@@ -35,6 +36,7 @@ vi.mock('@/composables/useGraphBuilder', () => ({
     processTaskData: mockProcessTaskData,
   }),
 }));
+vi.mock('@/server/utils/overlay', () => ({ fetchOverlay: mockFetchOverlay }));
 vi.mock('@/server/utils/streamerKappa', () => ({
   computeStreamerKappaMetrics: mockComputeStreamerKappaMetrics,
 }));
@@ -48,6 +50,22 @@ describe('Streamer Kappa API', () => {
     vi.resetAllMocks();
     vi.resetModules();
     vi.stubEnv('OVERLAY_TOKEN', '');
+    mockFetchOverlay.mockResolvedValue({
+      overlay: {
+        editions: {
+          standard: {
+            defaultCultistCircleLevel: 0,
+            defaultStashLevel: 1,
+            excludedTaskIds: [],
+            id: 'standard',
+            title: 'Standard',
+            traderRepBonus: {},
+            value: 4,
+          },
+        },
+      },
+      meta: { status: 'fresh', sourceUrl: 'https://overlay.example.test/overlay.json' },
+    });
     mockUseRuntimeConfig.mockReturnValue({ public: { appUrl: 'https://tarkovtracker.org' } });
     mockEvent = {
       context: {
@@ -109,21 +127,6 @@ describe('Streamer Kappa API', () => {
         if (input === '/api/tarkov/tasks-objectives') {
           return { data: { tasks: [{ id: 'task-1', failConditions: [], objectives: [] }] } };
         }
-        if (input.includes('tarkov-data-overlay/main/dist/overlay.json')) {
-          return {
-            editions: {
-              standard: {
-                defaultCultistCircleLevel: 0,
-                defaultStashLevel: 1,
-                excludedTaskIds: [],
-                id: 'standard',
-                title: 'Standard',
-                traderRepBonus: {},
-                value: 4,
-              },
-            },
-          };
-        }
         throw new Error(`Unexpected fetch: ${input}`);
       });
       const { default: handler } = await import('@/server/api/streamer/[userId]/[mode]/kappa.get');
@@ -156,12 +159,11 @@ describe('Streamer Kappa API', () => {
         'no-store, max-age=0'
       );
       expect(mockComputeStreamerKappaMetrics).toHaveBeenCalled();
-      expect(mockDollarFetch).toHaveBeenCalledWith(
-        expect.stringContaining('tarkov-data-overlay/main/dist/overlay.json'),
-        {
-          headers: overlayToken ? { Authorization: `Bearer ${overlayToken}` } : {},
-          redirect: 'error',
-        }
+      // The editions come from the configured overlay source; no request is aimed at a hardcoded
+      // upstream host and nothing but the profile and catalog routes goes through $fetch.
+      expect(mockFetchOverlay).toHaveBeenCalledTimes(1);
+      expect(mockDollarFetch.mock.calls.every(([input]) => String(input).startsWith('/api/'))).toBe(
+        true
       );
       expect(result).toMatchObject({
         displayName: 'PublicPlayer',
@@ -173,28 +175,19 @@ describe('Streamer Kappa API', () => {
       });
     }
   );
-  it('does not log the configured token when the overlay request fails', async () => {
+  it('does not log the configured token when the overlay is unavailable', async () => {
     const token = 'overlay-test-sentinel';
     vi.stubEnv('OVERLAY_TOKEN', token);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const logSinkFetch = vi
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(new Response(null, { status: 204 }));
-    mockUseRuntimeConfig.mockReturnValue({
-      logSinkUrl: 'https://logs.example.com/',
-      public: { appUrl: 'https://tarkovtracker.org' },
+    mockFetchOverlay.mockResolvedValue({
+      overlay: null,
+      meta: {
+        status: 'missing',
+        sourceUrl: 'https://overlay.example.test/overlay.json',
+        error: 'HTTP 403',
+      },
     });
-    const failedOverlayFetch = createFetch({
-      fetch: vi
-        .fn()
-        .mockResolvedValue(new Response(null, { status: 403, statusText: 'Forbidden' })),
-      Headers,
-      AbortController,
-    });
-    mockDollarFetch.mockImplementation(async (input: string, options) => {
-      if (input.includes('tarkov-data-overlay/main/dist/overlay.json')) {
-        return failedOverlayFetch(input, options);
-      }
+    mockDollarFetch.mockImplementation(async (input: string) => {
       if (input === `/api/profile/${USER_ID}/pvp`) {
         return { data: {}, gameEdition: 4, mode: 'pvp', userId: USER_ID, visibility: 'public' };
       }
@@ -202,23 +195,30 @@ describe('Streamer Kappa API', () => {
     });
     const { default: handler } = await import('@/server/api/streamer/[userId]/[mode]/kappa.get');
     await handler(mockEvent as H3Event);
-    expect(mockDollarFetch).toHaveBeenCalledWith(
-      expect.stringContaining('tarkov-data-overlay/main/dist/overlay.json'),
-      { headers: { Authorization: `Bearer ${token}` }, redirect: 'error' }
-    );
     expect(warn).toHaveBeenCalledWith(
       '[StreamerKappaApi]',
-      'Failed to fetch editions overlay for streamer metrics',
-      expect.any(Error)
+      'Editions overlay unavailable for streamer metrics',
+      'HTTP 403'
     );
     const logged = warn.mock.calls.map((args) => formatWithOptions({}, ...args)).join('\n');
     expect(logged).not.toContain(token);
-    expect(logSinkFetch).toHaveBeenCalledWith(
-      'https://logs.example.com/',
-      expect.objectContaining({ method: 'POST' })
+  });
+  it('never calls an upstream overlay host itself, even when the configured overlay fails', async () => {
+    const hostFetch = vi.spyOn(globalThis, 'fetch');
+    mockFetchOverlay.mockRejectedValue(new Error('boom'));
+    mockDollarFetch.mockImplementation(async (input: string) => {
+      if (input === `/api/profile/${USER_ID}/pvp`) {
+        return { data: {}, gameEdition: 4, mode: 'pvp', userId: USER_ID, visibility: 'public' };
+      }
+      return { data: { tasks: [] } };
+    });
+    const { default: handler } = await import('@/server/api/streamer/[userId]/[mode]/kappa.get');
+    await handler(mockEvent as H3Event);
+    expect(hostFetch).not.toHaveBeenCalled();
+    expect(mockDollarFetch.mock.calls.some(([input]) => /^https?:/.test(String(input)))).toBe(
+      false
     );
-    const sinkBodies = logSinkFetch.mock.calls.map(([, init]) => String(init?.body)).join('\n');
-    expect(sinkBodies).not.toContain(token);
+    hostFetch.mockRestore();
   });
   it('conceals legacy private shared profile errors with the generic not-found response', async () => {
     mockDollarFetch.mockRejectedValueOnce({

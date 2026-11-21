@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { isLoopbackHostname, normalizeSupabaseUrl } from '@/server/utils/adminSupabase';
+import { normalizeSupabaseUrl } from '@/server/utils/adminSupabase';
+import { isLoopbackHostname } from '@/server/utils/loopbackHost';
 describe('normalizeSupabaseUrl', () => {
   it.each([
     ['https://abc.supabase.co', 'https://abc.supabase.co'],

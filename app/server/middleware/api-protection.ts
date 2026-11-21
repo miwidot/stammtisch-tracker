@@ -44,7 +44,11 @@ function isPublicRoute(pathname: string, publicRoutes: string[]): boolean {
 // The strict Siteverify relay is public by design and survives API_PUBLIC_ROUTES overrides: it
 // only validates a browser Turnstile token with Cloudflare and mints no application clearance;
 // its strict rate limiting lives in the route handler itself.
-const INVARIANT_PUBLIC_ROUTES = ['/api/security/tarkov-verify'];
+//
+// Fork: `/api/_nuxt_icon/*` serves the bundled icon collections to every visitor, signed-in or
+// not (the login page needs icons too). It carries no user data; without this entry an anonymous
+// 401 made the client look for icons elsewhere.
+const INVARIANT_PUBLIC_ROUTES = ['/api/security/tarkov-verify', '/api/_nuxt_icon/*'];
 function isAlwaysProtectedRoute(_pathname: string): boolean {
   return false;
 }

@@ -19,6 +19,8 @@ const {
 }));
 mockNuxtImport('useRuntimeConfig', () => useRuntimeConfigMock);
 vi.mock('h3', () => ({
+  createError: (input: { statusCode: number; statusMessage: string }) =>
+    Object.assign(new Error(input.statusMessage), input),
   defineEventHandler: (handler: unknown) => handler,
   getQuery: getQueryMock,
   setResponseHeaders: setResponseHeadersMock,
@@ -43,7 +45,10 @@ describe('/api/twitch/live', () => {
     errorMock.mockClear();
     getQueryMock.mockReset();
     setResponseHeadersMock.mockReset();
-    useRuntimeConfigMock.mockReturnValue({ twitchClientId: 'test-client-id' });
+    useRuntimeConfigMock.mockReturnValue({
+      twitchClientId: 'test-client-id',
+      twitchLiveEndpointEnabled: true,
+    });
     vi.stubGlobal('fetch', fetchMock);
   });
   afterEach(() => {
@@ -157,5 +162,25 @@ describe('/api/twitch/live', () => {
     fetchMock.mockRejectedValue(new Error('network down'));
     const handler = await loadHandler();
     expect(await handler({})).toEqual({ isLive: false });
+  });
+  it.each([undefined, false, null, 'true', 1, 0, ''])(
+    'answers 404 and never contacts Twitch unless the fork flag is exactly true (%j)',
+    async (flag) => {
+      useRuntimeConfigMock.mockReturnValue({
+        twitchClientId: 'test-client-id',
+        twitchLiveEndpointEnabled: flag,
+      });
+      getQueryMock.mockReturnValue({ channel: 'teststreamer' });
+      const handler = await loadHandler();
+      await expect(handler({})).rejects.toMatchObject({ statusCode: 404 });
+      expect(fetchMock).not.toHaveBeenCalled();
+    }
+  );
+  it('answers 404 before validating the channel when disabled', async () => {
+    useRuntimeConfigMock.mockReturnValue({ twitchClientId: 'x' });
+    getQueryMock.mockReturnValue({ channel: '' });
+    const handler = await loadHandler();
+    await expect(handler({})).rejects.toMatchObject({ statusCode: 404 });
+    expect(setResponseHeadersMock).not.toHaveBeenCalled();
   });
 });

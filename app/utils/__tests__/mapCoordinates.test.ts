@@ -6,7 +6,6 @@ import {
   getLeafletBounds,
   getSvgOverlayBounds,
   getMapSvgCdnUrl,
-  getMapSvgFallbackUrl,
   isValidMapSvgConfig,
   latLngToGame,
   resolveFloorTilePath,
@@ -229,25 +228,14 @@ describe('mapCoordinates', () => {
       expect(getMapSvgCdnUrl('', '')).toBe('https://assets.tarkov.dev/maps/svg/-.svg');
     });
   });
-  describe('getMapSvgFallbackUrl', () => {
-    it('builds correct fallback URL', () => {
-      expect(getMapSvgFallbackUrl('customs.svg')).toBe(
-        'https://tarkovtracker.github.io/tarkovdata/maps/customs.svg'
-      );
+  describe('map SVG hosts', () => {
+    it('has no upstream GitHub Pages fallback helper any more', async () => {
+      const module = await import('@/utils/mapCoordinates');
+      expect('getMapSvgFallbackUrl' in module).toBe(false);
     });
-    it('handles filenames with spaces by URL-encoding them', () => {
-      expect(getMapSvgFallbackUrl('customs east.svg')).toBe(
-        'https://tarkovtracker.github.io/tarkovdata/maps/customs%20east.svg'
-      );
-    });
-    it('handles empty string', () => {
-      expect(getMapSvgFallbackUrl('')).toBe('https://tarkovtracker.github.io/tarkovdata/maps/');
-    });
-    it('encodes already-encoded filenames (double encoding per contract)', () => {
-      // Per the new contract, filename is always encoded, so pre-encoded input gets encoded again
-      const preEncoded = 'customs%20east.svg';
-      expect(getMapSvgFallbackUrl(preEncoded)).toBe(
-        'https://tarkovtracker.github.io/tarkovdata/maps/customs%2520east.svg'
+    it('only ever builds assets.tarkov.dev URLs', () => {
+      expect(getMapSvgCdnUrl('customs', 'Ground_Level')).toMatch(
+        /^https:\/\/assets\.tarkov\.dev\//
       );
     });
   });

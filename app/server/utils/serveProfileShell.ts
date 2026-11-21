@@ -25,8 +25,6 @@ export const serveProfileShell = async (event: H3Event, accepts: (pathname: stri
     'Content-Security-Policy': buildAppContentSecurityPolicy({
       supabaseUrl: config.supabaseUrl,
       clientLogSinkUrl: config.clientLogSinkUrl,
-      gaMeasurementId: config.googleAnalyticsMeasurementId,
-      clarityInstrumentationKey: config.microsoftClarityProjectId,
       turnstileSiteKey: config.turnstileSiteKey || config.tarkovAccessSiteKey,
     }),
   });

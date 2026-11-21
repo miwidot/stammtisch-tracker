@@ -31,6 +31,7 @@ import {
   usableCounterDerivations,
 } from './overlayCounters';
 import { mergeOverlayRecords, overlayEntries, scopedOverlay } from './overlayProjectors';
+import { fetchOverlaySource, parseOverlaySourceUrl } from './overlaySource';
 import { attachTraderTaskGroups } from './overlayTaskGroups';
 import { validateOverlayData, unknownOverlaySections } from './overlayValidation';
 import { TARKOVTRACKER_USER_AGENT } from './userAgent';
@@ -69,16 +70,9 @@ const DEFAULT_OVERLAY_URL =
 const OVERLAY_PROTOCOL = 'https:';
 const MAX_OVERLAY_REDIRECTS = 3;
 const OVERLAY_REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+// Fork: https, loopback http or an allowlisted local file (see overlaySource.ts).
 function resolveOverlayUrl(value: string | undefined): string {
-  const candidate = value ? value.trim() : DEFAULT_OVERLAY_URL;
-  let url: URL;
-  try {
-    url = new URL(candidate);
-  } catch {
-    return DEFAULT_OVERLAY_URL;
-  }
-  if (url.protocol !== OVERLAY_PROTOCOL) return DEFAULT_OVERLAY_URL;
-  return url.toString();
+  return parseOverlaySourceUrl(value ?? DEFAULT_OVERLAY_URL) ?? DEFAULT_OVERLAY_URL;
 }
 const OVERLAY_URL = resolveOverlayUrl(process.env.OVERLAY_URL);
 const OVERLAY_CACHE_BUSTER = process.env.OVERLAY_CACHE_BUSTER?.trim();
@@ -136,7 +130,7 @@ async function fetchOverlayOverHttps(signal: AbortSignal, purgedAt: number): Pro
   if (purgedAt) url.searchParams.set('tarkovPurge', String(purgedAt));
   let currentUrl = url.toString();
   for (let hop = 0; hop <= MAX_OVERLAY_REDIRECTS; hop += 1) {
-    const response = await fetch(currentUrl, {
+    const response = await fetchOverlaySource(currentUrl, {
       signal,
       redirect: 'manual',
       ...(purgedAt ? { cache: 'no-store' as const } : {}),

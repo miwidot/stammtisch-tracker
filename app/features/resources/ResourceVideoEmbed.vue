@@ -3,12 +3,13 @@
     class="overflow-hidden rounded-xl border border-white/10 bg-black shadow-[0_10px_40px_rgba(0,0,0,0.35)]"
   >
     <div v-if="!isLoaded" class="relative aspect-video w-full">
-      <NuxtImg
-        :src="`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`"
-        :alt="title"
-        class="absolute inset-0 h-full w-full object-cover"
-        loading="lazy"
-      />
+      <!-- Fork: no thumbnail request to YouTube until the visitor clicks play. -->
+      <div
+        class="from-surface-900 absolute inset-0 flex items-end bg-linear-to-br to-black p-4"
+        aria-hidden="true"
+      >
+        <span class="text-surface-300 line-clamp-2 text-sm font-medium">{{ title }}</span>
+      </div>
       <button
         type="button"
         class="group focus-visible:ring-primary-400/40 absolute inset-0 flex h-full w-full cursor-pointer items-center justify-center bg-black/30 transition-colors hover:bg-black/40 focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"

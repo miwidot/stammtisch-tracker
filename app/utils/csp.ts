@@ -2,14 +2,11 @@ export type ContentSecurityPolicyOptions = {
   allowUnsafeInlineScripts?: boolean;
   clientLogSinkUrl?: string;
   progressDiagnosticSinkUrl?: string;
-  clarityInstrumentationKey?: string;
-  gaMeasurementId?: string;
   supabaseUrl?: string;
   turnstileSiteKey?: string;
 };
 const TURNSTILE_CSP_ORIGIN = 'https://challenges.cloudflare.com';
 const YOUTUBE_EMBED_ORIGIN = 'https://www.youtube-nocookie.com';
-const GITHUB_IMAGE_ORIGINS = ['https://avatars.githubusercontent.com', 'https://github.com'];
 const hasConfiguredValue = (value: string | undefined): boolean => Boolean(value?.trim());
 const isLocalHttpHost = (hostname: string): boolean => {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
@@ -57,61 +54,35 @@ const getDefaultSrcSources = (): string[] => {
   return getUniqueSources(["'self'"]);
 };
 const getFontSrcSources = (): string[] => {
-  return getUniqueSources(["'self'", 'data:', 'https://fonts.gstatic.com']);
+  return getUniqueSources(["'self'", 'data:']);
 };
 const getOverlayScriptSrcSources = (options: ContentSecurityPolicyOptions = {}): string[] => {
   return getUniqueSources([options.allowUnsafeInlineScripts ? "'unsafe-inline'" : "'none'"]);
 };
 const getScriptSrcSources = (options: ContentSecurityPolicyOptions = {}): string[] => {
-  const hasGoogleAnalytics = hasConfiguredValue(options.gaMeasurementId);
-  const hasMicrosoftClarity = hasConfiguredValue(options.clarityInstrumentationKey);
   return getUniqueSources([
     "'self'",
     options.allowUnsafeInlineScripts ? "'unsafe-inline'" : null,
-    'https://static.cloudflareinsights.com',
     'https://player.twitch.tv',
     hasConfiguredValue(options.turnstileSiteKey) ? TURNSTILE_CSP_ORIGIN : null,
-    hasGoogleAnalytics ? 'https://*.googletagmanager.com' : null,
-    hasMicrosoftClarity ? 'https://*.clarity.ms' : null,
-    hasMicrosoftClarity ? 'https://c.bing.com' : null,
   ]);
 };
 export const getConnectSrcSources = (options: ContentSecurityPolicyOptions = {}): string[] => {
-  const hasGoogleAnalytics = hasConfiguredValue(options.gaMeasurementId);
-  const hasMicrosoftClarity = hasConfiguredValue(options.clarityInstrumentationKey);
   return getUniqueSources([
     "'self'",
-    'https://cloudflareinsights.com',
-    hasGoogleAnalytics ? 'https://*.googletagmanager.com' : null,
-    hasGoogleAnalytics ? 'https://*.google-analytics.com' : null,
-    hasGoogleAnalytics ? 'https://*.analytics.google.com' : null,
-    hasMicrosoftClarity ? 'https://*.clarity.ms' : null,
-    hasMicrosoftClarity ? 'https://c.bing.com' : null,
-    'https://api.iconify.design',
-    'https://raw.githubusercontent.com',
     'https://assets.tarkov.dev',
-    'https://tarkovtracker.github.io',
-    'https://*.supabase.co',
-    'wss://*.supabase.co',
     getCspOrigin(options.clientLogSinkUrl),
     getCspOrigin(options.progressDiagnosticSinkUrl),
     getCspOrigin(options.supabaseUrl),
     getWebSocketCspOrigin(options.supabaseUrl),
   ]);
 };
-export const getImgSrcSources = (options: ContentSecurityPolicyOptions = {}): string[] => {
-  const hasGoogleAnalytics = hasConfiguredValue(options.gaMeasurementId);
-  const hasMicrosoftClarity = hasConfiguredValue(options.clarityInstrumentationKey);
+export const getImgSrcSources = (): string[] => {
   return getUniqueSources([
     "'self'",
     'data:',
     'https:',
-    hasGoogleAnalytics ? 'https://*.googletagmanager.com' : null,
-    hasGoogleAnalytics ? 'https://*.google-analytics.com' : null,
-    hasMicrosoftClarity ? 'https://*.clarity.ms' : null,
-    hasMicrosoftClarity ? 'https://c.bing.com' : null,
     'https://cdn.discordapp.com',
-    ...GITHUB_IMAGE_ORIGINS,
     'https://assets.tarkov.dev',
   ]);
 };
@@ -124,7 +95,7 @@ const getFrameSrcSources = (options: ContentSecurityPolicyOptions = {}): string[
   ]);
 };
 const getStyleSrcSources = (): string[] => {
-  return getUniqueSources(["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com']);
+  return getUniqueSources(["'self'", "'unsafe-inline'"]);
 };
 export const buildContentSecurityPolicy = (options: ContentSecurityPolicyOptions = {}): string => {
   return [
@@ -132,7 +103,7 @@ export const buildContentSecurityPolicy = (options: ContentSecurityPolicyOptions
     `script-src ${getScriptSrcSources(options).join(' ')}`,
     `worker-src blob: 'self'`,
     `connect-src ${getConnectSrcSources(options).join(' ')}`,
-    `img-src ${getImgSrcSources(options).join(' ')}`,
+    `img-src ${getImgSrcSources().join(' ')}`,
     `frame-src ${getFrameSrcSources(options).join(' ')}`,
     "frame-ancestors 'self'",
     `style-src ${getStyleSrcSources().join(' ')}`,

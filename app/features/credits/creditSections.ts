@@ -5,11 +5,9 @@ export interface CreditSection {
   fullWidth?: boolean;
   compact?: boolean;
 }
-const githubAvatar = (username: string) => `https://github.com/${username}.png?size=120`;
 const githubProfile = (username: string) => `https://github.com/${username}`;
 const githubMember = (name: string, username: string): CreditMember => ({
   name,
-  avatar: githubAvatar(username),
   link: githubProfile(username),
 });
 const sortMembers = (members: CreditMember[]) =>

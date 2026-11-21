@@ -13,7 +13,6 @@ export interface TeamMember {
   projectLabelKey?: string;
   group: TeamMemberGroup;
 }
-const githubAvatarUrl = (username: string): string => `https://github.com/${username}.png?size=96`;
 const githubProfileUrl = (username: string): string => `https://github.com/${username}`;
 /**
  * Canonical TarkovTracker.org roster (issue #707). Fields that cannot be
@@ -96,6 +95,3 @@ export const memberLink = (member: TeamMember): TeamMemberLink | null => {
   }
   return null;
 };
-/** Avatar URL when a GitHub username is verified, otherwise undefined (monogram). */
-export const memberAvatarUrl = (member: TeamMember): string | undefined =>
-  member.githubUsername ? githubAvatarUrl(member.githubUsername) : undefined;

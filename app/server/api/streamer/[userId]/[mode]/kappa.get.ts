@@ -9,7 +9,7 @@ import {
 import { useGraphBuilder } from '@/composables/useGraphBuilder';
 import { fetchLocalizedCatalogs } from '@/server/utils/localizedCatalogs';
 import { createLogger } from '@/server/utils/logger';
-import { overlayAuthHeaders } from '@/server/utils/overlayAuth';
+import { fetchOverlay } from '@/server/utils/overlay';
 import { getSharedCache, resolveSharedCacheOrigin } from '@/server/utils/sharedEdgeStore';
 import { computeStreamerKappaMetrics } from '@/server/utils/streamerKappa';
 import { API_GAME_MODES, isGameMode, type GameMode } from '@/utils/constants';
@@ -45,8 +45,6 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-
 const EDITIONS_CACHE_TTL_MS = 60 * 60 * 1000;
 const EDITIONS_SHARED_CACHE_PREFIX = 'streamer-kappa-editions';
 const EDITIONS_CACHE_KEY = 'overlay-editions';
-const OVERLAY_URL =
-  'https://raw.githubusercontent.com/tarkovtracker-org/tarkov-data-overlay/main/dist/overlay.json';
 let cachedEditions: GameEdition[] = [];
 let cachedEditionsAt = 0;
 let editionsFetchPromise: Promise<GameEdition[]> | null = null;
@@ -223,11 +221,13 @@ const getEditions = async (): Promise<GameEdition[]> => {
   }
   editionsFetchPromise = (async () => {
     try {
-      const overlay = await $fetch<{ editions?: Record<string, GameEdition> }>(OVERLAY_URL, {
-        headers: overlayAuthHeaders(OVERLAY_URL),
-        redirect: 'error',
-      });
-      const editions = overlay?.editions ? Object.values(overlay.editions) : [];
+      // Fork: the editions come from the configured overlay source (OVERLAY_URL), never from a
+      // hardcoded upstream host, and the overlay token only ever goes where overlayAuthHeaders allows.
+      const { overlay, meta } = await fetchOverlay();
+      if (!overlay) logger.warn('Editions overlay unavailable for streamer metrics', meta.error);
+      const editions = overlay?.editions
+        ? (Object.values(overlay.editions) as unknown as GameEdition[])
+        : [];
       if (editions.length > 0) {
         const entry: EditionsCachePayload = {
           editions,

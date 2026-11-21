@@ -623,6 +623,10 @@ const buildUpstreamChangelog = async (event: H3Event): Promise<ChangelogResponse
   setResponseHeaders(event, { 'Cache-Control': 'public, max-age=300, s-maxage=300' });
   try {
     const runtimeConfig = useRuntimeConfig(event);
+    // Fork: no GitHub request unless explicitly enabled; our own entries are merged in below.
+    if (runtimeConfig.public.upstreamGithubEnabled !== true) {
+      return { source: 'releases', items: [], hasMore: false };
+    }
     const githubToken = runtimeConfig.githubToken;
     const { baseUrl, timeoutMs } = getGitHubConfig(runtimeConfig);
     const query = getQuery(event);

@@ -21,7 +21,6 @@ import {
 import { assertPrerenderedDocuments } from './app/utils/prerenderOutput';
 import { CLIENT_DOCUMENT_ROUTES, PUBLIC_SEO_ROUTES } from './app/utils/routeSeo';
 import {
-  GITHUB_IMAGE_DOMAINS,
   resolveCanonicalSiteUrl,
   resolveClientLogSinkUrl,
   resolveProgressDiagnosticSinkUrl,
@@ -29,7 +28,6 @@ import {
   resolveSupabaseRuntimeConfig,
   resolveTrackerHandoffUrl,
   TARKOV_IMAGE_DOMAINS,
-  YOUTUBE_IMAGE_DOMAINS,
 } from './app/utils/runtimeConfig';
 import {
   SHELL_DESKTOP_BREAKPOINT_PX,
@@ -140,8 +138,6 @@ const TARKOV_ACCESS_SITE_KEY = (process.env.NUXT_PUBLIC_TARKOV_ACCESS_SITE_KEY ?
 const cspRouteRules = buildContentSecurityPolicyRouteRules({
   clientLogSinkUrl,
   progressDiagnosticSinkUrl,
-  clarityInstrumentationKey: IS_PRODUCTION_BUILD ? MICROSOFT_CLARITY_PROJECT_ID : '',
-  gaMeasurementId: IS_PRODUCTION_BUILD ? GOOGLE_ANALYTICS_MEASUREMENT_ID : '',
   supabaseUrl: PUBLIC_SUPABASE_URL,
   turnstileSiteKey: TURNSTILE_SITE_KEY || TARKOV_ACCESS_SITE_KEY,
 });
@@ -170,6 +166,8 @@ export default defineNuxtConfig({
     githubTimeoutMs: Number(process.env.NUXT_GITHUB_TIMEOUT_MS || '8000') || 8000,
     tarkovJsonBaseUrl: process.env.NUXT_TARKOV_JSON_BASE_URL || '',
     logSinkUrl: process.env.NUXT_LOG_SINK_URL || '',
+    // Fork: /api/twitch/live answers 404 unless this is exactly 'true' (promoted stream is off).
+    twitchLiveEndpointEnabled: process.env.NUXT_TWITCH_LIVE_ENDPOINT_ENABLED === 'true',
     twitchClientId: process.env.NUXT_TWITCH_CLIENT_ID || 'kimne78kx3ncx6brgo4mv6wki5h1ko',
     publicCacheBypassEnabled: process.env.NUXT_CACHE_BYPASS_ENABLED === 'true',
     teamMembersCacheTtlMs: Number(process.env.NUXT_TEAM_MEMBERS_CACHE_TTL_MS || '5000') || 5000,
@@ -252,6 +250,9 @@ export default defineNuxtConfig({
         process.env.NUXT_PUBLIC_TARKOV_DEV_IMPORT_COOLDOWN_MINUTES?.trim() || '60'
       ),
       adminWatchTimeoutMs: Number(process.env.ADMIN_WATCH_TIMEOUT_MS || '5000') || 5000,
+      // Fork: off by default. true brings back the server-side api.github.com calls behind
+      // /api/changelog and /api/contributors (see FORK.md); anything else keeps them silent.
+      upstreamGithubEnabled: process.env.UPSTREAM_GITHUB_ENABLED === 'true',
       githubOwner: process.env.GITHUB_OWNER || 'tarkovtracker-org',
       githubRepo: process.env.GITHUB_REPO || 'TarkovTracker',
       trackerHandoffUrl: resolveTrackerHandoffUrl(process.env),
@@ -583,9 +584,16 @@ export default defineNuxtConfig({
     'imports:extend': filterAutoImports,
   },
   image: {
-    domains: [...GITHUB_IMAGE_DOMAINS, ...TARKOV_IMAGE_DOMAINS, ...YOUTUBE_IMAGE_DOMAINS],
+    // Fork: the image proxy only fetches game art from tarkov.dev; local files need no entry.
+    domains: [...TARKOV_IMAGE_DOMAINS],
   },
   icon: {
+    // Fork: never ask api.iconify.design at runtime. Icons come from the client bundle, then from
+    // our own /api/_nuxt_icon endpoint (collections are bundled into the server).
+    fallbackToApi: false,
+    // 'auto' would pick 'remote' for edge presets and make the server fetch icon sets from
+    // cdn.jsdelivr.net at runtime. The fork always runs node-server, so bundle them locally.
+    serverBundle: 'local',
     clientBundle: {
       scan: {
         globInclude: ['**/*.{vue,jsx,tsx,md,mdc,mdx,yml,yaml}', 'app/**/*.ts'],

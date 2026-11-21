@@ -12,9 +12,10 @@ describe('ResourceVideoEmbed', () => {
         },
       },
     });
-    expect(wrapper.find('img').attributes('src')).toBe(
-      'https://i.ytimg.com/vi/HGwD4drUq0I/hqdefault.jpg'
-    );
+    // No third-party request (thumbnail proxy included) before the visitor clicks play.
+    expect(wrapper.find('img').exists()).toBe(false);
+    expect(wrapper.html()).not.toContain('ytimg.com');
+    expect(wrapper.text()).toContain('TarkovMonitor walkthrough');
     expect(wrapper.find('iframe').exists()).toBe(false);
     await wrapper.get('button').trigger('click');
     expect(wrapper.get('iframe').attributes('src')).toBe(

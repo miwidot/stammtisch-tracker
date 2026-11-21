@@ -20,9 +20,10 @@
             class="mt-4"
           />
         </section>
-        <ClientOnly>
+        <ClientOnly v-if="upstreamGithubEnabled">
           <ContributorsList />
         </ClientOnly>
+        <UpstreamContributorsNote v-else />
       </div>
       <p class="text-center">
         <NuxtLink to="/about" :class="teamLinkClasses">
@@ -38,7 +39,10 @@
   import ContributorsList from '@/features/credits/ContributorsList.vue';
   import CreditMemberList from '@/features/credits/CreditMemberList.vue';
   import { staticCreditSections, type CreditSection } from '@/features/credits/creditSections';
+  import UpstreamContributorsNote from '@/features/credits/UpstreamContributorsNote.vue';
   const { t } = useI18n({ useScope: 'global' });
+  // Fork: the live contributor list needs a GitHub API call; off unless UPSTREAM_GITHUB_ENABLED.
+  const upstreamGithubEnabled = useRuntimeConfig().public.upstreamGithubEnabled === true;
   const teamLinkClasses =
     'text-info-400 hover:text-info-300 focus-visible:ring-primary-500 inline-flex min-h-11 items-center gap-1.5 rounded text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none';
   const SECTION_CLASSES = 'bg-surface-900/80 rounded-lg border border-white/10 p-5 sm:p-6';

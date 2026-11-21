@@ -49,6 +49,15 @@ describe('changelog page', () => {
     state.urls = [];
     state.locale = 'de';
   });
+  it('links to the upstream release notes as a plain external link', async () => {
+    const wrapper = await mountPage();
+    const link = wrapper.get(
+      'a[href="https://github.com/tarkovtracker-org/TarkovTracker/releases"]'
+    );
+    expect(link.attributes('rel')).toBe('noopener noreferrer');
+    expect(link.attributes('target')).toBe('_blank');
+    expect(link.text()).toContain('page.changelog.upstream_link');
+  });
   it('asks the API for the current UI language', async () => {
     await mountPage();
     expect(state.urls[0]).toBe('/api/changelog?limit=20&lang=de');

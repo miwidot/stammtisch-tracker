@@ -1,3 +1,7 @@
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { testOverlayEditions } from '@/server/utils/__tests__/overlayFixtures';
 import type { Task } from '@/types/tarkov';
@@ -48,6 +52,64 @@ describe('overlay URL validation', () => {
       'https://overlay.example.com/custom.json',
       expect.any(Object)
     );
+  });
+});
+describe('overlay local sources (fork)', () => {
+  const overlayBody = {
+    editions: testOverlayEditions,
+    $meta: { version: 'local-v1', generated: '2026-09-07', sha256: 'test-sha' },
+  };
+  const DEFAULT_URL =
+    'https://raw.githubusercontent.com/tarkovtracker-org/tarkov-data-overlay/main/dist/overlay.json';
+  it('uses a loopback http overlay URL', async () => {
+    vi.stubEnv('OVERLAY_URL', 'http://127.0.0.1:8080/overlay.json');
+    const fetchMock = stubOverlayFetch(overlayBody);
+    const { applyOverlay } = await import('@/server/utils/overlay');
+    await applyOverlay({ data: { tasks: [] } });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8080/overlay.json',
+      expect.any(Object)
+    );
+  });
+  it.each([
+    'http://overlay.example.com/overlay.json',
+    'http://127.0.0.1.evil.com/overlay.json',
+    'http://user:pw@127.0.0.1/overlay.json',
+  ])('still falls back to the trusted default for %s', async (overlayUrl) => {
+    vi.stubEnv('OVERLAY_URL', overlayUrl);
+    const fetchMock = stubOverlayFetch(overlayBody);
+    const { applyOverlay } = await import('@/server/utils/overlay');
+    await applyOverlay({ data: { tasks: [] } });
+    expect(fetchMock).toHaveBeenCalledWith(DEFAULT_URL, expect.any(Object));
+  });
+  it('reads an overlay file inside OVERLAY_FILE_ROOT without a network request', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'overlay-file-'));
+    await writeFile(join(dir, 'overlay.json'), JSON.stringify(overlayBody));
+    vi.stubEnv('OVERLAY_FILE_ROOT', dir);
+    vi.stubEnv('OVERLAY_URL', pathToFileURL(join(dir, 'overlay.json')).href);
+    vi.stubEnv('OVERLAY_TOKEN', 'secret-token');
+    const fetchMock = stubOverlayFetch({});
+    const { applyOverlay } = await import('@/server/utils/overlay');
+    const result = await applyOverlay({ data: { tasks: [] } });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.dataOverlay).toMatchObject({ status: 'fresh', version: 'local-v1' });
+  });
+  it('ignores a file overlay URL while OVERLAY_FILE_ROOT is unset', async () => {
+    vi.stubEnv('OVERLAY_URL', 'file:///etc/passwd');
+    const fetchMock = stubOverlayFetch(overlayBody);
+    const { applyOverlay } = await import('@/server/utils/overlay');
+    await applyOverlay({ data: { tasks: [] } });
+    expect(fetchMock).toHaveBeenCalledWith(DEFAULT_URL, expect.any(Object));
+  });
+  it('reports a missing overlay file as a failed refresh instead of throwing', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'overlay-file-'));
+    vi.stubEnv('OVERLAY_FILE_ROOT', dir);
+    vi.stubEnv('OVERLAY_URL', pathToFileURL(join(dir, 'absent.json')).href);
+    const fetchMock = stubOverlayFetch({});
+    const { applyOverlay } = await import('@/server/utils/overlay');
+    const result = await applyOverlay({ data: { tasks: [] } });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.dataOverlay).toMatchObject({ status: 'missing', error: 'HTTP 404' });
   });
 });
 describe('overlay redirect handling', () => {

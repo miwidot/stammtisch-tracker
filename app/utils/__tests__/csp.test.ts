@@ -26,7 +26,6 @@ describe('nuxt.config CSP', () => {
       supabaseUrl: 'https://db.example.com/auth/v1',
     });
     expect(connectSources).toContain('https://assets.tarkov.dev');
-    expect(connectSources).toContain('https://tarkovtracker.github.io');
     expect(connectSources).toContain('https://logs.example.com');
     expect(connectSources).toContain('https://db.example.com');
     expect(connectSources).toContain('wss://db.example.com');
@@ -73,34 +72,41 @@ describe('nuxt.config CSP', () => {
   it('builds an app policy that preserves Nuxt bootstrap scripts', () => {
     const csp = buildAppContentSecurityPolicy({
       clientLogSinkUrl: 'https://logs.example.com/v1/collect',
-      clarityInstrumentationKey: 'abcdef1234',
-      gaMeasurementId: 'G-ABCDEF1234',
       supabaseUrl: 'https://db.example.com/auth/v1',
     });
     expect(getDirectiveSources(csp, 'default-src')).toEqual(["'self'"]);
     expect(getDirectiveSources(csp, 'frame-ancestors')).toEqual(["'self'"]);
     expect(getDirectiveSources(csp, 'frame-src')).toContain('https://www.youtube-nocookie.com');
     expect(getDirectiveSources(csp, 'script-src')).toContain("'unsafe-inline'");
-    expect(getDirectiveSources(csp, 'script-src')).toContain(
-      'https://static.cloudflareinsights.com'
-    );
-    expect(getDirectiveSources(csp, 'script-src')).toContain('https://*.googletagmanager.com');
-    expect(getDirectiveSources(csp, 'script-src')).toContain('https://*.clarity.ms');
-    expect(getDirectiveSources(csp, 'connect-src')).toContain('https://cloudflareinsights.com');
     expect(getDirectiveSources(csp, 'connect-src')).toContain('https://db.example.com');
     expect(getDirectiveSources(csp, 'img-src')).toContain('https:');
-    expect(getDirectiveSources(csp, 'style-src')).toEqual([
-      "'self'",
-      "'unsafe-inline'",
-      'https://fonts.googleapis.com',
-    ]);
-    expect(getDirectiveSources(csp, 'font-src')).toEqual([
-      "'self'",
-      'data:',
-      'https://fonts.gstatic.com',
-    ]);
+    expect(getDirectiveSources(csp, 'style-src')).toEqual(["'self'", "'unsafe-inline'"]);
+    expect(getDirectiveSources(csp, 'font-src')).toEqual(["'self'", 'data:']);
     expect(getDirectiveSources(csp, 'worker-src')).toContain('blob:');
     expect(getDirectiveSources(csp, 'worker-src')).toContain("'self'");
+  });
+  it('allows no analytics, icon-API, upstream-map or font-CDN hosts anywhere in the app policy', () => {
+    const csp = buildAppContentSecurityPolicy({
+      clientLogSinkUrl: 'https://logs.example.com/v1/collect',
+      supabaseUrl: 'https://db.example.com/auth/v1',
+    });
+    for (const host of [
+      'cloudflareinsights.com',
+      'googletagmanager.com',
+      'google-analytics.com',
+      'analytics.google.com',
+      'clarity.ms',
+      'bing.com',
+      'api.iconify.design',
+      'tarkovtracker.github.io',
+      'raw.githubusercontent.com',
+      'fonts.googleapis.com',
+      'fonts.gstatic.com',
+      'supabase.co',
+    ]) {
+      expect(csp).not.toContain(host);
+    }
+    expect(getDirectiveSources(csp, 'connect-src')).toContain('https://assets.tarkov.dev');
   });
   it('allows unsafe-inline scripts only when explicitly enabled', () => {
     const csp = buildContentSecurityPolicy({ allowUnsafeInlineScripts: true });

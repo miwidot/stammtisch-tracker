@@ -104,7 +104,6 @@ describe('nuxtSecurityConfig', () => {
   it('builds an overlay-specific CSP route rule that is stricter than the app-wide rule', () => {
     const routeRules = buildContentSecurityPolicyRouteRules({
       clientLogSinkUrl: 'https://logs.example.com/v1/collect',
-      gaMeasurementId: 'G-ABCDEF1234',
       supabaseUrl: 'https://db.example.com/auth/v1',
     });
     const appCsp = routeRules['/**'].headers['Content-Security-Policy'];

@@ -99,11 +99,22 @@
           </p>
         </div>
       </div>
+      <p class="text-surface-400 text-center text-xs">
+        <a
+          :href="UPSTREAM_RELEASES_URL"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-info-400 hover:text-info-300 underline-offset-2 hover:underline"
+        >
+          {{ t('page.changelog.upstream_link') }}
+        </a>
+      </p>
     </div>
   </UContainer>
 </template>
 <script setup lang="ts">
   import { logger } from '@/utils/logger';
+  import { UPSTREAM_RELEASES_URL } from '@/utils/upstreamLinks';
   import type {
     ChangelogBullet,
     ChangelogItem,

@@ -2,18 +2,7 @@
   <li class="bg-surface-900/80 flex min-w-0 flex-col gap-3 rounded-lg border border-white/10 p-5">
     <div class="flex items-center gap-3.5">
       <span class="h-12 w-12 shrink-0">
-        <NuxtImg
-          v-if="avatarUrl && !avatarFailed"
-          :src="avatarUrl"
-          alt=""
-          width="48"
-          height="48"
-          loading="lazy"
-          class="h-12 w-12 rounded-full object-cover"
-          @error="avatarFailed = true"
-        />
         <span
-          v-else
           aria-hidden="true"
           class="bg-primary-500/15 text-primary-300 ring-primary-400/30 flex h-12 w-12 items-center justify-center rounded-full text-lg font-semibold ring-1"
         >
@@ -48,13 +37,11 @@
   </li>
 </template>
 <script setup lang="ts">
-  import { memberAvatarUrl, memberLink, type TeamMember } from '@/features/about/teamMembers';
+  import { memberLink, type TeamMember } from '@/features/about/teamMembers';
   const { t } = useI18n({ useScope: 'global' });
   const props = defineProps<{
     member: TeamMember;
   }>();
-  const avatarFailed = ref(false);
-  const avatarUrl = computed(() => memberAvatarUrl(props.member));
   const initial = computed(() => props.member.displayName.charAt(0).toUpperCase());
   const link = computed(() => memberLink(props.member));
   const roleBadgeClasses = computed(() =>

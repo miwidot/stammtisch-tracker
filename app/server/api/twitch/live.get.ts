@@ -1,4 +1,4 @@
-import { defineEventHandler, getQuery, setResponseHeaders } from 'h3';
+import { createError, defineEventHandler, getQuery, setResponseHeaders } from 'h3';
 import { LRUCache } from 'lru-cache';
 import { useRuntimeConfig } from '#imports';
 import { createLogger } from '@/server/utils/logger';
@@ -35,7 +35,12 @@ const liveCache = new LRUCache<string, { isLive: boolean }, string>({
   },
 });
 export default defineEventHandler(async (event) => {
-  const { twitchClientId } = useRuntimeConfig(event);
+  const { twitchClientId, twitchLiveEndpointEnabled } = useRuntimeConfig(event);
+  // Fork: the promoted-stream feature is off, so this public endpoint must not relay requests
+  // to gql.twitch.tv for anyone unless the fork flag is set (see FORK.md).
+  if (twitchLiveEndpointEnabled !== true) {
+    throw createError({ statusCode: 404, statusMessage: 'Not Found' });
+  }
   const query = getQuery(event);
   const channel =
     (typeof query.channel === 'string' ? query.channel.trim().toLowerCase() : '') || '';

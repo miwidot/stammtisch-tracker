@@ -79,6 +79,15 @@
       "help": {
         "discord_support": "Hilfe holen oder ein Problem auf Discord melden"
       }
+    },
+    "changelog": {
+      "upstream_link": "Release-Notes des Upstream-Projekts TarkovTracker"
+    },
+    "credits": {
+      "contributors": {
+        "upstream_note": "Dieser Tracker basiert auf TarkovTracker. Die Menschen, die daran arbeiten, führt das Upstream-Projekt auf.",
+        "upstream_link": "Upstream-Mitwirkende auf GitHub ansehen"
+      }
     }
   },
   "settings": {

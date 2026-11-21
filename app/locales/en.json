@@ -975,7 +975,8 @@
         "improved": "Improved",
         "updated": "Updated",
         "changed": "Changed"
-      }
+      },
+      "upstream_link": "Release notes of the upstream TarkovTracker project"
     },
     "storyline": {
       "subtitle": "Track your progress through Tarkov story chapters.",
@@ -1742,7 +1743,9 @@
         "error": "Unable to load contributors right now.",
         "empty": "No contributors found yet.",
         "contributions": "{count} contribution | {count} contributions",
-        "total": "{count} contributor | {count} contributors"
+        "total": "{count} contributor | {count} contributors",
+        "upstream_note": "This tracker is based on TarkovTracker. The people who build it are listed by the upstream project.",
+        "upstream_link": "View the upstream contributors on GitHub"
       },
       "team_link": "Maintained by the TarkovTracker team — meet them on the About page"
     },

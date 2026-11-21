@@ -1,9 +1,13 @@
 // @vitest-environment happy-dom
 import { mockNuxtImport } from '@nuxt/test-utils/runtime';
 import { mount } from '@vue/test-utils';
-import { describe, expect, it, vi } from 'vitest';
-const { seoMeta } = vi.hoisted(() => ({ seoMeta: vi.fn() }));
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+const { seoMeta, runtimeConfig } = vi.hoisted(() => ({
+  seoMeta: vi.fn(),
+  runtimeConfig: { public: { upstreamGithubEnabled: false as unknown } },
+}));
 mockNuxtImport('useSeoMeta', () => seoMeta);
+mockNuxtImport('useRuntimeConfig', () => () => runtimeConfig);
 vi.mock('@/features/credits/creditSections', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/features/credits/creditSections')>();
   return {
@@ -30,7 +34,11 @@ vi.mock('vue-i18n', async (importOriginal) => ({
   }),
 }));
 describe('credits page', () => {
-  it('renders every static section with client-only contributors', async () => {
+  beforeEach(() => {
+    runtimeConfig.public.upstreamGithubEnabled = false;
+  });
+  it('renders every static section with client-only contributors when upstream GitHub is enabled', async () => {
+    runtimeConfig.public.upstreamGithubEnabled = true;
     const { default: CreditsPage } = await import('@/pages/credits.vue');
     const wrapper = mount(CreditsPage, {
       global: {
@@ -56,6 +64,32 @@ describe('credits page', () => {
     expect(wrapper.text()).toContain('page.credits.sections.original_creator');
     expect(seoMeta).not.toHaveBeenCalled();
   });
+  it.each([false, undefined, null, 'true', 1])(
+    'shows static upstream attribution and never mounts the contributor list (%j)',
+    async (flag) => {
+      runtimeConfig.public.upstreamGithubEnabled = flag;
+      const { default: CreditsPage } = await import('@/pages/credits.vue');
+      const wrapper = mount(CreditsPage, {
+        global: {
+          stubs: {
+            ClientOnly: { template: '<div><slot /></div>' },
+            ContributorsList: { template: '<div data-testid="contributors" />' },
+            CreditMemberList: { template: '<ul />' },
+            NuxtLink: { props: ['to'], template: '<a :href="to"><slot /></a>' },
+            UContainer: { template: '<main><slot /></main>' },
+            UIcon: { template: '<i />' },
+          },
+        },
+      });
+      expect(wrapper.find('[data-testid="contributors"]').exists()).toBe(false);
+      const upstream = wrapper.get(
+        'a[href="https://github.com/tarkovtracker-org/TarkovTracker/graphs/contributors"]'
+      );
+      expect(upstream.attributes('rel')).toBe('noopener noreferrer');
+      expect(upstream.attributes('target')).toBe('_blank');
+      expect(wrapper.text()).toContain('page.credits.contributors.upstream_note');
+    }
+  );
   it('links to the about page for the team directory', async () => {
     const { default: CreditsPage } = await import('@/pages/credits.vue');
     const wrapper = mount(CreditsPage, {

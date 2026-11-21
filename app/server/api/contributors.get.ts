@@ -168,6 +168,10 @@ const fetchContributors = async (
 };
 export default defineEventHandler(async (event): Promise<ContributorsResponse> => {
   const runtimeConfig = useRuntimeConfig(event);
+  // Fork: no GitHub request unless explicitly enabled; the credits page links to upstream instead.
+  if (runtimeConfig.public.upstreamGithubEnabled !== true) {
+    return { items: [] };
+  }
   const owner = parseString(runtimeConfig.public.githubOwner, 'tarkovtracker-org');
   const repo = parseString(runtimeConfig.public.githubRepo, 'TarkovTracker');
   const timeoutMs = clamp(

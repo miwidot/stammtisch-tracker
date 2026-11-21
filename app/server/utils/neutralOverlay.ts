@@ -1,5 +1,6 @@
 import { isPlainObject } from '@/server/utils/deepMerge';
 import { overlayAuthHeaders } from '@/server/utils/overlayAuth';
+import { fetchOverlaySource, parseOverlaySourceUrl } from '@/server/utils/overlaySource';
 import { validateOverlayData, unknownOverlaySections } from '@/server/utils/overlayValidation';
 import { TARKOVTRACKER_USER_AGENT } from '@/server/utils/userAgent';
 import { overlayOverrideKey } from '@/utils/gameDataStrings';
@@ -85,15 +86,16 @@ export async function parseNeutralOverlay(
     meta: { ...$source, status: 'fresh', sourceUrl },
   };
 }
+// Fork: https, loopback http or an allowlisted local file (see overlaySource.ts).
 const neutralUrl = (): string => {
-  const url = new URL(process.env.NEUTRAL_OVERLAY_URL || DEFAULT_URL);
-  if (url.protocol !== 'https:') throw new Error('Neutral overlay requires HTTPS');
-  return url.href;
+  const url = parseOverlaySourceUrl(process.env.NEUTRAL_OVERLAY_URL || DEFAULT_URL);
+  if (!url) throw new Error('Neutral overlay requires HTTPS, loopback HTTP or an allowed file');
+  return url;
 };
 async function loadNeutralOverlay(): Promise<NeutralOverlaySnapshot> {
   let url = neutralUrl();
   for (let redirects = 0; redirects <= 3; redirects++) {
-    const response = await fetch(url, {
+    const response = await fetchOverlaySource(url, {
       redirect: 'manual',
       signal: AbortSignal.timeout(12000),
       headers: {

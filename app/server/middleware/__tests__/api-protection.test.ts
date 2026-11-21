@@ -199,6 +199,37 @@ describe('API Protection Middleware', () => {
       await expect(middleware(mockEvent as H3Event)).resolves.toBeUndefined();
       process.env.NODE_ENV = originalEnv;
     });
+    it.each(['/api/_nuxt_icon/mdi.json', '/api/_nuxt_icon/lucide'])(
+      'serves the bundled icon endpoint %s to anonymous visitors even when public routes are overridden',
+      async (path) => {
+        const originalEnv = process.env.NODE_ENV;
+        process.env.NODE_ENV = 'development';
+        runtimeConfig.apiProtection.requireAuth = true;
+        runtimeConfig.apiProtection.publicRoutes = '/api/tarkov/*';
+        mockGetRequestURL.mockReturnValue(new URL(`http://localhost:3000${path}`));
+        mockGetRequestHeader.mockImplementation((_: unknown, header: string) => {
+          if (header === 'host') return 'localhost:3000';
+          return undefined;
+        });
+        const { default: middleware } = await import('../api-protection');
+        await expect(middleware(mockEvent as H3Event)).resolves.toBeUndefined();
+        process.env.NODE_ENV = originalEnv;
+      }
+    );
+    it('does not open sibling paths that merely share the icon prefix', async () => {
+      const originalEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'development';
+      runtimeConfig.apiProtection.requireAuth = true;
+      runtimeConfig.apiProtection.publicRoutes = '/api/tarkov/*';
+      mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/_nuxt_icons_private'));
+      mockGetRequestHeader.mockImplementation((_: unknown, header: string) => {
+        if (header === 'host') return 'localhost:3000';
+        return undefined;
+      });
+      const { default: middleware } = await import('../api-protection');
+      await expect(middleware(mockEvent as H3Event)).rejects.toMatchObject({ statusCode: 401 });
+      process.env.NODE_ENV = originalEnv;
+    });
     it('should fall back to default public routes when config value is blank', async () => {
       const originalEnv = process.env.NODE_ENV;
       process.env.NODE_ENV = 'development';

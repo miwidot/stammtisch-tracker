@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  memberAvatarUrl,
-  memberLink,
-  membersByGroup,
-  teamMembers,
-} from '@/features/about/teamMembers';
+import * as teamMembersModule from '@/features/about/teamMembers';
+import { memberLink, membersByGroup, teamMembers } from '@/features/about/teamMembers';
 describe('teamMembers roster', () => {
   it('keeps a stable group order: core first, then support, then partners', () => {
     const groups = teamMembers.map((member) => member.group);
@@ -29,13 +25,9 @@ describe('teamMembers roster', () => {
       expect(member.roleKey).toMatch(/^page\.about\.roles\./);
     }
   });
-  it('prefers GitHub avatar URLs over monograms when a username is verified', () => {
-    const dysekt = teamMembers.find((member) => member.id === 'dysektai');
-    expect(dysekt).toBeDefined();
-    expect(memberAvatarUrl(dysekt!)).toBe('https://github.com/dysektai.png?size=96');
-    const dio = teamMembers.find((member) => member.id === 'dio');
-    expect(dio).toBeDefined();
-    expect(memberAvatarUrl(dio!)).toBeUndefined();
+  it('exposes no avatar URL helper, so no member can trigger a remote image request', () => {
+    expect('memberAvatarUrl' in teamMembersModule).toBe(false);
+    expect(JSON.stringify(teamMembers)).not.toMatch(/\.(png|jpe?g|webp)\b/);
   });
   it('links members to GitHub profiles or partner projects', () => {
     const dysekt = teamMembers.find((member) => member.id === 'dysektai');

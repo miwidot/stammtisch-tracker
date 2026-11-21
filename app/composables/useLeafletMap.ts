@@ -4,7 +4,6 @@ import {
   getLeafletBounds,
   getLeafletMapOptions,
   getMapSvgCdnUrl,
-  getMapSvgFallbackUrl,
   getSvgOverlayBounds,
   isValidMapSvgConfig,
   isValidMapTileConfig,
@@ -404,10 +403,11 @@ export function useLeafletMap(options: UseLeafletMapOptions): UseLeafletMapRetur
     const mapName = fileBase || map.value?.normalizedName || map.value?.name || '';
     const baseUrl = `https://assets.tarkov.dev/maps/svg/${svgConfig.file}`;
     const perFloorUrl = getMapSvgCdnUrl(mapName, floor);
-    const fallbackUrl = getMapSvgFallbackUrl(svgConfig.file);
     const hasMultipleFloors = svgConfig.floors.length > 1;
     const primaryUrl = baseUrl;
-    const fallbackUrls = hasMultipleFloors ? [fallbackUrl] : [perFloorUrl, fallbackUrl];
+    // Fork: the only fallback is the per-floor file on assets.tarkov.dev; the upstream GitHub
+    // Pages mirror (tarkovtracker.github.io) is gone.
+    const fallbackUrls = hasMultipleFloors ? [] : [perFloorUrl];
     const svgContent = await fetchSvgContent(primaryUrl, fallbackUrls, loadToken?.signal);
     if (!isLayerLoadOperationActive(initToken, loadToken)) return;
     if (!svgContent) {

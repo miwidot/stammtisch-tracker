@@ -116,7 +116,6 @@ vi.mock('@/utils/mapCoordinates', () => ({
     zoomDelta: 0.5,
   })),
   getMapSvgCdnUrl: vi.fn((name, floor) => `https://cdn.example.com/${name}/${floor}.svg`),
-  getMapSvgFallbackUrl: vi.fn((file) => `https://fallback.example.com/${file}`),
   getSvgOverlayBounds: vi.fn(() => [
     [0, 0],
     [100, 100],
@@ -353,6 +352,45 @@ describe('useLeafletMap', () => {
       expect(mockMapInstance.fitBounds).toHaveBeenCalled();
       wrapper.unmount();
     });
+    it.each([
+      [
+        'single floor',
+        ['ground'],
+        [
+          'https://assets.tarkov.dev/maps/svg/customs.svg',
+          'https://cdn.example.com/customs/ground.svg',
+        ],
+      ],
+      ['multiple floors', ['ground', 'second'], ['https://assets.tarkov.dev/maps/svg/customs.svg']],
+    ])(
+      'never requests an upstream mirror when the map SVG is missing (%s)',
+      async (_label, floors, expected) => {
+        const fetchSpy = vi.fn(async (_url: string) => ({ ok: false, text: async () => '' }));
+        vi.stubGlobal('fetch', fetchSpy);
+        const mapData = {
+          id: 'customs',
+          name: 'Customs',
+          normalizedName: 'customs',
+          svg: {
+            file: 'customs.svg',
+            floors,
+            defaultFloor: 'ground',
+            coordinateRotation: 0,
+            bounds: [
+              [0, 0],
+              [100, 100],
+            ],
+          },
+        } as TarkovMap;
+        const { wrapper } = await mountUseLeafletMap(mapData);
+        await waitFor(() => fetchSpy.mock.calls.length >= expected.length);
+        const urls = fetchSpy.mock.calls.map(([url]) => String(url));
+        expect(urls).toEqual(expect.arrayContaining(expected));
+        expect(urls.every((url) => !url.includes('github.io'))).toBe(true);
+        expect(urls.filter((url) => url.endsWith('.svg'))).toHaveLength(expected.length);
+        wrapper.unmount();
+      }
+    );
     it('ignores stale async init when map becomes unavailable before layer setup', async () => {
       const deferredFetch = createDeferred<{ ok: boolean; text: () => Promise<string> }>();
       const fetchSpy = vi.fn(() => deferredFetch.promise);

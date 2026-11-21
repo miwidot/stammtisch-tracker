@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  GITHUB_IMAGE_DOMAINS,
   isPrimaryAppHostname,
   isPagesPreviewHostname,
   resolveClientLogSinkUrl,
@@ -12,7 +11,6 @@ import {
   shouldEnableAnalyticsIntegrations,
   shouldUseOfflineSupabaseFallback,
   TARKOV_IMAGE_DOMAINS,
-  YOUTUBE_IMAGE_DOMAINS,
 } from '@/utils/runtimeConfig';
 describe('resolveSupabaseRuntimeConfig', () => {
   it('resolves shared Supabase env values', () => {
@@ -40,15 +38,8 @@ describe('resolveSupabaseRuntimeConfig', () => {
       publicUrl: '',
     });
   });
-  it('includes Tarkov asset hosts alongside GitHub image hosts', () => {
-    expect([...GITHUB_IMAGE_DOMAINS, ...TARKOV_IMAGE_DOMAINS, ...YOUTUBE_IMAGE_DOMAINS]).toEqual(
-      expect.arrayContaining([
-        'assets.tarkov.dev',
-        'avatars.githubusercontent.com',
-        'github.com',
-        'i.ytimg.com',
-      ])
-    );
+  it('lets the image proxy fetch from assets.tarkov.dev only', () => {
+    expect([...TARKOV_IMAGE_DOMAINS]).toEqual(['assets.tarkov.dev']);
   });
 });
 describe('resolveClientLogSinkUrl', () => {

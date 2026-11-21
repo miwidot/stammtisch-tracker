@@ -309,12 +309,3 @@ export function getMapSvgCdnUrl(mapName: string, floor: string): string {
   // Primary: tarkov.dev CDN
   return `https://assets.tarkov.dev/maps/svg/${mapName}-${floor}.svg`;
 }
-/**
- * Gets the fallback URL for a map SVG file.
- * Always URL-encodes the filename for consistent behavior.
- * @param filename SVG filename from maps.json
- * @returns Fallback URL for the SVG file with encoded filename
- */
-export function getMapSvgFallbackUrl(filename: string): string {
-  return `https://tarkovtracker.github.io/tarkovdata/maps/${encodeURIComponent(filename)}`;
-}

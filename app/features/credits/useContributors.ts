@@ -1,7 +1,6 @@
 import type { CreditMember } from '@/features/credits/types';
 import type { ContributorApiItem, ContributorsResponse } from '@/types/contributors';
 const mapContributorToMember = (item: ContributorApiItem): CreditMember => ({
-  avatar: item.avatar,
   contributions: item.contributions,
   link: item.url,
   name: item.login,

@@ -12,7 +12,12 @@ const mocks = vi.hoisted(() => ({
   config: {
     githubTimeoutMs: 1000,
     githubToken: '',
-    public: { appUrl: 'https://tracker.test', githubOwner: 'owner', githubRepo: 'repo' },
+    public: {
+      appUrl: 'https://tracker.test',
+      githubOwner: 'owner',
+      githubRepo: 'repo',
+      upstreamGithubEnabled: true,
+    },
   },
 }));
 vi.mock('h3', async (original) => ({
