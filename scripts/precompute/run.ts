@@ -7,16 +7,21 @@
  * (PRECOMPUTE_LANG / PRECOMPUTE_GAME_MODE) so workflow_dispatch inputs never
  * pass through a shell, or as --lang / --game-mode flags for local runs.
  *
- * Required env:
+ * Required env (default target, Cloudflare KV):
  *   CLOUDFLARE_API_TOKEN        - scoped to Workers KV Storage: Edit
  *   CLOUDFLARE_ACCOUNT_ID       - account that owns the namespace
  *   TARKOV_DATA_KV_NAMESPACE_ID - id of the TARKOV_DATA namespace
+ *
+ * Self-hosted target: `--target=dir:/absolute/path` (or PRECOMPUTE_TARGET) writes the same
+ * objects to a directory that the node-server app reads via TARKOV_DATA_DIR. No Cloudflare
+ * credentials are needed then.
  */
 import { writeFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import * as catalogBuilders from '@/server/utils/neutralCatalog';
 import { fetchNeutralOverlay } from '@/server/utils/neutralOverlay';
 import { catalogReleaseReport } from './catalog-release';
+import { createDirWriter, parseDirTarget } from './dir-store';
 import { runImportPrecompute } from './import-snapshots';
 import { createKvRestWriter } from './kv';
 import { validatePrecomputeFilter } from './precompute';
@@ -43,6 +48,7 @@ const { values: flags } = parseArgs({
   options: {
     'game-mode': { type: 'string' },
     lang: { type: 'string' },
+    target: { type: 'string' },
   },
 });
 const filter = {
@@ -51,11 +57,22 @@ const filter = {
 };
 const filterError = validatePrecomputeFilter(filter);
 if (filterError) fail(filterError);
-const kv = createKvRestWriter({
-  accountId: requireEnv('CLOUDFLARE_ACCOUNT_ID'),
-  apiToken: requireEnv('CLOUDFLARE_API_TOKEN'),
-  namespaceId: requireEnv('TARKOV_DATA_KV_NAMESPACE_ID'),
-});
+function createStore() {
+  const dir = parseDirTarget(flags.target || process.env.PRECOMPUTE_TARGET || undefined);
+  if (dir) return createDirWriter(dir);
+  return createKvRestWriter({
+    accountId: requireEnv('CLOUDFLARE_ACCOUNT_ID'),
+    apiToken: requireEnv('CLOUDFLARE_API_TOKEN'),
+    namespaceId: requireEnv('TARKOV_DATA_KV_NAMESPACE_ID'),
+  });
+}
+const kv = (() => {
+  try {
+    return createStore();
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : String(error));
+  }
+})();
 try {
   const snapshot = await fetchNeutralOverlay();
   const sha = snapshot.meta.sha256;
