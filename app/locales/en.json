@@ -1,4 +1,178 @@
 {
+  "stash_import": {
+    "sell_incomplete": "Sell advice is unavailable because 1 unfinished quest has incomplete requirement data. | Sell advice is unavailable because {count} unfinished quests have incomplete requirement data.",
+    "sell_incomplete_tasks": "Examples of incomplete quest data: {tasks}.",
+    "sell_heading": "What can I sell?",
+    "sell_summary": "1 item type has no remaining use in tracked tasks or hideout modules. | {count} item types have no remaining use in tracked tasks or hideout modules.",
+    "sell_empty": "No confirmed sell candidates in this screenshot. Check uncertain matches and amounts; needed items stay protected.",
+    "sell_unavailable": "Sell advice is unavailable while quest, hideout or item data is missing or changing. Reopen the importer after changing game mode.",
+    "sell_scope": "Based on this screenshot and the loaded {mode} task and hideout catalog, including later requirements. Check matches, story chapters, Seasonal perks and other uses before selling. The list gives no estimate of surplus or vendor eligibility. Reviewing it changes no progress.",
+    "title": "Import items from a screenshot",
+    "description": "Scan a stash or container screenshot on your device, check the items, then update your Needed Items counts.",
+    "destination": "Updates your {mode} progress",
+    "steps_label": "Import steps",
+    "step_intake": "Screenshot",
+    "step_review": "Check items",
+    "step_apply": "Update progress",
+    "stage_decode": "Reading screenshot…",
+    "stage_catalog": "Loading item recognition data…",
+    "stage_match": "Matching items…",
+    "drop_title": "Drop a screenshot here",
+    "drop_now": "Drop to scan",
+    "drop_hint": "Or paste it with {shortcut}, or choose a file. PNG, JPEG or WebP.",
+    "drop_replace": "Drop to scan this screenshot instead",
+    "choose_image": "Choose file",
+    "try_demo": "Try demo screenshot",
+    "demo_destination": "Demo · saving disabled",
+    "demo_no_save": "Demo screenshot: explore matching and preview counts. Saving is disabled; choose your own screenshot to update progress.",
+    "paste_image": "Paste from clipboard",
+    "tip_open": "Open your stash or a container in game and take a screenshot.",
+    "tip_tooltips": "Move the cursor away first so no tooltip covers the items.",
+    "tip_private": "The image stays on your device. Saving uploads only the reviewed counts and an image fingerprint.",
+    "local_notice": "Your screenshot never leaves this device.",
+    "screenshot": "Screenshot with detected item regions",
+    "region_label": "Item {number}: {status}",
+    "whole_image": "Full view",
+    "zoom_item": "Zoom to item",
+    "draw_region": "Mark a missed item",
+    "enter_region": "Type coordinates",
+    "rescan": "Rescan",
+    "draw_help": "Drag a box around one item. It replaces any boxes it overlaps. Set its size in slots below if it is larger than 1×1.",
+    "legend_check": "Needs checking",
+    "legend_ok": "Confirmed",
+    "legend_skip": "Not needed",
+    "legend_selected": "Selected",
+    "legend_removed": "Removed",
+    "region_help": "Enter the item's position and size in screenshot pixels, measured from the top-left corner, then its size in stash slots. Each region must be at least 8 pixels wide and high. Overlapping detections will be replaced, not counted twice.",
+    "region_x": "Left (pixels)",
+    "region_y": "Top (pixels)",
+    "region_width": "Width (pixels)",
+    "region_height": "Height (pixels)",
+    "columns": "Slots wide",
+    "rows": "Slots high",
+    "match_region": "Match region",
+    "found_count": "No items found | 1 item found | {count} items found",
+    "review_count": "{count} to check",
+    "all_checked": "all checked",
+    "filter_label": "Show items",
+    "filter_check": "To check ({count})",
+    "filter_all": "All ({count})",
+    "set_fir": "Mark all FIR…",
+    "set_fir_confirm": "Mark every item as found in raid? Only do this if they all show the FIR checkmark in game.",
+    "set_fir_yes": "Mark all FIR",
+    "unidentified": "Unknown item",
+    "removed": "Not counted",
+    "skip_detail": "This item is confirmed and you do not currently need it, so it is not counted. Choose another item if the match is wrong.",
+    "skip_heading": "Not needed ({count})",
+    "quantity_missing": "Enter amount",
+    "units": "1 unit | {count} units",
+    "unknown": "FIR unknown",
+    "fir": "Found in raid",
+    "non_fir": "Not FIR",
+    "raid_short_unknown": "Unknown",
+    "raid_short_fir": "FIR",
+    "raid_short_non_fir": "Not FIR",
+    "nothing_to_check": "Everything that can change your counts is checked. Continue, or open All to double-check.",
+    "nothing_found": "No items were found. Use “Mark a missed item” on the screenshot.",
+    "coverage": "About recognition",
+    "match_help": "Every match is a suggestion. Check the screenshot, including omitted or partially covered items. Select any region to correct it, even when it was not flagged.",
+    "coverage_detail": "All indexed items have compatible image templates. | 1 indexed item has no compatible image template. Search to assign it manually. | {count} indexed items have no compatible image template. Search to assign them manually.",
+    "coverage_limits": "Modified weapons, obscured badges, other game languages and unusual UI scales may need correction. Stack counts are read from the icon when the digits are clear; otherwise enter them. Only a clear checkmark sets Found in raid. Every other item starts as FIR unknown, including items without the mark, so set FIR or Not FIR yourself where it matters.",
+    "attribution": "Recognition adapted from Cultist Circle — MIT license",
+    "which_item": "Item",
+    "search_item": "Search all items",
+    "matches": "Suggested item identities",
+    "compare_label": "Detected item compared with the selected item",
+    "compare_screenshot": "In your screenshot",
+    "compare_selected": "Selected item",
+    "compare_none": "No item chosen",
+    "compare_fir_seen": "FIR mark seen",
+    "no_search_results": "No items match this search.",
+    "no_suggestions": "No suggestions. Search for the item above.",
+    "quantity": "Amount in this stack",
+    "quantity_placeholder": "e.g. 60",
+    "stack_help": "Filled in from the number in the corner of the icon when it can be read. Uses or durability are not amounts.",
+    "raid_status": "Found in raid",
+    "unknown_help": "Only a clear checkmark on the icon sets Found in raid automatically. Unknown items only count for non-FIR needs.",
+    "confirm_next": "Confirm",
+    "exclude": "Don’t count",
+    "split": "This box covers several items",
+    "split_help": "Split it into equal parts, each matched separately.",
+    "split_apply": "Split and match",
+    "other_image": "Other screenshot",
+    "review_first": "1 item still needs checking | {count} items still need checking",
+    "ready_to_continue": "All items checked.",
+    "continue": "Continue",
+    "mode_title": "How should these items be counted?",
+    "mode_replace": "Set counts from screenshot",
+    "mode_replace_help": "Each requirement below is set to what the screenshot shows. Counts can go down.",
+    "mode_replace_when": "Best for a first import, starting over, or re-scanning the same stash.",
+    "mode_add": "Add to current counts",
+    "mode_add_help": "Items are added on top of what you already track. Counts never go down.",
+    "mode_add_when": "Best for new loot or another stash page. Don’t add items you already counted.",
+    "impact_none": "No changes",
+    "impact_add": "+{units} across {count} requirements | +{units} across 1 requirement | +{units} across {count} requirements",
+    "impact_replace": "Changes {count} requirements | Changes 1 requirement | Changes {count} requirements",
+    "impact_replace_lower": "Changes {count} requirements, {lower} go down | Changes 1 requirement, {lower} goes down | Changes {count} requirements, {lower} go down",
+    "targets": "Requirements to update",
+    "select_all": "Select all",
+    "select_none": "Select none",
+    "no_targets": "No eligible quest or hideout requirements match these items. Set FIR status for FIR-only needs, or go back and check the items.",
+    "fir_required": "FIR required",
+    "found_label": "In screenshot:",
+    "found_fir": "{count} FIR",
+    "found_non_fir": "{count} not FIR",
+    "found_unknown": "{count} FIR unknown",
+    "delta_skipped": "Skipped",
+    "delta_complete": "Done",
+    "delta_none": "Same",
+    "show_unchanged": "Show 1 more requirement that would not change | Show {count} more requirements that would not change",
+    "excess": "{count} units are left over after filling the selected requirements. They are not saved.",
+    "unmatched": "1 item isn’t needed for anything | {count} items aren’t needed for anything",
+    "eligibility_help": "Completed or failed quests, handed-in objectives and built stations are excluded. Shared item pools, quest-only objects and weapon-build requirements still need manual tracking. Filling counts never hands in a quest or builds a station.",
+    "confirm_decreases": "I understand 1 count will go down. | I understand {count} counts will go down.",
+    "back": "Back",
+    "no_changes": "Nothing to change. Your counts already match.",
+    "confirm_first": "Confirm the lower counts above to save.",
+    "apply_replace": "Set counts | Set 1 count | Set {count} counts",
+    "apply_add": "Add items | Add to 1 requirement | Add to {count} requirements",
+    "check_receipt": "Check if it saved",
+    "refresh_progress": "Refresh progress",
+    "conflict_refreshed": "Your progress changed on another device, so nothing was saved. The numbers below are updated. Check them and save again.",
+    "saved_replace": "Counts updated | 1 count updated | {count} counts updated",
+    "saved_add": "Items added | Items added to 1 requirement | Items added to {count} requirements",
+    "already_imported": "This screenshot was already imported. No counts were added or replaced.",
+    "saved_detail": "Your Needed Items now reflect this screenshot. Quests are never turned in and hideout stations are never built for you.",
+    "import_another": "Import another",
+    "errors": {
+      "one_image": "Choose one screenshot at a time. Overlapping screenshots must not be added together.",
+      "image_size": "This image is too large or has invalid dimensions. Use a screenshot below 32 MB and 16 megapixels, or crop it first.",
+      "image_type": "Choose a PNG, JPEG or WebP screenshot. Renaming a file does not convert it.",
+      "image_invalid": "This image could not be decoded. Try saving a new PNG screenshot.",
+      "unsupported": "Local scanning is not supported by this browser. Try a current desktop browser. Your screenshot has not been uploaded.",
+      "region_invalid": "Choose a region inside the screenshot and a whole-number slot size from 1 to 10.",
+      "catalog_invalid": "The recognition data failed validation. Close the importer and try again; your progress is unchanged.",
+      "catalog_unavailable": "Recognition data could not be loaded. Check your connection and try again. The screenshot stays local.",
+      "no_grid": "No clear stash grid was found. Draw around one visible item and enter its slot size, or take a screenshot without tooltips covering it.",
+      "too_many_cells": "There are too many detected regions. Crop the screenshot to one stash or container area.",
+      "scan_failed": "The scan could not finish. Try a smaller, clearer screenshot. Your progress is unchanged.",
+      "cancelled": "Scan cancelled. No progress was changed.",
+      "quantity": "Enter whole-number unit quantities of at least 1. The total for each item across all included regions cannot exceed 1,000,000.",
+      "review_required": "Confirm or exclude uncertain matches and quantities before continuing.",
+      "sign_in": "Sign in to save. You can scan and check items without an account.",
+      "unsynced": "Your device and cloud progress do not yet match. Wait for progress sync to finish, then preview again. Nothing was overwritten.",
+      "catalog_loading": "Destination requirements are still loading. Wait a moment, then preview again.",
+      "too_many_targets": "This import changes more than 256 requirements. Select fewer requirements and preview again.",
+      "rate_limited": "Too many import or receipt checks. Wait one minute, then retry the same action. Your review is preserved.",
+      "stale": "Your progress changed while you were reviewing. The numbers have been updated; check them and save again.",
+      "save_unknown": "The cloud save response was interrupted. The import may have reached your cloud account. Check its receipt before trying another import; do not add the counts manually.",
+      "receipt_missing": "No cloud import receipt was found. A delayed request may still finish. Your original review is retained; check again before starting another import. Reconciliation never adds counts on retry.",
+      "clipboard_empty": "There is no image on your clipboard. Copy a screenshot first, then paste.",
+      "clipboard_denied": "The browser blocked clipboard access. Press Ctrl+V (⌘V on Mac) instead, or choose a file.",
+      "reimport_blocked": "This screenshot was imported before your progress was reset, so it can’t be imported again. Take a new screenshot to import these items."
+    },
+    "go_back_for_image": "To use a different screenshot, go back to Check items first."
+  },
   "admin": {
     "verifying_access": "Verifying admin access...",
     "error_title": "Connection Error",
@@ -44,6 +218,8 @@
     "tarkov_cache_purged_description": "Tarkov data cache has been cleared. Users will receive fresh data.",
     "full_cache_purged_title": "Full Cache Purged",
     "full_cache_purged_description": "All cached content has been cleared from Cloudflare.",
+    "purge_audit_failed_title": "Cache Cleared With a Warning",
+    "purge_audit_failed_description": "Cloudflare cleared the cache, but the audit record could not be saved. Some users may still see stale game data.",
     "purge_failed_title": "Purge Failed",
     "purge_failed_description": "Failed to purge cache",
     "audit_log_title": "Admin Audit Log",
@@ -388,7 +564,6 @@
     "sort_descending": "Descending"
   },
   "page_help": {
-    "button": "Help",
     "launcher": {
       "title": "Help and onboarding",
       "summary": "Pick a quick guide for this page or the full setup path.",
@@ -500,7 +675,7 @@
     "needed_items": {
       "title": "Needed items guide",
       "summary": "Use needed items to combine task and hideout materials, then narrow the list to the exact items you still care about.",
-      "hint": "Get a quick explanation of the tabs, view modes, and the Filters button.",
+      "hint": "A quick look at scopes, the Items and Needs views, and filters.",
       "sections": {
         "scopes": {
           "title": "Choose a scope",
@@ -509,10 +684,10 @@
           "bullet_two": "Use completed when you want to review what you already satisfied instead of what is still missing."
         },
         "views": {
-          "title": "Change the layout",
-          "description": "List, grid, and combined views all show the same data but are optimized for different browsing styles.",
-          "bullet_one": "List view is fastest for scanning counts and names.",
-          "bullet_two": "Combined view groups repeated items together when you care more about totals than individual sources."
+          "title": "Pick a view",
+          "description": "Items adds every quest and hideout need for an item together. Needs lists each quest objective and hideout upgrade on its own. Both come as a list or a grid.",
+          "bullet_one": "Use Items to decide what to keep after a raid: each item shows its total and its FIR split.",
+          "bullet_two": "Use Needs to track one objective or upgrade at a time. Every entry has the same +/- or check control."
         },
         "filters": {
           "title": "Refine the list",
@@ -554,10 +729,10 @@
   "maps": {
     "extract_requirements": {
       "raid_notice": "Not live raid status",
-      "source": "Requirements: game data, EFT {version}",
-      "source_curated": "Requirements: game data, EFT {version}, plus curated cues",
-      "source_detail": "From the EFT {build} client's location and global definitions. Base values only; check the in-raid extraction list.",
-      "curated_detail": "Flare, smoke and key cues the game data does not describe are curated from tarkov.help.",
+      "source": "Requirements: EFT {version} data and public references",
+      "source_curated": "Requirements: EFT {version} data, public references and scene cues",
+      "source_detail": "EFT {build} location and global definitions, supplemented by public references where definitions are incomplete. Check the in-raid extraction list.",
+      "curated_detail": "Flare, smoke and key cues are curated from public references.",
       "no_additional_data": "No requirements listed. Availability is not guaranteed.",
       "unknown_detail": "Requirements unknown. Check in raid.",
       "rubles": "roubles",
@@ -619,6 +794,8 @@
     "not_available_description": "The interactive map for {mapName} is not yet available. We are waiting for a compatible map to be created.",
     "placeholder": "this location",
     "floors": "Floors",
+    "cursor_coordinates": "x: {x}, z: {z}",
+    "cursor_coordinates_copy_hint": "{key} copy",
     "extract_names": {
       "scav_underboat_hideout": "Hideout Under the Landing Stage"
     },
@@ -636,6 +813,8 @@
       "hidden_count": "{count} hidden",
       "names_hint": "Otherwise names show when zoomed in, on hover, or on tap",
       "pmc_spawns": "PMC Spawns",
+      "shared": "Shared",
+      "shared_hint": "Either faction",
       "shared_or_unknown": "Shared / unknown",
       "shared_or_unknown_hint": "Either faction, or faction not supplied",
       "show_all": "Show all layers",
@@ -682,9 +861,11 @@
       "cycle_floors": "{keys} to cycle floors",
       "floor_panel": "Or use the floor panel.",
       "click_at_cursor": "{key} to click at cursor",
+      "copy_coordinates": "{key} to copy the coordinates under the cursor",
       "click_marker": "Click a marker for details.",
       "fullscreen": "Use the full screen button in the map controls.",
-      "resize": "Drag the bottom edge of the map to resize."
+      "resize": "Drag the bottom edge of the map to resize.",
+      "coordinates": "The bottom-left corner shows the game coordinates (x, z) under the cursor."
     },
     "hint": {
       "title": "Quick map controls",
@@ -766,6 +947,8 @@
           "aria_label": "Sort traders",
           "direction_aria_label": "Toggle sort direction"
         },
+        "unlock_unavailable": "Unlock details unavailable",
+        "unlock_unconfirmed": "Unlock requirement not yet confirmed",
         "unlock_via_task": "Unlocks after task",
         "unlock_via_storyline": "Unlocks in Storyline: {chapter}"
       },
@@ -835,28 +1018,8 @@
       "timeline_unlocks": "Unlocks"
     },
     "kappa": {
-      "subtitle": "Track your progress toward the Kappa container and Lightkeeper quests.",
-      "row": {
-        "level_met_aria": "Required level {required}, you are level {current}",
-        "level_unmet_aria": "Requires level {required}, you are level {current}",
-        "level_title": "Required level {required} (you are {current})",
-        "level_summary": "Lv {required} (you {current})",
-        "trader_level": "{trader} Lv{level}",
-        "action_uncomplete": "Mark uncomplete",
-        "action_reset_failed": "Reset failed",
-        "locked_by": "Requires: {task}"
-      },
-      "empty": "No tasks for this list yet.",
-      "summary": {
-        "complete": "complete",
-        "final_goal": "Final Kappa Goal"
-      },
-      "trader_selector": {
-        "label": "Select Trader"
-      },
-      "trader": {
-        "other": "Other"
-      }
+      "retired_title": "Kappa & Lightkeeper tracker retired",
+      "retired_description": "The standalone checklist is out of date. Use Tasks to track quests and Needed Items to see what you still need."
     },
     "supporter": {
       "title": "Support TarkovTracker",
@@ -939,6 +1102,14 @@
     },
     "tasks": {
       "status_tabs_label": "Task status",
+      "auto_tracking_guide": "Automatic quest tracking with TarkovMonitor",
+      "shared_link": {
+        "unavailable": "Linked quest unavailable in {mode}",
+        "checking_modes": "Checking other game modes…",
+        "choose_mode": "Switch game modes to open this quest.",
+        "switch_mode": "Switch to {mode}",
+        "no_match": "Check the link or try another game mode."
+      },
       "primary_views": {
         "aria_label": "Task views",
         "graph": "Graph",
@@ -1087,6 +1258,13 @@
           "summary_all": "Showing all {total}",
           "summary_hidden": "{hidden} of {total} hidden",
           "choose_quests": "Choose quests",
+          "trader_reputation": "Trader reputation",
+          "any_reward": "Any reward",
+          "any_reputation_gain": "Any gain",
+          "minimum_reputation": "+{amount} or more",
+          "no_reputation_matches": "No mapped quests match this filter.",
+          "reputation_quests_shown": "{count} quest shown | {count} quests shown",
+          "clear_reputation_filter": "Clear reputation filter",
           "show_all": "Show all",
           "popover_description": "Untick quests you're not running this raid to clear them off the map. \"Only\" hides everything else.",
           "only": "Only",
@@ -1098,7 +1276,12 @@
           "hidden_section_title": "Hidden from map ({count})",
           "hidden_section_description": "Still tracked, just not drawn on the map.",
           "hidden_section_expand": "Show hidden quests",
-          "hidden_section_collapse": "Collapse hidden quests"
+          "hidden_section_collapse": "Collapse hidden quests",
+          "legend_label": "Quest colors",
+          "legend_highlight_named": "Highlight {name} on the map",
+          "quest_color_named": "Color for {name}",
+          "reset_quest_color_named": "Use the automatic color for {name}",
+          "reset_quest_colors": "Reset quest colors"
         }
       },
       "pinned_tasks_section": "Pinned Tasks",
@@ -1179,6 +1362,7 @@
         "requires_currently": "currently {status}",
         "requires_tooltip_conflict": "\"{name}\" is {current} but needs {expected} — this task may be permanently locked",
         "objectives_hidden": "{count} objectives not on this map ({uncompleted} uncompleted)",
+        "objectives_load_error": "Could not load objectives.",
         "needed_by": "Needed by: {names}",
         "time_gate": "Unlocks {duration} after prerequisites are complete",
         "time_gate_range": "Unlocks {min}–{max} after prerequisites are complete",
@@ -1205,8 +1389,12 @@
         "items_count": "{count} items",
         "kappa_tooltip": "This quest is required to obtain the Kappa Secure Container",
         "lightkeeper_tooltip": "This quest is required to unlock the Lightkeeper trader",
-        "alternatives_tooltip": "This quest has {count} alternative choice(s) — you only need to complete one",
-        "alternatives_badge": "{count} alt",
+        "quest_links": "Quest links",
+        "quest_links_count": "{count} linked quest | {count} linked quests",
+        "quest_links_mutual": "Mutually exclusive",
+        "quest_links_mutual_hint": "Completing either quest fails the other.",
+        "quest_links_fails_others": "Completing this quest fails",
+        "quest_links_failed_by_others": "Completing any of these fails this quest",
         "location_tooltip": "Quest objectives are on {map}",
         "next_tasks": "Next Task(s):",
         "open_item_on_tarkov_dev": "Open {name} on tarkov.dev",
@@ -1299,6 +1487,8 @@
       }
     },
     "hideout": {
+      "public_requirements": "PvP station requirements",
+      "no_listed_requirements": "No requirements listed for this level.",
       "status_tabs_label": "Station status",
       "loading": "Loading hideout data",
       "station_link_label": "Go to {name}",
@@ -1342,10 +1532,10 @@
       }
     },
     "needed_items": {
+      "pvp_checklist": "PvP quest and hideout item checklist",
       "filter_tabs_label": "Needed item filters",
       "loading": "Loading task and hideout data",
       "items_count": "{count} item | {count} items",
-      "unique_items_count": "{unique} unique ({total} total)",
       "empty": "No items match your search.",
       "error": "Unable to load needed items.",
       "filters": {
@@ -1386,11 +1576,15 @@
         "count": "Count"
       },
       "view": {
-        "list": "List view",
-        "grid": "Grid view",
-        "combined": "Combined view"
+        "list": "List",
+        "grid": "Grid",
+        "show_once": "Show each item once",
+        "show_once_hint": "Add together quantities needed across quests and hideout upgrades.",
+        "layout": "Layout"
       },
-      "teammates_needed": "Teammates need this"
+      "needs_count": "{count} requirement | {count} requirements",
+      "items_and_needs": "{items} · {needs}",
+      "teammates_label": "Teammates:"
     },
     "settings": {
       "card": {
@@ -1618,6 +1812,7 @@
       "share_private_enabled": "This mode is private.",
       "mode_toggle_label": "Select profile mode",
       "copy_snapshot": "Copy Snapshot",
+      "copy_profile_link": "Copy profile link",
       "view_tasks": "Open Tasks",
       "story_no_tasks": "Waiting for task metadata to build your story.",
       "story_start": "{mode} profile is just getting started.",
@@ -1983,7 +2178,6 @@
     "logout": "Log Out",
     "resources": "Resources",
     "profile": "Profile",
-    "section_navigation": "Navigation",
     "account_menu": "Account menu",
     "level_display_editable": "Level {level}, click or press Enter to edit",
     "increment_level": "Increase level",
@@ -2124,13 +2318,11 @@
     "account": {
       "begin_deletion": "Begin Account Deletion"
     },
-    "debug_state": {
-      "title": "Debug State",
-      "description": "Capture a JSON snapshot of your current tracker state for bug reports. Includes game mode, level, task completion states, and prerequisite chains.",
-      "copy_button": "Copy Debug State"
+    "active_mode": "Active mode",
+    "app_preferences": {
+      "title": "App Preferences"
     },
     "general": {
-      "title": "General Preferences",
       "privacy_mode": "Privacy Mode",
       "privacy_mode_hint": "Hides sensitive information while you're streaming."
     },
@@ -2161,6 +2353,27 @@
           "selected": "Pinned Objective",
           "shared_extract": "Shared Extract",
           "coop_extract": "Co-op Extract"
+        },
+        "objective_colors": {
+          "title": "Objective colors",
+          "description": "Choose what an objective marker's color shows. Its icon always shows the objective type.",
+          "modes": {
+            "category": "Category",
+            "task": "Quest",
+            "type": "Objective type"
+          },
+          "mode_hints": {
+            "category": "Your, pinned and team objectives use the category colors below.",
+            "task": "Each quest gets its own color. Pick a quest's color under Choose quests on the Tasks map.",
+            "type": "Each objective type gets its own color, shown in the Layers panel's Objective icons key."
+          },
+          "palette": "Palette",
+          "palettes": {
+            "okabe_ito": "Okabe-Ito (7 colors)",
+            "tol_bright": "Tol bright (6 colors)",
+            "tol_muted": "Tol muted (9 colors)"
+          },
+          "palette_hint": "Each palette stays distinguishable with red-green and blue-yellow color blindness. Colors repeat once a map has more quests than the palette has colors."
         }
       },
       "links": {
@@ -2172,6 +2385,15 @@
       "game_edition_with_value": "Edition {edition}"
     },
     "profile_sharing": {
+      "handle_label": "Profile handle",
+      "handle_placeholder": "your_handle",
+      "handle_help": "Choose 3–24 letters, numbers, or underscores, including at least one letter. Claiming a permanent handle keeps your current sharing settings.",
+      "handle_claim": "Claim handle",
+      "handle_use_pmc": "Use PMC name: {handle}",
+      "handle_invalid": "Choose a different handle. This one is invalid or reserved.",
+      "handle_taken": "This handle or account already has a claim. Refresh before trying again.",
+      "handle_failed": "Unable to load or save your profile handle. Try again later.",
+      "handle_streamer": "Handle links are unavailable while Streamer Mode is on.",
       "title": "Profile Sharing",
       "description": "Control which game mode profiles can be viewed from a shared link.",
       "public": "Public",
@@ -2200,8 +2422,6 @@
       "reset_confirm": "Reset Data",
       "export_description": "Download a backup of your progress data for PvP, PvE, and Seasonal PvP modes.",
       "export_button": "Export Progress Backup",
-      "debug_export_button": "Export Debug Snapshot",
-      "debug_export_description": "Download a sanitized account snapshot for debugging signed-in issues. This excludes auth tokens, email, and profile images.",
       "import_backup_button": "Import TarkovTracker Backup",
       "import_eft_logs_folder_button": "Import EFT Logs Folder",
       "recommended_badge": "Recommended",
@@ -2214,8 +2434,12 @@
       "tarkov_dev_section_description": "Import profile metadata including level, faction, and skills",
       "eft_logs_section_title": "EFT Game Logs Import",
       "eft_logs_section_description": "Import quest progress detected from your game log files",
+      "bug_report_title": "Bug Report File",
+      "bug_report_description": "If something looks wrong, download this file and attach it to a GitHub issue, or copy it and paste it into Discord, so the problem can be reproduced. It includes your progress, settings, and browser details, but not sign-in tokens, email, or profile images. Nothing is sent automatically.",
+      "bug_report_download": "Download Bug Report File",
+      "bug_report_copy": "Copy Bug Report",
+      "bug_report_error_title": "Could Not Create Bug Report",
       "backup_restore_section_description": "Export a backup or restore from a previously exported file",
-      "debug_section_title": "Debug Snapshot",
       "import_backup_title": "Restore from Backup",
       "import_backup_description": "Restore progress from a TarkovTracker backup file",
       "import_preview_exported_at": "Exported",
@@ -2234,7 +2458,6 @@
       "import_error_title": "Backup Import Failed",
       "import_error_description": "Your backup could not be imported. Please try again.",
       "export_error_title": "Export Failed",
-      "debug_export_error_title": "Debug Export Failed",
       "reset_title": "Reset Progress",
       "danger_zone_title": "Danger Zone",
       "danger_zone_hint": "Resetting all progress permanently deletes your data for PvP, PvE, and Seasonal PvP. This cannot be undone.",
@@ -2275,6 +2498,33 @@
       "recovery_archive_current": "Locally saved progress",
       "recovery_archive_original": "Original device data",
       "recovery_archive_older": "Older edit {index}",
+      "recovery_copies_title": "Recovery copies",
+      "recovery_copies_description": "When a reset, a Seasonal rollover, or an older tab replaces progress that could otherwise be lost, such as changes that had not reached the cloud yet, TarkovTracker keeps a copy here. Copies are never restored on their own. Restore, download, or discard them here.",
+      "device_recovery_archive_link": "Download the progress saved in this browser (device recovery archive)",
+      "superseded_copy_label": "{mode} · replaced {date}",
+      "superseded_copy_label_season": "{mode} season {season} · replaced {date}",
+      "superseded_copy_summary": "Level {level} · {count} task | Level {level} · {count} tasks",
+      "superseded_other_season": "This copy is from an earlier season, so it can be downloaded but not restored into the current season.",
+      "superseded_restore": "Restore",
+      "superseded_restore_confirmation": "Replace your current {mode} progress ({current}) with this copy? Your current {mode} progress will be kept here as a recovery copy, and other modes are not changed.",
+      "superseded_restore_confirm": "Replace {mode} progress",
+      "superseded_restored": "{mode} progress restored. The copy stays here until you discard it.",
+      "superseded_restore_failed": "Could not restore this copy. Your progress was not changed.",
+      "superseded_restore_keep_failed": "Could not keep your current progress as a recovery copy, so nothing was restored. Free up browser storage and try again.",
+      "superseded_restore_unavailable": "Progress cannot be saved in this browser right now, so nothing was restored. Reload the page and try again.",
+      "superseded_copy_unavailable": "This recovery copy is no longer available.",
+      "superseded_download": "Download",
+      "superseded_download_failed": "Could not download this recovery copy.",
+      "superseded_discard": "Discard",
+      "superseded_discard_confirmation": "Discard this copy? This cannot be undone. Download it first if you might need it.",
+      "superseded_discard_confirm": "Discard copy",
+      "superseded_discard_failed": "Could not discard this recovery copy.",
+      "recovery_copies_added": "Added {count} recovery copy. Restore it under Recovery copies. | Added {count} recovery copies. Restore them under Recovery copies.",
+      "recovery_copies_already_present": "The copies in this file are already listed under Recovery copies.",
+      "recovery_copies_sign_in": "Sign in to restore recovery copies. They are kept for a signed-in account.",
+      "recovery_copies_add_failed": "Only {added} of {total} recovery copies could be saved in this browser. Free up browser storage and restore the file again.",
+      "invalid_superseded_archive": "This recovery copy file is invalid or uses an unsupported version. Nothing was imported.",
+      "superseded_archive_too_large": "This recovery copy file is too large (maximum 16 MiB).",
       "export_and_clear_older_copies": "Export and clear older copies"
     },
     "prestige_pvp": {
@@ -2336,7 +2586,7 @@
       "team_transfer_title": "Team Ownership Transfer",
       "team_transfer_description": "If you own any teams, ownership will be automatically transferred to the oldest member in each team. Teams without other members will be deleted.",
       "security_confirmation_title": "Security Confirmation",
-      "security_confirmation_description": "Account deletion requires typing the exact confirmation phrase below. This action is permanent and cannot be undone.",
+      "security_confirmation_description": "Sign in with your linked provider within five minutes, then type the exact confirmation phrase below. This action is permanent and cannot be undone.",
       "confirm_phrase_value": "DELETE MY ACCOUNT",
       "confirm_phrase_label": "Type \"{phrase}\" to confirm:",
       "confirm_phrase_error": "Please type exactly: {phrase}",
@@ -2353,7 +2603,11 @@
       "continue_with_device_data_remaining": "Continue with data remaining",
       "redirect_message": "Thank you for using TarkovTracker. You will be redirected to the dashboard.",
       "go_to_dashboard": "Go to Dashboard",
-      "session_changed": "Your signed-in account changed. No further action will be taken in this session."
+      "session_changed": "Your signed-in account changed. No further action will be taken in this session.",
+      "subscription_active": "Your subscription must end before you can delete your account. Open Supporter and select Manage subscription to cancel renewal, then return after your paid period ends. Your account and paid time have been kept.",
+      "billing_unavailable": "We could not verify that your subscription has ended. Your account has been kept. Please try again later.",
+      "recent_login_required": "Sign in again with your linked provider, then return to Settings and confirm deletion within five minutes. Your account and device data have been kept.",
+      "sign_in_again": "Sign in again"
     },
     "discord_link": {
       "title": "Discord Account",
@@ -2361,6 +2615,7 @@
       "link_account": "Link Discord account",
       "login_to_link": "Log in to link Discord",
       "linked_as": "Linked as {username}",
+      "linked": "Discord account linked",
       "sync_roles": "Sync Discord roles",
       "error_title": "Discord link unavailable",
       "not_in_guild_title": "Join the Discord server",
@@ -2441,10 +2696,11 @@
       "active_mode": "Active",
       "game_edition_hint": "Select the game edition you own so tracking matches your available content."
     },
+    "faction": {
+      "title": "Faction"
+    },
     "player_level": {
-      "title": "Current Level",
-      "label": "Current level",
-      "description": "Your current {mode} level. Completing tasks does not change it; the drawer shows the same value.",
+      "label": "Player Level",
       "range_hint": "Enter a whole number from {min} to {max}.",
       "range_hint_fallback": "Enter a whole number from {min} to {max}. Using the default range until level data loads.",
       "saved_title": "Level Updated",
@@ -2637,14 +2893,12 @@
     },
     "device_data": {
       "title": "Data on this device",
-      "description": "Signing out keeps this account's saved progress in this browser, so changes that have not reached the cloud yet can sync when you sign back in. Progress displaced by a reset or Seasonal rollover is kept separately for export. Removing this device's data deletes this account's progress, recovery copies, and preferences from this browser and signs you out.",
+      "description": "Signing out keeps this account's saved progress in this browser, so changes that have not reached the cloud yet can sync when you sign back in. Progress replaced by a reset or Seasonal rollover is kept under Recovery copies in Backup & Restore. Removing this device's data deletes this account's progress, recovery copies, and preferences from this browser and signs you out.",
       "cloud_unaffected": "Your cloud progress is not deleted. Other accounts' data on this device is not affected.",
-      "superseded_available": "{count} progress change(s) from a reset or Seasonal rollover are retained here for export only. They will not be restored or synced automatically.",
-      "superseded_export": "Export superseded progress",
-      "superseded_export_error": "Could not export superseded progress",
       "remove_button": "Remove this account's data from this device",
+      "recovery_copies_warning": "This also deletes {count} recovery copy for this account. Download it from Recovery copies in Backup & Restore first if you might need it. | This also deletes {count} recovery copies for this account. Download them from Recovery copies in Backup & Restore first if you might need them.",
       "confirm_title": "Remove this account's data from this device?",
-      "confirm_description": "This account's progress, recovery copies, superseded progress exports, and preferences will be deleted from this browser, and you will be signed out. Your cloud progress stays available when you sign in again.",
+      "confirm_description": "This account's progress, recovery copies, and preferences will be deleted from this browser, and you will be signed out. Your cloud progress stays available when you sign in again.",
       "pending_warning": "Some progress changes have not been saved to the cloud yet. Removing this device's data will permanently discard them. Export your progress first if you want to keep them.",
       "confirm_button": "Remove data and sign out",
       "removed": "This account's data was removed from this device.",
@@ -2678,10 +2932,17 @@
     "unknown_task": "Unknown Task",
     "unknown_station": "Unknown Station",
     "needed": "needed",
-    "view_details_for": "View details for {name}",
+    "view_requirements_for": "{requirements} for {name}",
+    "remaining_count": "{count} remaining",
+    "view_requirements": "See where it’s needed ({count})",
+    "inline_counts": {
+      "label": "Track {name} ({type})",
+      "increase": "Increase {name}",
+      "decrease": "Decrease {name}",
+      "updated": "Updated tracked counts for {name}",
+      "undo_conflict": "These counts changed after this edit. Undo cannot replace newer progress."
+    },
     "locked_before": "{count} before",
-    "switch_to_expanded": "Switch to Expanded view",
-    "switch_to_compact": "Switch to Compact view",
     "collected": "Collected",
     "mark_collected": "Mark as collected",
     "handed_over": "Handed over",
@@ -2718,13 +2979,13 @@
     "not_collected": "Not collected",
     "hidden_for_you": "Hidden for you",
     "hidden_for_you_hint": "You hid this task. It stays listed because teammates still need this item: {teammates}",
-    "click_to_collect": "Click to collect",
-    "click_to_uncollect": "Click to uncollect",
     "modal": {
       "smart_fill_error": "Unable to apply smart fill",
       "reset_error": "Unable to reset item progress",
       "unknown_error": "An unexpected error occurred"
-    }
+    },
+    "for_teammates": "For teammates",
+    "collect": "Collect"
   },
   "skills": {
     "req": "Req",
@@ -2733,6 +2994,7 @@
     "elite_level": "ELITE Level"
   },
   "game_settings": {
+    "seasonal_label": "Seasonal",
     "select_game_mode_label": "Select game mode",
     "select_faction_label": "Select faction",
     "season_ends_in": "Season {season} ends in {days}d {hours}h {minutes}m",

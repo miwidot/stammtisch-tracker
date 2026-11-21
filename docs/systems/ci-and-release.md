@@ -193,6 +193,21 @@ checkout stays pinned to the validated SHA. The production build still runs in R
   `pull-requests: read` for Crowdin merge attestation. That job checks out
   the trusted default branch for aggregation and reporting, never candidate branch code. Only aggregate
   success publishes success; failed, cancelled, skipped, or missing validation publishes failure.
+  Rate-limited publication follows the bounded [retry and backoff policy](../../scripts/ci/github-rate-limit.mjs),
+  honoring provider wait instructions. Every retry repeats the revision and policy checks;
+  unsafe waits and persistent or non-rate-limit errors fail the job. The result job's timeout
+  is owned by [the CI workflow](../../.github/workflows/ci.yml).
+  All dispatched publishers share one non-cancelling job lock, including all waits and both
+  head/merge writes; other events use per-run locks. A shared lock also covers a derived locales
+  merge SHA being validated directly by another dispatch. Under that lock, each actual target
+  SHA is checked for an authenticated GitHub Actions `CI Result` pointing to a newer run of this
+  repository, which supersedes the older write to that target.
+  An older-run rerun remains superseded; rerun the newest dispatch to recover. This prevents a
+  delayed success from overwriting a newer failure, without changing workflow-level ref cancellation.
+  The caller declares the serialized-publication protocol. Historical workflow definitions without
+  this lock fail closed against the newer trusted helper; update their CI workflow from current main
+  before dispatching them. This also prevents an in-flight older definition from retrying without
+  the shared lock after the trusted helper changes.
   Validation jobs unknown to the trusted aggregator also fail the result, so a new job must land in
   the trusted contract before it can gate. The `security` gate is selected by every plan. For the
   required jobs in `fullJobs` (`scripts/ci/validation-plan.mjs`), every selected job must report
@@ -236,6 +251,8 @@ checkout stays pinned to the validated SHA. The production build still runs in R
   requirements fail closed. Candidate CI/preview waits remain bounded.
 - A green workflow run must continue to mean the test shards and Supabase validation passed;
   making those jobs optional requires reconsidering this release gate.
+- Supabase validation must use an isolated local CI project and available port without omitting
+  database checks. See [the CI wrapper contract](../../scripts/checks/README.md#supabase-ci-isolation).
 
 ### Crowdin automatic merges
 

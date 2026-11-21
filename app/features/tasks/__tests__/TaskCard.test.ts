@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { mountSuspended } from '@nuxt/test-utils/runtime';
+import { DOMWrapper, flushPromises } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { reactive } from 'vue';
+import { nextTick, reactive } from 'vue';
 import TaskCard from '@/features/tasks/TaskCard.vue';
 import { otherRequirementsSignature } from '@/utils/taskOtherRequirements';
 import type { TaskEvaluationMap } from '@/stores/taskAvailability';
@@ -17,6 +18,7 @@ const taskState = reactive({
 const preferencesState = reactive({
   collapseDefault: false,
   hideRewards: false,
+  hideCompletedObjectives: false,
   manualFail: false,
   primaryView: 'all',
   pinnedTaskIds: [] as string[],
@@ -43,18 +45,21 @@ const tarkovStoreMock = {
   playerLevel: vi.fn(() => 1),
   setObjectiveCount: vi.fn(),
 };
-const metadataStoreMock = {
+const metadataStoreMock = reactive({
+  alternativeTasks: {} as Record<string, string[]>,
   alternativeTaskSources: {} as Record<string, string[]>,
   editions: [],
+  fetchTaskObjectivesData: vi.fn<() => Promise<void>>(),
   getTaskById: vi.fn(),
   mapsWithSvg: [],
   storyChapters: [] as StoryChapter[],
   storyChaptersGameMode: null as string | null,
   tasks: [] as Task[],
+  tasksObjectivesError: null as Error | null,
   tasksObjectivesHydrated: true,
   tasksObjectivesPending: false,
   traders: [],
-};
+});
 const taskFilteringMock = {
   isGlobalTask: vi.fn(() => false),
 };
@@ -79,7 +84,9 @@ vi.mock('@/stores/usePreferences', () => ({
     get getEnableManualTaskFail() {
       return preferencesState.manualFail;
     },
-    getHideCompletedTaskObjectives: false,
+    get getHideCompletedTaskObjectives() {
+      return preferencesState.hideCompletedObjectives;
+    },
     get getHideTaskRewards() {
       return preferencesState.hideRewards;
     },
@@ -122,7 +129,9 @@ vi.mock('vue-i18n', async (importOriginal) => ({
       const template = resolveEn(key);
       if (typeof template !== 'string') return key;
       const params = (args[0] ?? {}) as Record<string, unknown>;
-      return template.replace(/\{(\w+)\}/g, (_, name: string) => String(params[name] ?? name));
+      const [singular, plural = singular] = template.split(' | ');
+      const message = (params.count === 1 ? singular : plural) ?? template;
+      return message.replace(/\{(\w+)\}/g, (_, name: string) => String(params[name] ?? name));
     },
   }),
 }));
@@ -142,7 +151,8 @@ const TaskCardHeaderStub = {
   props: ['task'],
 };
 const TaskCardBadgesStub = {
-  template: '<div data-testid="task-card-badges"><slot name="actions" /></div>',
+  template:
+    '<div data-testid="task-card-badges"><slot name="alternatives" /><slot name="actions" /></div>',
   props: ['task'],
 };
 const TaskCardActionsStub = {
@@ -169,7 +179,9 @@ const AppTooltipStub = {
   template: '<span><slot /></span>',
 };
 const QuestObjectivesStub = {
-  template: '<div data-testid="task-objectives" />',
+  props: ['objectives'],
+  template:
+    '<div data-testid="task-objectives">{{ objectives.map((objective) => objective.id).join(",") }}</div>',
 };
 const mountTaskCard = async (taskOverrides: Partial<Task> = {}) =>
   mountSuspended(TaskCard, {
@@ -190,7 +202,6 @@ const mountTaskCard = async (taskOverrides: Partial<Task> = {}) =>
         ContextMenuItem: ContextMenuItemStub,
         NuxtImg: true,
         QuestObjectives: QuestObjectivesStub,
-        QuestObjectivesSkeleton: QuestObjectivesStub,
         TaskCardActions: TaskCardActionsStub,
         TaskCardBackground: TaskCardBackgroundStub,
         TaskCardBadges: TaskCardBadgesStub,
@@ -208,6 +219,7 @@ describe('TaskCard appearance and expansion controls', () => {
     taskState.failed = false;
     preferencesState.collapseDefault = false;
     preferencesState.hideRewards = false;
+    preferencesState.hideCompletedObjectives = false;
     preferencesState.manualFail = false;
     preferencesState.primaryView = 'all';
     preferencesState.pinnedTaskIds = [];
@@ -217,10 +229,164 @@ describe('TaskCard appearance and expansion controls', () => {
     progressStoreMock.tasksFailed = {};
     progressStoreMock.unlockedTasks = { 'task-1': { self: true } };
     vi.clearAllMocks();
+    metadataStoreMock.alternativeTasks = {};
+    metadataStoreMock.alternativeTaskSources = {};
     metadataStoreMock.getTaskById.mockReset();
+    metadataStoreMock.fetchTaskObjectivesData.mockReset().mockResolvedValue();
     metadataStoreMock.storyChapters = [];
     metadataStoreMock.storyChaptersGameMode = null;
+    metadataStoreMock.tasks = [];
+    metadataStoreMock.tasksObjectivesError = null;
+    metadataStoreMock.tasksObjectivesHydrated = true;
+    metadataStoreMock.tasksObjectivesPending = false;
     tarkovStoreMock.getCurrentProgressData.mockReturnValue({ taskCompletions: {} });
+  });
+  it('shows counted groups of name-only quest links from a compact chip on a collapsed card', async () => {
+    preferencesState.collapseDefault = true;
+    metadataStoreMock.alternativeTasks = {
+      'task-1': ['mutual', 'same-name', 'outgoing', 'missing'],
+    };
+    metadataStoreMock.alternativeTaskSources = { 'task-1': ['mutual', 'same-name', 'incoming'] };
+    metadataStoreMock.tasks = [
+      { id: 'mutual', name: 'Mutual choice' },
+      { id: 'same-name', name: 'Mutual choice', trader: { name: 'Skier' } },
+      { id: 'outgoing', name: 'Quest this one fails' },
+      { id: 'incoming', name: 'Quest that fails this one' },
+    ] as Task[];
+    metadataStoreMock.getTaskById.mockImplementation((id) =>
+      metadataStoreMock.tasks.find((task) => task.id === id)
+    );
+    const wrapper = await mountTaskCard();
+    expect(wrapper.find('#task-content-task-1').exists()).toBe(false);
+    const chip = wrapper.get('[data-testid="task-card-badges"] button[aria-label="Quest links"]');
+    expect(chip.text()).toBe('Quest links');
+    const overlays = new DOMWrapper(document.body);
+    expect(overlays.find('[data-testid="task-alternatives"]').exists()).toBe(false);
+    expect(chip.attributes('aria-expanded')).toBe('false');
+    await chip.trigger('click');
+    await flushPromises();
+    expect(chip.attributes('aria-expanded')).toBe('true');
+    const alternatives = overlays.get('[data-testid="task-alternatives"]');
+    expect(alternatives.get('h3').text()).toBe('Quest links');
+    expect(alternatives.text()).toContain('4 linked quests');
+    expect(alternatives.text()).toContain('Completing either quest fails the other.');
+    expect(alternatives.findAll('h4').map((label) => label.text())).toEqual([
+      'Mutually exclusive',
+      'Completing this quest fails',
+      'Completing any of these fails this quest',
+    ]);
+    expect(
+      alternatives.findAll('section > div > span[aria-hidden="true"]').map((count) => count.text())
+    ).toEqual(['2', '1', '1']);
+    expect(alternatives.findAll('ul').map((group) => group.findAll('li').length)).toEqual([
+      2, 1, 1,
+    ]);
+    expect(alternatives.findAll('a').map((link) => [link.text(), link.attributes('href')])).toEqual(
+      [
+        ['Mutual choice', '/tasks?task=mutual'],
+        ['Mutual choice', '/tasks?task=same-name'],
+        ['Quest this one fails', '/tasks?task=outgoing'],
+        ['Quest that fails this one', '/tasks?task=incoming'],
+      ]
+    );
+    expect(alternatives.text()).not.toMatch(/Skier|same-name/);
+    const { alternativeTasks, alternativeTaskSources } = metadataStoreMock;
+    metadataStoreMock.alternativeTasks = {};
+    metadataStoreMock.alternativeTaskSources = {};
+    await flushPromises();
+    expect(overlays.find('[data-testid="task-alternatives"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="task-alternatives-trigger"]').exists()).toBe(false);
+    metadataStoreMock.alternativeTasks = alternativeTasks;
+    metadataStoreMock.alternativeTaskSources = alternativeTaskSources;
+    await flushPromises();
+    expect(
+      wrapper.get('[data-testid="task-alternatives-trigger"]').attributes('aria-expanded')
+    ).toBe('false');
+    expect(overlays.find('[data-testid="task-alternatives"]').exists()).toBe(false);
+    await wrapper.setProps({ task: { id: 'unrelated', name: 'Unrelated quest' } });
+    expect(wrapper.find('[data-testid="task-alternatives-trigger"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+  it('offers a retry when objectives fail and shows the hydrated objectives afterward', async () => {
+    metadataStoreMock.tasksObjectivesHydrated = false;
+    metadataStoreMock.tasksObjectivesPending = true;
+    metadataStoreMock.getTaskById.mockImplementation((id) =>
+      metadataStoreMock.tasks.find((task) => task.id === id)
+    );
+    const wrapper = await mountTaskCard();
+    const skeleton = () => wrapper.find('#objectives-content-task-1 > [aria-hidden="true"]');
+    expect(skeleton().exists()).toBe(true);
+    metadataStoreMock.tasksObjectivesPending = false;
+    metadataStoreMock.tasksObjectivesError = new Error('offline');
+    await nextTick();
+    expect(skeleton().exists()).toBe(false);
+    expect(wrapper.get('[role="status"]').text()).toBe('Could not load objectives.');
+    const retry = Promise.withResolvers<undefined>();
+    metadataStoreMock.fetchTaskObjectivesData.mockImplementationOnce(() => {
+      metadataStoreMock.tasksObjectivesError = null;
+      metadataStoreMock.tasksObjectivesPending = true;
+      return retry.promise;
+    });
+    await wrapper.get('[data-testid="retry-task-objectives"]').trigger('click');
+    expect(metadataStoreMock.fetchTaskObjectivesData).toHaveBeenCalledExactlyOnceWith();
+    expect(skeleton().exists()).toBe(true);
+    expect(wrapper.find('[data-testid="retry-task-objectives"]').exists()).toBe(false);
+    metadataStoreMock.tasks = [
+      { id: 'task-1', objectives: [{ id: 'objective-1', type: 'visit', count: 1 }] } as Task,
+    ];
+    metadataStoreMock.tasksObjectivesHydrated = true;
+    metadataStoreMock.tasksObjectivesPending = false;
+    retry.resolve(undefined);
+    await nextTick();
+    expect(wrapper.get('[data-testid="task-objectives"]').text()).toBe('objective-1');
+    expect(skeleton().exists()).toBe(false);
+    wrapper.unmount();
+  });
+  it('keeps loaded objectives visible after a refresh failure', async () => {
+    metadataStoreMock.tasksObjectivesHydrated = false;
+    metadataStoreMock.tasksObjectivesError = new Error('offline');
+    const wrapper = await mountTaskCard({
+      objectives: [{ id: 'objective-1', type: 'visit', count: 1 }],
+    });
+    expect(wrapper.find('[data-testid="task-objectives"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="retry-task-objectives"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+  it('discloses completed objectives manually and responds to preference and completion changes', async () => {
+    taskState.complete = true;
+    preferencesState.hideCompletedObjectives = true;
+    const wrapper = await mountTaskCard({
+      objectives: [{ id: 'objective-1', type: 'visit', count: 1 }],
+    });
+    const toggle = wrapper.get('[data-testid="task-objectives-header"] button');
+    expect(toggle.attributes('aria-controls')).toBe('objectives-content-task-1');
+    const expectDisclosure = (expanded: boolean) => {
+      expect(toggle.attributes('aria-expanded')).toBe(String(expanded));
+      expect(wrapper.find('#objectives-content-task-1').exists()).toBe(expanded);
+      expect(wrapper.find('[data-testid="task-objectives"]').exists()).toBe(expanded);
+    };
+    expectDisclosure(false);
+    await toggle.trigger('click');
+    expectDisclosure(true);
+    await toggle.trigger('click');
+    expectDisclosure(false);
+    preferencesState.hideCompletedObjectives = false;
+    await nextTick();
+    expectDisclosure(true);
+    await toggle.trigger('click');
+    expectDisclosure(false);
+    await toggle.trigger('click');
+    expectDisclosure(true);
+    preferencesState.hideCompletedObjectives = true;
+    await nextTick();
+    expectDisclosure(false);
+    taskState.complete = false;
+    await nextTick();
+    expectDisclosure(true);
+    taskState.complete = true;
+    await nextTick();
+    expectDisclosure(false);
+    wrapper.unmount();
   });
   it('offers a task-local confirmation reset without touching objectives', async () => {
     const gated: Partial<Task> = {

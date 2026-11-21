@@ -1,174 +1,176 @@
 <template>
   <header
-    class="fixed top-0 right-0 z-40 h-11 border-b shadow-[0_1px_0_rgba(0,0,0,0.4)]"
+    ref="appBar"
+    class="@container fixed top-0 right-0 z-30 h-(--shell-bar-h) border-b"
     :class="modeHeaderClass"
+    :style="{ '--app-bar-gutter': gutterCap }"
   >
-    <div class="flex h-full items-center gap-1 px-2 sm:gap-2 sm:px-3">
-      <!-- Left: Toggle Button -->
-      <AppTooltip :text="t('navigation_drawer.toggle')">
-        <UButton
-          :icon="NAV_BAR_ICON"
-          variant="ghost"
-          color="neutral"
-          size="md"
-          :aria-label="t('navigation_drawer.toggle')"
-          :class="{ 'rotate-180': isDrawerCollapsed }"
-          class="h-8 w-8 transition-transform duration-200"
-          @click.stop="changeNavigationDrawer"
-        />
-      </AppTooltip>
-      <!-- Center: app search (filters Tasks and Needed Items in place, jumps elsewhere) -->
-      <div class="flex min-w-0 flex-1 items-center">
-        <AppSearch
-          :shortcut-parts="omnibarShortcutParts"
-          :key-shortcuts="omnibarAriaKeyshortcuts"
-        />
+    <div
+      class="grid h-full grid-cols-[minmax(0,1fr)_min(36%,47.5rem)_minmax(0,1fr)] items-center gap-2 pe-[clamp(18px,calc(20cqw-230px),var(--app-bar-gutter))] @max-[760px]:pe-3 @max-[560px]:grid-cols-[minmax(max-content,1fr)_auto_minmax(max-content,1fr)] @max-[560px]:gap-1 @max-[560px]:pe-2"
+    >
+      <div class="flex items-center gap-0.5 ps-2 @min-[761px]:ps-4">
+        <AppTooltip :text="t('navigation_drawer.toggle')">
+          <UButton
+            :icon="drawerToggleIcon"
+            variant="ghost"
+            color="neutral"
+            :aria-label="t('navigation_drawer.toggle')"
+            :aria-expanded="!isDrawerCollapsed"
+            class="size-10 shrink-0 justify-center"
+            @click.stop="changeNavigationDrawer"
+          />
+        </AppTooltip>
+        <AppTooltip v-if="dataStatus" :text="dataStatus.label">
+          <span class="flex size-4 items-center justify-center @min-[561px]:size-8">
+            <UIcon :name="dataStatus.icon" :class="dataStatus.color" class="size-4" />
+          </span>
+        </AppTooltip>
       </div>
-      <!-- Right: Status indicators + grouped controls -->
-      <div class="flex shrink-0 items-center gap-1.5 sm:gap-2">
-        <!-- Status indicators (non-interactive, shown only when active) -->
-        <div class="flex items-center justify-end gap-0.5">
-          <AppTooltip v-if="dataError" :text="t('app_bar.error_loading')">
-            <span class="flex h-8 w-8 items-center justify-center">
-              <UIcon
-                name="i-mdi-database-alert"
-                class="text-error-500 light:text-error-800 h-4 w-4"
-              />
-            </span>
-          </AppTooltip>
-          <AppTooltip
-            v-if="dataLoading || hideoutLoading || localeSwitchPending"
-            :text="t('app_bar.loading')"
-          >
-            <span class="flex h-8 w-8 items-center justify-center">
-              <UIcon
-                name="i-heroicons-arrow-path"
-                class="text-primary-500 light:text-primary-800 h-4 w-4 animate-spin"
-              />
-            </span>
-          </AppTooltip>
-          <ProgressSaveStatusIndicator />
-        </div>
-        <!-- Utility group: Theme + Activity + Help + Language + community links -->
-        <div class="bg-surface-800/40 flex items-center rounded-lg">
-          <AppTooltip v-if="LIGHT_THEME_ENABLED" :text="themeToggleLabel">
-            <UButton
-              color="neutral"
-              variant="ghost"
-              size="md"
-              :icon="isLightTheme ? 'i-heroicons-moon' : 'i-heroicons-sun'"
-              :aria-label="themeToggleLabel"
-              class="hidden h-8 w-8 sm:inline-flex"
-              @click="toggleThemeMode"
-            />
-          </AppTooltip>
-          <AppTooltip :text="t('common.activity_log', 'Activity Log')">
-            <UPopover :content="{ align: 'end', side: 'bottom', sideOffset: 10 }">
+      <AppSearch :shortcut-parts="omnibarShortcutParts" :key-shortcuts="omnibarAriaKeyshortcuts" />
+      <div
+        class="col-start-3 flex max-w-full min-w-0 items-center gap-0.5 justify-self-end @min-[561px]:gap-1"
+      >
+        <ProgressSaveStatusIndicator />
+        <AppTooltip v-if="LIGHT_THEME_ENABLED && showThemeAndHelp" :text="themeToggleLabel">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            :icon="themeIcon"
+            :aria-label="themeToggleLabel"
+            class="size-10 shrink-0 justify-center"
+            @click="toggleThemeMode"
+          />
+        </AppTooltip>
+        <UPopover
+          v-model:open="activityOpen"
+          :reference="activityAnchor"
+          :content="activityPopoverContent"
+        >
+          <template v-if="showActivity" #default>
+            <AppTooltip :text="t('common.activity_log')">
               <UButton
                 color="neutral"
                 variant="ghost"
-                size="md"
-                icon="i-heroicons-bell"
-                :aria-label="t('common.activity_log', 'Activity Log')"
-                class="relative h-8 w-8"
+                icon="i-lucide-bell"
+                :aria-label="t('common.activity_log')"
+                class="relative size-10 shrink-0 justify-center"
               >
-                <span v-if="activityLogStore.hasUnread" class="sr-only" aria-live="polite">
-                  {{ t('activity_log.unread_indicator', 'You have unread activity') }}
-                </span>
                 <span
                   v-if="activityLogStore.hasUnread"
                   aria-hidden="true"
-                  class="bg-error-500 ring-surface-900 absolute top-1 right-1 flex h-2 w-2 rounded-full ring-2"
+                  class="bg-error-500 ring-surface-900 absolute top-2 right-2 size-2 rounded-full ring-2"
                 />
               </UButton>
-              <template #content>
-                <ActivityLogPanel />
-              </template>
-            </UPopover>
-          </AppTooltip>
-          <GlobalHelpLauncher />
-          <AppTooltip :text="localeTooltip">
-            <UDropdownMenu :items="localeMenuItems" :content="{ align: 'end', sideOffset: 8 }">
+            </AppTooltip>
+          </template>
+          <template #content>
+            <ActivityLogPanel />
+          </template>
+        </UPopover>
+        <span v-if="activityLogStore.hasUnread" class="sr-only" aria-live="polite">
+          {{ t('activity_log.unread_indicator') }}
+        </span>
+        <GlobalHelpLauncher
+          v-model:open="helpOpen"
+          :show-trigger="showThemeAndHelp"
+          :reference="overflowAnchor ?? undefined"
+        />
+        <AppTooltip v-if="showLocale" :text="localeTooltip">
+          <UDropdownMenu
+            :modal="false"
+            :items="localeMenuItems"
+            :content="{ align: 'end', sideOffset: 8 }"
+          >
+            <UButton
+              color="neutral"
+              variant="ghost"
+              icon="i-lucide-languages"
+              :aria-label="localeTooltip"
+              :loading="localeSwitchPending"
+              :disabled="localeSwitchPending"
+              data-testid="app-locale-menu"
+              class="size-10 shrink-0 justify-center"
+            />
+          </UDropdownMenu>
+        </AppTooltip>
+        <span ref="overflowAnchor" class="inline-flex">
+          <AppTooltip :text="t('common.more')">
+            <UDropdownMenu
+              :modal="false"
+              :items="moreMenuItems"
+              :content="{ align: 'end', sideOffset: 8, onCloseAutoFocus: openOverflowPanel }"
+            >
               <UButton
                 color="neutral"
                 variant="ghost"
-                size="md"
-                icon="i-mdi-translate"
-                :aria-label="localeTooltip"
-                :loading="localeSwitchPending"
-                :disabled="localeSwitchPending"
-                data-testid="app-locale-menu"
-                class="hidden h-8 w-8 justify-center sm:inline-flex"
-              />
-            </UDropdownMenu>
-          </AppTooltip>
-        </div>
-        <!-- Visual separator between utility and account zones -->
-        <div class="bg-surface-700/60 hidden h-4 w-px sm:block" aria-hidden="true" />
-        <!-- Account zone: Support + Account -->
-        <div class="flex items-center gap-1 sm:gap-1.5">
-          <span class="sm:hidden">
-            <AppTooltip :text="t('common.more', 'More')">
-              <UDropdownMenu :items="moreMenuItems" :content="{ align: 'end', sideOffset: 8 }">
-                <UButton
-                  color="neutral"
-                  variant="ghost"
-                  size="md"
-                  icon="i-mdi-dots-horizontal"
-                  :aria-label="t('common.more', 'More')"
-                  class="h-8 w-8"
-                />
-              </UDropdownMenu>
-            </AppTooltip>
-          </span>
-          <AppTooltip :text="userDisplayName">
-            <UDropdownMenu
-              v-if="isLoggedIn"
-              :items="accountMenuItems"
-              :content="{ align: 'end', sideOffset: 8 }"
-            >
-              <button
-                type="button"
-                class="bg-surface-800/50 border-surface-600 hover:bg-surface-800 flex h-8 min-w-0 items-center gap-1.5 rounded-md border px-2 transition-colors sm:max-w-56"
-                :aria-label="t('navigation_drawer.account_menu')"
+                icon="i-lucide-ellipsis"
+                :aria-label="t('common.more')"
+                class="relative size-10 shrink-0 justify-center"
               >
-                <img
-                  :src="effectiveAvatarSrc"
-                  :alt="t('app_bar.user_avatar_alt')"
-                  class="h-5 w-5 shrink-0 rounded-full"
-                  loading="lazy"
-                  @error="handleAvatarError"
-                />
                 <span
-                  class="text-surface-200 hidden min-w-0 flex-1 truncate text-[13px] leading-none font-medium whitespace-nowrap sm:inline"
-                  :data-long-name="userDisplayName.length > 24"
-                  :title="userDisplayName"
-                >
-                  {{ userDisplayName }}
-                </span>
-                <UIcon name="i-mdi-chevron-down" class="text-surface-400 h-4 w-4 shrink-0" />
-              </button>
+                  v-if="!showActivity && activityLogStore.hasUnread"
+                  aria-hidden="true"
+                  class="bg-error-500 ring-surface-900 absolute top-2 right-2 size-2 rounded-full ring-2"
+                />
+              </UButton>
             </UDropdownMenu>
           </AppTooltip>
-          <AppTooltip v-if="!isLoggedIn" :text="t('app_bar.login_aria', 'Log in to your account')">
-            <a
-              :href="trackerHandoffUrl"
-              class="bg-primary-500 light:bg-primary-800 hover:bg-primary-400 light:hover:bg-primary-900 border-primary-500 light:border-primary-800 text-surface-950 flex h-8 w-8 items-center justify-center gap-1.5 rounded-md border px-0 text-[13px] leading-none font-semibold transition-colors sm:w-auto sm:px-3"
-              :aria-label="t('app_bar.login_aria', 'Log in to your account')"
+        </span>
+        <span
+          class="bg-surface-700/60 mx-1 hidden h-5 w-px shrink-0 @min-[561px]:block"
+          aria-hidden="true"
+        />
+        <AppTooltip v-if="isLoggedIn" :text="userDisplayName">
+          <UDropdownMenu
+            :modal="false"
+            :items="accountMenuItems"
+            :content="{ align: 'end', sideOffset: 8 }"
+          >
+            <button
+              type="button"
+              class="bg-surface-800/50 border-surface-600 hover:bg-surface-800 flex h-10 w-10 min-w-10 items-center justify-center gap-1.5 rounded-lg border transition-colors @min-[1041px]:w-auto @min-[1041px]:max-w-44 @min-[1041px]:px-2.5"
+              :aria-label="t('navigation_drawer.account_menu')"
             >
-              <UIcon name="i-mdi-account-outline" class="h-4 w-4 shrink-0" />
-              <span class="hidden leading-none sm:inline">{{ t('navigation_drawer.login') }}</span>
-            </a>
-          </AppTooltip>
-        </div>
+              <img
+                :src="effectiveAvatarSrc"
+                :alt="t('app_bar.user_avatar_alt')"
+                class="size-6 shrink-0 rounded-full"
+                loading="lazy"
+                @error="handleAvatarError"
+              />
+              <span
+                class="text-surface-200 hidden min-w-0 truncate text-[13px] leading-none font-medium whitespace-nowrap @min-[1041px]:inline"
+                :data-long-name="userDisplayName.length > 24"
+                :title="userDisplayName"
+              >
+                {{ userDisplayName }}
+              </span>
+              <UIcon
+                name="i-lucide-chevron-down"
+                class="text-surface-400 hidden size-4 shrink-0 @min-[1041px]:block"
+              />
+            </button>
+          </UDropdownMenu>
+        </AppTooltip>
+        <AppTooltip v-else :text="t('app_bar.login_aria')">
+          <a
+            :href="trackerHandoffUrl"
+            class="bg-primary-500 light:bg-primary-800 hover:bg-primary-400 light:hover:bg-primary-900 border-primary-500 light:border-primary-800 text-surface-950 flex h-10 w-10 min-w-10 items-center justify-center gap-1.5 rounded-lg border text-[13px] leading-none font-semibold transition-colors @min-[561px]:w-auto @min-[561px]:px-3"
+            :aria-label="t('app_bar.login_aria')"
+          >
+            <UIcon name="i-lucide-user-round" class="size-4 shrink-0" />
+            <span class="hidden truncate @min-[561px]:inline">
+              {{ t('navigation_drawer.login') }}
+            </span>
+          </a>
+        </AppTooltip>
       </div>
     </div>
     <SignOutConfirmModal v-if="isLoggedIn" />
   </header>
 </template>
 <script setup lang="ts">
-  import { useWindowSize } from '@vueuse/core';
-  import { storeToRefs } from 'pinia';
+  import { useElementSize, useWindowSize } from '@vueuse/core';
   import { useKeybinds } from '@/composables/useKeybinds';
   import { useLocaleSwitch } from '@/composables/useLocaleSwitch';
   import { useSignOut } from '@/composables/useSignOut';
@@ -183,9 +185,13 @@
   import { LIGHT_THEME_ENABLED } from '@/utils/forkConfig';
   import { DEFAULT_KEYBINDS } from '@/utils/keybinds';
   import { getLocaleNativeName } from '@/utils/locales';
-  import { SHELL_DESKTOP_BREAKPOINT_PX } from '@/utils/shellConfig';
+  import {
+    SHELL_DESKTOP_BREAKPOINT_PX,
+    SHELL_DRAWER_COLLAPSED_WIDTH,
+    SHELL_DRAWER_EXPANDED_WIDTH,
+  } from '@/utils/shellConfig';
   import type { DropdownMenuItem } from '@nuxt/ui';
-  const { t, te } = useI18n({ useScope: 'global' });
+  const { t } = useI18n({ useScope: 'global' });
   const trackerHandoffUrl = useRuntimeConfig().public.trackerHandoffUrl;
   const { isLightTheme, toggleThemeMode } = useTheme();
   const themeToggleLabel = computed(() =>
@@ -193,6 +199,36 @@
       ? t('app_bar.switch_to_dark_theme', 'Switch to dark theme')
       : t('app_bar.switch_to_light_theme', 'Switch to light theme')
   );
+  const themeIcon = computed(() => (isLightTheme.value ? 'i-lucide-moon' : 'i-lucide-sun'));
+  const overflowAnchor = useTemplateRef<HTMLElement>('overflowAnchor');
+  const { width: barWidth } = useElementSize(useTemplateRef<HTMLElement>('appBar'));
+  const showActivity = computed(() => barWidth.value > 560);
+  const showThemeAndHelp = computed(() => barWidth.value >= 1280);
+  const showLocale = computed(() => barWidth.value >= 1620);
+  const activityOpen = ref(false);
+  const activityPopoverContent = computed(() => ({
+    align: 'end' as const,
+    sideOffset: 8,
+    'aria-label': t('common.activity_log'),
+    onEscapeKeyDown: focusActivityAnchor,
+  }));
+  const activityAnchor = computed(() =>
+    showActivity.value ? undefined : (overflowAnchor.value ?? undefined)
+  );
+  function focusActivityAnchor() {
+    if (showActivity.value) return;
+    overflowAnchor.value?.querySelector('button')?.focus({ preventScroll: true });
+  }
+  const helpOpen = ref(false);
+  let selectedOverflowPanel: 'activity' | 'help' | null = null;
+  function openOverflowPanel(event: Event) {
+    if (!selectedOverflowPanel) return;
+    // Hand focus to the popup only after More's content closes.
+    event.preventDefault();
+    if (selectedOverflowPanel === 'activity') activityOpen.value = true;
+    else helpOpen.value = true;
+    selectedOverflowPanel = null;
+  }
   const appStore = useAppStore();
   const activityLogStore = useActivityLogStore();
   const metadataStore = useMetadataStore();
@@ -261,12 +297,12 @@
   const accountMenuItems = computed<DropdownMenuItem[][]>(() => [
     [
       {
-        icon: 'i-mdi-account-outline',
+        icon: 'i-lucide-user-round',
         label: t('navigation_drawer.profile'),
         to: '/profile',
       },
       {
-        icon: 'i-mdi-cog-outline',
+        icon: 'i-lucide-settings',
         label: t('common.settings'),
         to: '/settings',
       },
@@ -274,7 +310,7 @@
     [
       {
         color: 'error',
-        icon: 'i-mdi-logout',
+        icon: 'i-lucide-log-out',
         label: t('navigation_drawer.logout'),
         onSelect: () => {
           void logout();
@@ -282,28 +318,46 @@
       },
     ],
   ]);
-  const moreMenuItems = computed<DropdownMenuItem[][]>(() => [
-    [
-      ...(LIGHT_THEME_ENABLED
-        ? [
-            {
-              icon: isLightTheme.value ? 'i-heroicons-moon' : 'i-heroicons-sun',
-              label: themeToggleLabel.value,
-              onSelect: () => {
-                toggleThemeMode();
-              },
-            },
-          ]
-        : []),
-      {
-        icon: 'i-mdi-translate',
-        label: t('settings.locale'),
-        description: localeStatus.value || undefined,
-        disabled: localeSwitchPending.value,
-        children: localeMenuItems.value,
-      },
-    ],
+  const themeMenuItem = computed<DropdownMenuItem>(() => ({
+    icon: themeIcon.value,
+    label: themeToggleLabel.value,
+    onSelect: toggleThemeMode,
+  }));
+  const localeOverflowItem = computed<DropdownMenuItem>(() => ({
+    icon: 'i-lucide-languages',
+    label: t('settings.locale'),
+    description: localeStatus.value || undefined,
+    disabled: localeSwitchPending.value,
+    children: localeMenuItems.value,
+  }));
+  const activityMenuItem: DropdownMenuItem = {
+    icon: 'i-lucide-bell',
+    get label() {
+      return t('common.activity_log');
+    },
+    onSelect: () => {
+      selectedOverflowPanel = 'activity';
+    },
+  };
+  const helpMenuItem: DropdownMenuItem = {
+    icon: 'i-lucide-circle-help',
+    get label() {
+      return t('app_bar.help_community_aria');
+    },
+    onSelect: () => {
+      selectedOverflowPanel = 'help';
+    },
+  };
+  const overflowUtilities = computed(() => [
+    ...(showThemeAndHelp.value
+      ? []
+      : [...(LIGHT_THEME_ENABLED ? [themeMenuItem.value] : []), helpMenuItem]),
+    ...(showActivity.value ? [] : [activityMenuItem]),
+    ...(showLocale.value ? [] : [localeOverflowItem.value]),
   ]);
+  const moreMenuItems = computed<DropdownMenuItem[][]>(() =>
+    [overflowUtilities.value].filter((group) => group.length > 0)
+  );
   const { requestSignOut } = useSignOut();
   async function logout() {
     await requestSignOut();
@@ -316,8 +370,13 @@
     }
     return appStore.drawerRail;
   });
-  const NAV_BAR_ICON = 'i-mdi-menu-open';
-  const { loading: dataLoading, hideoutLoading } = storeToRefs(metadataStore);
+  const gutterCap = computed(() =>
+    isDrawerCollapsed.value ? SHELL_DRAWER_COLLAPSED_WIDTH : SHELL_DRAWER_EXPANDED_WIDTH
+  );
+  const drawerToggleIcon = computed(() => {
+    if (mdAndDown.value) return 'i-lucide-menu';
+    return isDrawerCollapsed.value ? 'i-lucide-panel-left-open' : 'i-lucide-panel-left-close';
+  });
   const {
     locale,
     availableLocales,
@@ -327,6 +386,26 @@
     isDisabled: isLocaleDisabled,
     selectLocale,
   } = useLocaleSwitch();
+  const isLoadingData = computed(
+    () => metadataStore.loading || metadataStore.hideoutLoading || localeSwitchPending.value
+  );
+  const dataStatus = computed(() => {
+    if (dataError.value) {
+      return {
+        label: t('app_bar.error_loading'),
+        icon: 'i-lucide-database-zap',
+        color: 'text-error-500 light:text-error-800',
+      };
+    }
+    if (isLoadingData.value) {
+      return {
+        label: t('app_bar.loading'),
+        icon: 'i-lucide-loader-circle',
+        color: 'text-primary-500 light:text-primary-800 animate-spin',
+      };
+    }
+    return null;
+  });
   function handleKeydown(event: KeyboardEvent) {
     if (event.key === 'Escape' && appStore.mobileDrawerExpanded && mdAndDown.value) {
       event.preventDefault();

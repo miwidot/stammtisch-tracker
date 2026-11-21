@@ -119,6 +119,10 @@ vi.mock('@/stores/usePreferences', () => ({
       TRANSIT: '#cf5959',
     },
     getMapTooltipDensity: 'comfortable',
+    getMapObjectiveColorMode: 'category',
+    getMapObjectivePalette: 'okabe_ito',
+    setMapObjectiveColorMode: vi.fn(),
+    setMapObjectivePalette: vi.fn(),
     getMapShowSelfObjectives: true,
     getMapShowPinnedObjectives: false,
     getMapShowTeamObjectives: false,
@@ -362,12 +366,14 @@ describe('LeafletMap controls', () => {
     expect(row('transit').exists()).toBe(false);
     expect(row('pmc').attributes('aria-pressed')).toBe('true');
     expect(row('pmc').text()).toContain('PMC');
-    expect(row('shared').text()).toContain('Shared / unknown');
+    expect(row('shared').text()).toContain('Shared');
+    expect(row('shared').text()).toContain('Either faction');
+    expect(row('shared').text()).not.toContain('unknown');
     expect(
       row('shared')
         .findAll('svg path')
         .map((path) => path.attributes('d'))
-    ).toEqual([MAP_MARKER_GLYPH_PATHS.shared, MAP_MARKER_GLYPH_PATHS.extract]);
+    ).toEqual([MAP_MARKER_GLYPH_PATHS.shared]);
     expect(row('coop').text()).toContain('PMC and Scav together');
     await row('pmc').trigger('click');
     await row('shared').trigger('click');
@@ -382,6 +388,23 @@ describe('LeafletMap controls', () => {
     await toggle.trigger('click');
     expect(wrapper.find('[data-testid="map-layers-panel"]').exists()).toBe(false);
     expect(localStorage.getItem('map_layers_panel_open')).toBe('false');
+    wrapper.unmount();
+  });
+  it('labels the shared row honestly when an extract has no known faction', async () => {
+    const wrapper = await mountMap({
+      map: {
+        ...mapData,
+        extracts: [
+          { id: 'unknown', name: 'Unknown exit', faction: null, position: { x: 1, z: 1 } },
+        ],
+      },
+    });
+    const row = await openLayersPanel(wrapper);
+    expect(row('shared').text()).toContain('Shared / unknown');
+    expect(row('shared').text()).toContain('Either faction, or faction not supplied');
+    expect(row('shared').findAll('svg path')).toHaveLength(1);
+    await row('shared').trigger('click');
+    expect(row('shared').attributes('aria-pressed')).toBe('false');
     wrapper.unmount();
   });
   it('attaches visible vehicle requirements and keyboard details that fit after resizing', async () => {
@@ -444,7 +467,7 @@ describe('LeafletMap controls', () => {
     // The source and not-live notice appear once for the map, not in every popup.
     const source = wrapper.get('[data-testid="map-extract-source"]');
     expect(source.text()).toBe(
-      'Requirements: game data, EFT 1.3.0.0, plus curated cues · Not live raid status'
+      'Requirements: EFT 1.3.0.0 data, public references and scene cues · Not live raid status'
     );
     expect(source.attributes('title')).toContain('EFT 1.3.0.0.48484');
     expect(wrapper.findAll('[data-testid="map-extract-source"]')).toHaveLength(1);
@@ -761,12 +784,13 @@ describe('LeafletMap controls', () => {
   it('renders localized help rows with their keyboard shortcuts in message slots', async () => {
     mapState.hasMultipleFloors = true;
     const wrapper = await mountMap();
-    expect(wrapper.findAll('kbd')).toHaveLength(9);
+    expect(wrapper.findAll('kbd')).toHaveLength(10);
     expect(wrapper.text()).toMatch(/WASD\s*\/\s*←↑↓→\s+or drag to pan/);
     expect(wrapper.text()).toMatch(/Shift\s*Scroll\s*\/\s*Q\/E\s+to zoom/);
     expect(wrapper.text()).toMatch(/R\s+to reset view/);
     expect(wrapper.text()).toMatch(/Ctrl\s*Scroll\s+to cycle floors/);
     expect(wrapper.text()).toMatch(/F\s+to click at cursor/);
+    expect(wrapper.text()).toMatch(/C\s+to copy the coordinates under the cursor/);
     const hint = wrapper.find('[data-testid="map-first-use-hint"]');
     expect(hint.exists()).toBe(true);
     expect(hint.text()).toMatch(/Ctrl \+ Scroll to change floors/);
@@ -774,7 +798,7 @@ describe('LeafletMap controls', () => {
   });
   it('hides floor help and the floor shortcut from the hint on single-floor maps', async () => {
     const wrapper = await mountMap();
-    expect(wrapper.findAll('kbd')).toHaveLength(7);
+    expect(wrapper.findAll('kbd')).toHaveLength(8);
     expect(wrapper.text()).not.toContain('to cycle floors');
     expect(wrapper.text()).not.toContain('Or use the floor panel.');
     const hint = wrapper.find('[data-testid="map-first-use-hint"]');
@@ -1048,5 +1072,169 @@ describe('LeafletMap controls', () => {
       wrapper.unmount();
       popups.forEach((popup) => popup.element.remove());
     }
+  });
+  it('fills chips with quest colors, reports hovered quests and highlights one quest', async () => {
+    type FakeHandler = () => void;
+    const dots: Array<{ handlers: Map<string, FakeHandler[]> }> = [];
+    const createLayer = () => {
+      const handlers = new Map<string, FakeHandler[]>();
+      const layer = {
+        handlers,
+        options: {},
+        setStyle: vi.fn(),
+        getLatLng: () => ({ lat: 0, lng: 0 }),
+        getRadius: () => 13,
+        on(name: string, handler: FakeHandler) {
+          handlers.set(name, [...(handlers.get(name) ?? []), handler]);
+          return layer;
+        },
+      };
+      dots.push(layer);
+      return layer;
+    };
+    const createPopup = () => {
+      const element = document.createElement('div');
+      const popup = {
+        options: {},
+        isOpen: false,
+        update: vi.fn(),
+        setContent: (content: HTMLElement) => element.replaceChildren(content),
+        setLatLng: vi.fn(),
+        getElement: () => element,
+        addTo: () => {
+          popup.isOpen = true;
+        },
+        remove: () => {
+          popup.isOpen = false;
+        },
+        on: vi.fn(),
+        once: vi.fn(),
+      };
+      return popup;
+    };
+    const divIcon = vi.fn((options: { html: HTMLElement }) => options);
+    const createLayerGroup = () => ({ clearLayers: vi.fn(), addLayer: vi.fn() });
+    const mapPane = document.createElement('div');
+    mapPane.innerHTML = '<svg width="100" height="100"></svg>';
+    mockMapInstance.getPane.mockReturnValue(mapPane);
+    mockMapInstance.getContainer.mockReturnValue(mapPane);
+    mapState.leaflet = {
+      circleMarker: createLayer,
+      divIcon,
+      marker: (_position: unknown, options: Record<string, unknown>) => ({ options }),
+      popup: createPopup,
+      DomEvent: { stop: vi.fn() },
+    };
+    mapState.objectiveLayer = createLayerGroup();
+    mapState.extractLayer = createLayerGroup();
+    mapState.spawnLayer = createLayerGroup();
+    const point = (id: string, taskId: string, color: string) => ({
+      id,
+      taskId,
+      color,
+      type: 'visit',
+      users: ['self'],
+      zones: [],
+      possibleLocations: [{ map: { id: 'customs' }, positions: [{ x: 10, z: 10 }] }],
+    });
+    const marks = [
+      point('objective-a', 'task-a', '#f0e442'),
+      point('objective-b', 'task-b', '#0072b2'),
+      point('objective-c', 'task-a', '#f0e442'),
+    ];
+    let unmounted = false;
+    // emitted() is not kept past unmount, so the unmount check listens through the prop.
+    const onObjectiveHover = vi.fn();
+    const wrapper = await mountMap({
+      onObjectiveHover,
+      map: {
+        ...mapData,
+        svg: {
+          file: 'customs.svg',
+          floors: ['ground'],
+          defaultFloor: 'ground',
+          coordinateRotation: 0,
+          bounds: [
+            [0, 0],
+            [100, 100],
+          ],
+        },
+      },
+      marks,
+      showExtracts: false,
+      showPmcSpawns: false,
+    });
+    try {
+      await wrapper.setProps({ marks: [...marks] });
+      await nextTick();
+      const chips = divIcon.mock.calls.map(([options]) => options.html).slice(-3);
+      // The mark's quest color replaces the category color; the light yellow gets a dark glyph.
+      expect(chips.map((chip) => chip.style.getPropertyValue('--chip-color'))).toEqual([
+        '#f0e442',
+        '#0072b2',
+        '#f0e442',
+      ]);
+      expect(chips.map((chip) => chip.style.getPropertyValue('--chip-ink'))).toEqual([
+        '#0a0a0b',
+        '#ffffff',
+        '#0a0a0b',
+      ]);
+      const dotB = dots[dots.length - 2]!;
+      dotB.handlers.get('mouseover')?.forEach((handler) => handler());
+      dotB.handlers.get('mouseout')?.forEach((handler) => handler());
+      expect(wrapper.emitted('objective-hover')).toEqual([['task-b'], [null]]);
+      await wrapper.setProps({ highlightedTaskId: 'task-a' });
+      expect(chips.map((chip) => chip.classList.contains('is-task-highlighted'))).toEqual([
+        true,
+        false,
+        true,
+      ]);
+      expect(chips.map((chip) => chip.classList.contains('is-task-dimmed'))).toEqual([
+        false,
+        true,
+        false,
+      ]);
+      // Highlighting only toggles classes; it never redraws the markers.
+      const drawn = divIcon.mock.calls.length;
+      await wrapper.setProps({ highlightedTaskId: 'task-gone' });
+      expect(chips.some((chip) => chip.classList.contains('is-task-dimmed'))).toBe(false);
+      await wrapper.setProps({ highlightedTaskId: null });
+      expect(chips.some((chip) => chip.classList.contains('is-task-highlighted'))).toBe(false);
+      expect(divIcon.mock.calls.length).toBe(drawn);
+      // A redraw removes the hovered dot without a mouseout, so the map releases its hover.
+      dotB.handlers.get('mouseover')?.forEach((handler) => handler());
+      await wrapper.setProps({ marks: [marks[0]!, marks[2]!] });
+      await nextTick();
+      expect(wrapper.emitted('objective-hover')?.slice(-2)).toEqual([['task-b'], [null]]);
+      // Unmounting releases a hover too, but only one the markers reported.
+      const lastDot = dots[dots.length - 1]!;
+      lastDot.handlers.get('mouseover')?.forEach((handler) => handler());
+      expect(onObjectiveHover.mock.calls.at(-1)).toEqual(['task-a']);
+      wrapper.unmount();
+      unmounted = true;
+      expect(onObjectiveHover.mock.calls.at(-1)).toEqual([null]);
+    } finally {
+      if (!unmounted) wrapper.unmount();
+    }
+  });
+  it('tells the coordinate readout about every keyboard action, even with the crosshair shown', async () => {
+    const wrapper = await mountMap();
+    const MapCursorCoordinates = (await import('@/features/maps/MapCursorCoordinates.vue')).default;
+    const readout = () => wrapper.findComponent(MapCursorCoordinates);
+    (wrapper.element as HTMLElement).focus();
+    const press = async (key: string, code: string) => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key, code, bubbles: true }));
+      window.dispatchEvent(new KeyboardEvent('keyup', { key, code, bubbles: true }));
+      await nextTick();
+    };
+    expect(readout().props('keyboardActivity')).toBe(0);
+    await press('w', 'KeyW');
+    expect(readout().props('crosshairShown')).toBe(true);
+    expect(readout().props('keyboardActivity')).toBe(1);
+    // The crosshair is already shown, so only the activity count can hand it the reading back.
+    await press('w', 'KeyW');
+    await press('r', 'KeyR');
+    expect(readout().props('keyboardActivity')).toBe(3);
+    wrapper.unmount();
   });
 });

@@ -38,6 +38,9 @@
               @toggle-hide="toggleHidden"
               @copy-link="copyTaskLink"
             >
+              <template #alternatives>
+                <TaskCardAlternatives :task-id="task.id" />
+              </template>
               <template #actions>
                 <TaskCardActions
                   :state="actionButtonState"
@@ -235,11 +238,11 @@
               :id="`objectives-content-${task.id}`"
               :class="compactClasses.objectivesBody"
             >
-              <QuestObjectivesSkeleton
-                v-if="showObjectivesSkeleton"
+              <QuestObjectivesPlaceholder
+                v-if="showObjectivesPlaceholder"
+                :load-failed="objectivesLoadFailed"
                 :objectives="relevantViewObjectives"
-                :irrelevant-count="irrelevantObjectives.length"
-                :uncompleted-irrelevant="uncompletedIrrelevantObjectives.length"
+                @retry="metadataStore.fetchTaskObjectivesData()"
               />
               <QuestObjectives
                 v-else
@@ -347,7 +350,7 @@
   import { useTaskHiding } from '@/features/tasks/composables/useTaskHiding';
   import { useTaskRequirements } from '@/features/tasks/composables/useTaskRequirements';
   import QuestObjectives from '@/features/tasks/QuestObjectives.vue';
-  import QuestObjectivesSkeleton from '@/features/tasks/QuestObjectivesSkeleton.vue';
+  import QuestObjectivesPlaceholder from '@/features/tasks/QuestObjectivesPlaceholder.vue';
   import { formatExpectedStatuses } from '@/features/tasks/requirement-format';
   import { impactEligibleTaskIdsKey } from '@/features/tasks/task-context';
   import {
@@ -355,6 +358,7 @@
     type RequirementExpectedStatus,
   } from '@/features/tasks/task-requirement-helpers';
   import TaskCardActions from '@/features/tasks/TaskCardActions.vue';
+  import TaskCardAlternatives from '@/features/tasks/TaskCardAlternatives.vue';
   import TaskCardBackground from '@/features/tasks/TaskCardBackground.vue';
   import TaskCardBadges from '@/features/tasks/TaskCardBadges.vue';
   import TaskCardHeader from '@/features/tasks/TaskCardHeader.vue';
@@ -814,12 +818,14 @@
   const uncompletedIrrelevantObjectives = computed(
     () => categorizedObjectives.value.uncompletedIrrelevant
   );
-  const showObjectivesSkeleton = computed(() => {
-    // If we have objectives (from props or store fallback), no skeleton needed
+  const showObjectivesPlaceholder = computed(() => {
+    // Keep already loaded objectives visible.
     if (taskObjectives.value.length > 0) return false;
-    // No objectives yet - show skeleton while loading or not yet hydrated
     return metadataStore.tasksObjectivesPending || !metadataStore.tasksObjectivesHydrated;
   });
+  const objectivesLoadFailed = computed(
+    () => !metadataStore.tasksObjectivesPending && Boolean(metadataStore.tasksObjectivesError)
+  );
   const hasAvailabilityConfirmation = computed(() => {
     const progress = tarkovStore.getCurrentProgressData();
     return isAvailabilityConfirmed(

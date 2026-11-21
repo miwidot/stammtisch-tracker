@@ -141,6 +141,7 @@
                           {{ t('common.reset') }}
                         </UButton>
                       </div>
+                      <MapObjectiveColorControls class="border-surface-700 border-b pb-3" />
                       <div class="grid grid-cols-2 gap-2">
                         <label
                           v-for="option in mapColorOptions"
@@ -433,6 +434,20 @@
                               </kbd>
                             </template>
                           </i18n-t>
+                          <i18n-t
+                            keypath="maps.help.copy_coordinates"
+                            tag="p"
+                            scope="global"
+                            class="text-surface-300 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px]"
+                          >
+                            <template #key>
+                              <kbd
+                                class="bg-surface-700 text-surface-200 rounded px-1 py-0.5 font-mono text-[10px]"
+                              >
+                                {{ 'C' }}
+                              </kbd>
+                            </template>
+                          </i18n-t>
                           <p class="text-surface-300 text-[11px]">
                             {{ t('maps.help.click_marker') }}
                           </p>
@@ -449,6 +464,9 @@
                           <p class="text-surface-300 text-[11px]">
                             {{ t('maps.help.resize') }}
                           </p>
+                          <p class="text-surface-300 text-[11px]">
+                            {{ t('maps.help.coordinates') }}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -462,6 +480,7 @@
             :id="layersPanelId"
             v-model:always-show-names="alwaysShowNames"
             :groups="layerGroups"
+            :objective-kind-colors="objectiveKindColors"
             @toggle="toggleLayer"
             @show-all="showAllLayers"
           />
@@ -484,14 +503,26 @@
           :class="props.fill ? 'h-full' : 'h-100 sm:h-125 lg:h-150'"
           :style="mapHeightStyle"
         />
-        <p
-          v-if="extractSource"
-          data-testid="map-extract-source"
-          class="text-surface-300 absolute bottom-2 left-2 z-650 max-w-[calc(100%-4rem)] rounded bg-black/70 px-1.5 py-0.5 text-[10px] leading-snug"
-          :title="extractSource.detail"
+        <div
+          class="pointer-events-none absolute bottom-2 left-2 z-650 flex max-w-[calc(100%-4rem)] flex-col items-start gap-1"
         >
-          {{ extractSource.label }} · {{ t('maps.extract_requirements.raid_notice') }}
-        </p>
+          <MapCursorCoordinates
+            :map="mapInstance"
+            :crosshair-shown="showKeyboardCursor"
+            :keyboard-activity="keyboardCursorActivity"
+            :has-keyboard-focus="isMapKeyboardActive"
+            :map-name="props.map.name"
+            :floor="coordinatesFloor"
+          />
+          <p
+            v-if="extractSource"
+            data-testid="map-extract-source"
+            class="text-surface-300 pointer-events-auto rounded bg-black/70 px-1.5 py-0.5 text-[10px] leading-snug"
+            :title="extractSource.detail"
+          >
+            {{ extractSource.label }} · {{ t('maps.extract_requirements.raid_notice') }}
+          </p>
+        </div>
         <div
           v-if="showKeyboardCursor"
           aria-hidden="true"
@@ -617,7 +648,9 @@
   } from '@/features/maps/composables/useLeafletMapControls';
   import LeafletObjectiveStack from '@/features/maps/LeafletObjectiveStack.vue';
   import LeafletObjectiveTooltip from '@/features/maps/LeafletObjectiveTooltip.vue';
+  import MapCursorCoordinates from '@/features/maps/MapCursorCoordinates.vue';
   import MapLayersPanel from '@/features/maps/MapLayersPanel.vue';
+  import MapObjectiveColorControls from '@/features/maps/MapObjectiveColorControls.vue';
   import {
     appendExtractRequirementTags,
     createExtractDetails,
@@ -647,6 +680,10 @@
   } from '@/features/maps/utils/markerGlyphs';
   import { getMarksHash, type MapMark } from '@/features/maps/utils/marksHash';
   import {
+    getObjectiveTypeColors,
+    MAP_OBJECTIVE_PALETTES,
+  } from '@/features/maps/utils/objectiveColors';
+  import {
     createObjectiveGlyphElement,
     getObjectiveGlyphKind,
     OBJECTIVE_CHIP_SIZE,
@@ -667,6 +704,7 @@
   import { zoneOutlineStyle, zoneScreenSize } from '@/features/maps/utils/objectiveZoneOutline';
   import { useMetadataStore } from '@/stores/useMetadata';
   import { usePreferencesStore } from '@/stores/usePreferences';
+  import { isEditableTarget } from '@/utils/editableTarget';
   import { useLocaleNumberFormatter } from '@/utils/formatters';
   import { logger } from '@/utils/logger';
   import { clusterSpawns } from '@/utils/mapClustering';
@@ -731,6 +769,8 @@
     initialView?: MapViewState | null;
     initialFloor?: string;
     taskVisibilityActions?: MapTaskVisibilityActions | null;
+    /** Quest whose markers stand out while the rest fade (#920); null highlights none. */
+    highlightedTaskId?: string | null;
   }
   const props = withDefaults(defineProps<Props>(), {
     marks: () => [],
@@ -750,8 +790,13 @@
     initialView: null,
     initialFloor: undefined,
     taskVisibilityActions: null,
+    highlightedTaskId: null,
   });
-  const emit = defineEmits<{ 'toggle-fullscreen': [] }>();
+  const emit = defineEmits<{
+    'toggle-fullscreen': [];
+    /** The quest of the objective under the pointer, or null when the pointer leaves it. */
+    'objective-hover': [taskId: string | null];
+  }>();
   const { t } = useI18n({ useScope: 'global' });
   const formatNumber = useLocaleNumberFormatter();
   const router = useRouter();
@@ -760,6 +805,12 @@
   const currentGameMode = computed(() => metadataStore.currentGameMode ?? 'pvp');
   const mapSurfaceRef = ref<HTMLElement | null>(null);
   const showKeyboardCursor = ref(false);
+  /** Counts keyboard map actions; the coordinate readout follows the crosshair after each one. */
+  const keyboardCursorActivity = ref(0);
+  const showKeyboardCrosshair = () => {
+    showKeyboardCursor.value = true;
+    keyboardCursorActivity.value += 1;
+  };
   const fullscreenToggleLabel = computed(() =>
     props.isFullscreen ? t('maps.tooltips.exit_fullscreen') : t('maps.tooltips.open_fullscreen')
   );
@@ -805,6 +856,8 @@
     initialView: props.initialView ?? null,
     initialFloor: props.initialFloor,
   });
+  /** The floor named in copied coordinates, written as the floor panel shows it. */
+  const coordinatesFloor = computed(() => selectedFloor.value.replace(/_/g, ' ') || null);
   /** Objective chips are raised 26 px coins; the invisible dot under each one takes input. */
   const OBJECTIVE_DOT_RADIUS = OBJECTIVE_CHIP_SIZE / 2;
   /** Hit-test dots are invisible: the chip above them is the visible marker. */
@@ -893,6 +946,7 @@
     buildMapLayerGroups({
       t,
       colors: mapColors.value,
+      objectiveColorMode: preferencesStore.getMapObjectiveColorMode,
       objectives: {
         self: mapShowSelfObjectives,
         pinned: mapShowPinnedObjectives,
@@ -911,6 +965,7 @@
         scav: props.showExtractToggle && hasScavExtracts.value,
         shared:
           props.showExtractToggle && (hasSharedExtracts.value || hasUnknownFactionExtracts.value),
+        unknownFaction: hasUnknownFactionExtracts.value,
         coop: props.showExtractToggle && hasCoopExtracts.value,
         transit: hasTransits.value,
         spawns: props.showSpawnToggle && hasPmcSpawns.value,
@@ -918,6 +973,12 @@
     })
   );
   const hiddenLayerCount = computed(() => countHiddenLayers(layerGroups.value));
+  /** The Objective icons key shows type colors only while chips are colored by type. */
+  const objectiveKindColors = computed(() =>
+    preferencesStore.getMapObjectiveColorMode === 'type'
+      ? getObjectiveTypeColors(MAP_OBJECTIVE_PALETTES[preferencesStore.getMapObjectivePalette])
+      : null
+  );
   const extractRuleData = useExtractRuleData();
   /** Which extract glyph categories are drawn; markers and the source line share this rule. */
   const extractVisibility = computed<Record<MapMarkerGlyphKind, boolean>>(() => ({
@@ -1113,15 +1174,6 @@
         return null;
     }
   };
-  const isEditableTarget = (target: EventTarget | null): boolean => {
-    if (!(target instanceof HTMLElement)) return false;
-    if (target.isContentEditable) return true;
-    return Boolean(
-      target.closest(
-        'input, textarea, select, [contenteditable=""], [contenteditable="true"], [role="textbox"]'
-      )
-    );
-  };
   const isMapKeyboardActive = (): boolean => {
     if (!mapInstance.value) return false;
     const mapSurface = mapSurfaceRef.value;
@@ -1307,7 +1359,7 @@
       if (isEditableTarget(event.target)) return;
       if (!isMapKeyboardActive()) return;
       event.preventDefault();
-      showKeyboardCursor.value = true;
+      showKeyboardCrosshair();
       syncKeyboardCursorHover();
       if (event.repeat) return;
       triggerCenterMapClick();
@@ -1318,7 +1370,7 @@
       if (isEditableTarget(event.target)) return;
       if (!isMapKeyboardActive()) return;
       event.preventDefault();
-      showKeyboardCursor.value = true;
+      showKeyboardCrosshair();
       if (event.repeat) return;
       refreshView();
       window.requestAnimationFrame(syncKeyboardCursorHover);
@@ -1330,7 +1382,7 @@
     if (isEditableTarget(event.target)) return;
     if (!isMapKeyboardActive()) return;
     event.preventDefault();
-    showKeyboardCursor.value = true;
+    showKeyboardCrosshair();
     syncKeyboardCursorHover();
     pressedMapKeys.add(controlKey);
     startMapKeyboardLoop();
@@ -1768,6 +1820,8 @@
     objectiveMarkers.clear();
     objectiveHitSources = [];
     zoneOutlines = [];
+    taskChips.clear();
+    releaseMarkerHover();
     const zoneEntries: Array<{
       polygon: L.Polygon;
       centerMarker: L.CircleMarker;
@@ -1775,11 +1829,13 @@
       latLngs: L.LatLngExpression[];
       area: number;
       objectiveId: string;
+      taskId: string | undefined;
     }> = [];
     const pointEntries: Array<{
       marker: L.CircleMarker;
       chip: HTMLElement | null;
       objectiveId: string;
+      taskId: string | undefined;
     }> = [];
     const glyphMarkers: L.Marker[] = [];
     const addGlyph = (
@@ -1819,7 +1875,8 @@
       if (!objectiveId) return;
       const category = mapObjectiveCategory(mark.pinned === true, mark.users ?? []);
       if (!categoryEnabled[category]) return;
-      const markerColor = categoryColors[category];
+      const markerColor = mark.color ?? categoryColors[category];
+      const taskId = mark.taskId;
       const glyphKind = getObjectiveGlyphKind(mark.type);
       mark.possibleLocations?.forEach((location) => {
         if (location.map.id !== props.map.id) return;
@@ -1837,7 +1894,8 @@
         });
         const offFloor = addObjectiveElevation(marker, { position: pos });
         const chip = addGlyph([latLng.lat, latLng.lng], glyphKind, markerColor, offFloor);
-        pointEntries.push({ marker, chip, objectiveId });
+        registerTaskChip(taskId, chip);
+        pointEntries.push({ marker, chip, objectiveId, taskId });
       });
       mark.zones.forEach((zone) => {
         if (zone.map.id !== props.map.id) return;
@@ -1861,6 +1919,7 @@
         });
         const offFloor = addObjectiveElevation(centerMarker, zone);
         const chip = addGlyph(center, glyphKind, zoneColor, offFloor);
+        registerTaskChip(taskId, chip);
         const area = calculateZoneArea(zone.outline);
         zoneEntries.push({
           polygon,
@@ -1869,12 +1928,13 @@
           latLngs: polygonLatLngs,
           area,
           objectiveId,
+          taskId,
         });
       });
     });
     zoneEntries
       .sort((a, b) => b.area - a.area)
-      .forEach(({ polygon, centerMarker, chip, latLngs, area, objectiveId }) => {
+      .forEach(({ polygon, centerMarker, chip, latLngs, area, objectiveId, taskId }) => {
         if (objectiveId) {
           const zoneControl = attachHoverPinPopup(
             polygon,
@@ -1895,24 +1955,29 @@
             });
           }
         }
-        trackZoneOutline(polygon, latLngs, [polygon, centerMarker]);
-        liftChipOnHover(polygon, chip);
-        liftChipOnHover(centerMarker, chip);
+        trackZoneOutline(polygon, latLngs, [polygon, centerMarker], taskId);
+        liftChipOnHover(polygon, chip, taskId);
+        liftChipOnHover(centerMarker, chip, taskId);
         objectiveLayer.value!.addLayer(polygon);
         objectiveLayer.value!.addLayer(centerMarker);
       });
-    pointEntries.forEach(({ marker, chip, objectiveId }) => {
+    pointEntries.forEach(({ marker, chip, objectiveId, taskId }) => {
       if (objectiveId) {
         const control = attachHoverPinPopup(marker, objectiveId, () => marker.getLatLng(), chip);
         if (control) objectiveHitSources.push({ kind: 'point', objectiveId, marker, control });
       }
-      liftChipOnHover(marker, chip);
+      liftChipOnHover(marker, chip, taskId);
       objectiveLayer.value!.addLayer(marker);
     });
     glyphMarkers.forEach((glyph) => objectiveLayer.value!.addLayer(glyph));
-    refreshZoneOutlines();
+    applyTaskHighlight();
   }
-  type ZoneOutline = { polygon: L.Polygon; ring: L.LatLngExpression[]; hovered: boolean };
+  type ZoneOutline = {
+    polygon: L.Polygon;
+    ring: L.LatLngExpression[];
+    hovered: boolean;
+    taskId: string | undefined;
+  };
   let zoneOutlines: ZoneOutline[] = [];
   /** Draws or hides one zone's outline from its current on-screen size and hover state. */
   function applyZoneOutline(zone: ZoneOutline): void {
@@ -1920,7 +1985,8 @@
     const size = map
       ? zoneScreenSize(zone.ring.map((latLng) => map.latLngToContainerPoint(latLng)))
       : Number.POSITIVE_INFINITY;
-    zone.polygon.setStyle(zoneOutlineStyle(size, zone.hovered, mapZoneOpacity.value));
+    const highlighted = zone.hovered || isHighlightedTask(zone.taskId);
+    zone.polygon.setStyle(zoneOutlineStyle(size, highlighted, mapZoneOpacity.value));
   }
   function refreshZoneOutlines(): void {
     zoneOutlines.forEach(applyZoneOutline);
@@ -1929,9 +1995,10 @@
   function trackZoneOutline(
     polygon: L.Polygon,
     ring: L.LatLngExpression[],
-    hoverTargets: L.Layer[]
+    hoverTargets: L.Layer[],
+    taskId: string | undefined
   ): void {
-    const zone: ZoneOutline = { polygon, ring, hovered: false };
+    const zone: ZoneOutline = { polygon, ring, hovered: false, taskId };
     zoneOutlines.push(zone);
     const setHovered = (hovered: boolean) => {
       zone.hovered = hovered;
@@ -1942,11 +2009,54 @@
       layer.on('mouseout', () => setHovered(false));
     });
   }
-  /** The chip cannot take pointer input, so the dot or zone under it raises it on hover. */
-  function liftChipOnHover(layer: L.Layer, chip: HTMLElement | null): void {
-    if (!chip) return;
-    layer.on('mouseover', () => chip.classList.add('is-hovered'));
-    layer.on('mouseout', () => chip.classList.remove('is-hovered'));
+  /**
+   * The chip cannot take pointer input, so the dot or zone under it raises it on hover. Hovering
+   * also reports the objective's quest, so the legend can highlight it.
+   */
+  function liftChipOnHover(layer: L.Layer, chip: HTMLElement | null, taskId?: string): void {
+    layer.on('mouseover', () => {
+      chip?.classList.add('is-hovered');
+      if (taskId) reportMarkerHover(taskId);
+    });
+    layer.on('mouseout', () => {
+      chip?.classList.remove('is-hovered');
+      if (taskId) reportMarkerHover(null);
+    });
+  }
+  /** The quest this map last reported from a marker hover; the legend owns its own hover. */
+  let markerHoverTaskId: string | null = null;
+  function reportMarkerHover(taskId: string | null): void {
+    markerHoverTaskId = taskId;
+    emit('objective-hover', taskId);
+  }
+  /**
+   * A removed or redrawn layer, or an unmounted map, never fires mouseout, so release a hover the
+   * markers reported. A legend hover or a locked highlight is not this map's to clear.
+   */
+  function releaseMarkerHover(): void {
+    if (markerHoverTaskId !== null) reportMarkerHover(null);
+  }
+  /** Objective chips by quest, rebuilt with the markers, so a highlight never redraws them. */
+  const taskChips = new Map<string, HTMLElement[]>();
+  function registerTaskChip(taskId: string | undefined, chip: HTMLElement | null): void {
+    if (!taskId || !chip) return;
+    const chips = taskChips.get(taskId);
+    if (chips) chips.push(chip);
+    else taskChips.set(taskId, [chip]);
+  }
+  const isHighlightedTask = (taskId: string | undefined): boolean =>
+    Boolean(taskId) && taskId === props.highlightedTaskId;
+  /** Grows the highlighted quest's chips and outlines its zones; every other chip fades. */
+  function applyTaskHighlight(): void {
+    const highlighted = props.highlightedTaskId ?? null;
+    const active = highlighted !== null && taskChips.has(highlighted);
+    taskChips.forEach((chips, taskId) => {
+      chips.forEach((chip) => {
+        chip.classList.toggle('is-task-highlighted', active && taskId === highlighted);
+        chip.classList.toggle('is-task-dimmed', active && taskId !== highlighted);
+      });
+    });
+    refreshZoneOutlines();
   }
   function createExtractMarkers(): void {
     if (!leaflet.value || !extractLayer.value || !props.map) return;
@@ -2271,6 +2381,7 @@
     },
     { deep: true }
   );
+  watch(() => props.highlightedTaskId, applyTaskHighlight);
   watch(mapZoneOpacity, () => {
     lastMarksHash.value = '';
     updateMarkers();
@@ -2423,6 +2534,8 @@
     getFloor,
     setFloor,
   });
+  // Emit before teardown, while the parent still listens.
+  onBeforeUnmount(releaseMarkerHover);
   onUnmounted(() => {
     window.removeEventListener('keydown', onGlobalMapKeydown);
     window.removeEventListener('keyup', onGlobalMapKeyup);

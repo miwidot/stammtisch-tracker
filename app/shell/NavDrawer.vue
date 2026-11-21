@@ -55,11 +55,6 @@
       </NuxtLink>
       <template v-if="!isCollapsed">
         <DrawerLevel :is-collapsed="false" />
-        <div class="px-4 py-1">
-          <h3 class="text-surface-400 text-xs font-semibold tracking-wider uppercase">
-            {{ t('common.game_settings') }}
-          </h3>
-        </div>
         <DrawerGameSettings />
       </template>
       <template v-else>
@@ -88,7 +83,6 @@
 </template>
 <script setup lang="ts">
   import DrawerGameSettings from '@/features/drawer/DrawerGameSettings.vue';
-  import DrawerItem from '@/features/drawer/DrawerItem.vue';
   import DrawerLevel from '@/features/drawer/DrawerLevel.vue';
   import DrawerLinks from '@/features/drawer/DrawerLinks.vue';
   import { useAppStore } from '@/stores/useApp';

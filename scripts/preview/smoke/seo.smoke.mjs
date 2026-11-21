@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { RESOURCES } from '@/features/resources/resourceData';
+import { STORAGE_KEYS } from '@/utils/storageKeys';
 import { previewGet, protectPreviewBrowser } from './access.mjs';
 import { previewOrigin } from './readiness.mjs';
 const origin = previewOrigin();
@@ -69,6 +70,12 @@ async function readMetadata(page, html) {
         tag.getAttribute('href')
       ),
       hasHeading: Boolean(document.querySelector('h1')),
+      hasMonitorGuide: Boolean(
+        document.querySelector('main header a[href="/resources/tarkovmonitor"]')
+      ),
+      checklistRowCounts: [...document.querySelectorAll('main details > details')].map(
+        (section) => section.querySelectorAll('li').length
+      ),
     };
   }, html);
   const meta = {};
@@ -123,6 +130,11 @@ for (const [route, key] of Object.entries({ ...publicPages, ...privatePages })) 
     const document = await readMetadata(page, await response.text());
     const copy = english.seo.routes[key];
     expect(document.titles).toEqual([copy.title]);
+    if (route === '/tasks') expect(document.hasMonitorGuide).toBe(true);
+    if (route === '/needed-items') {
+      expect(document.checklistRowCounts).toHaveLength(2);
+      for (const count of document.checklistRowCounts) expect(count).toBeGreaterThan(0);
+    }
     assertSocialMetadata(document.meta, copy, route);
     assertIndexing(document, route);
     assertCanonical(document, route);
@@ -177,6 +189,30 @@ test('legacy aliases remain HTTP 301 redirects', async ({ request }) => {
     expect(response.status()).toBe(301);
   }
 });
+test('handle links use the private profile shell and load the public mode', async ({
+  page,
+  request,
+}) => {
+  const mode = await previewGet(request, `${origin}/@preview_player/pve`, origin);
+  expect(mode.status()).toBe(200);
+  const invalid = await previewGet(request, `${origin}/@preview_player/unknown`, origin);
+  expect(invalid.status()).toBe(404);
+  await page.route('**/api/profile/@preview_player/default', (route) =>
+    route.fulfill({
+      json: {
+        data: { displayName: 'Preview Player', level: 24 },
+        mode: 'pve',
+        visibility: 'public',
+      },
+    })
+  );
+  const response = await page.goto(`${origin}/@preview_player`);
+  expect(response?.status()).toBe(200);
+  expect(await response?.headerValue('cache-control')).toBe('no-store');
+  expect(await response?.headerValue('x-robots-tag')).toBe('noindex, nofollow');
+  await expect(page.getByRole('heading', { name: 'Preview Player' })).toBeVisible();
+  await expect(page.getByText(`${origin}/@preview_player`, { exact: true })).toBeVisible();
+});
 test('public to private to public navigation restores metadata', async ({ page }) => {
   await page.goto(`${origin}/resources/tarkovmonitor`, { waitUntil: 'networkidle' });
   await page.locator('footer a[href="/tasks"]').click();
@@ -194,4 +230,76 @@ test('public to private to public navigation restores metadata', async ({ page }
   await expect(page.locator('meta[property="og:image"], meta[name="twitter:image"]')).toHaveCount(
     0
   );
+});
+test('hideout initial HTML contains every catalog level and its requirements', async ({
+  page,
+  request,
+}) => {
+  const [doc, data] = await Promise.all(
+    ['/hideout', '/data/hideout-requirements-pvp.json'].map((path) =>
+      previewGet(request, origin + path, origin)
+    )
+  );
+  expect(doc.status()).toBe(200);
+  expect(data.status()).toBe(200);
+  const stations = JSON.parse(await data.text());
+  const levels = stations.flatMap((station) => station.levels);
+  expect(levels.length).toBeGreaterThan(0);
+  const rendered = await page.evaluate(
+    (html) => {
+      const document = new DOMParser().parseFromString(html, 'text/html');
+      return [...document.querySelectorAll('main section[id^="requirements-"]')].map((section) => ({
+        anchor: section.id,
+        rows: [...section.querySelectorAll('li')].map((row) => ({
+          label: row.textContent.trim(),
+          href: row.querySelector('a')?.getAttribute('href') ?? null,
+        })),
+        href: section.querySelector('h3 a')?.getAttribute('href'),
+      }));
+    },
+    await doc.text()
+  );
+  expect(rendered).toEqual(
+    levels.map((level) => ({
+      anchor: level.anchor,
+      rows: [
+        ...level.items.map(({ count, name, fir }) => ({
+          label:
+            count.toLocaleString('en') +
+            ' × ' +
+            name +
+            (fir ? ' · ' + english.common.found_in_raid_required : ''),
+          href: null,
+        })),
+        ...level.stations.map(({ name, level, anchor }) => ({
+          label: name + ' level ' + level,
+          href: anchor ? '#' + anchor : null,
+        })),
+        ...level.skills.map(({ name, level }) => ({ label: name + ' level ' + level, href: null })),
+        ...level.traders.map(({ name, type, comparison, value }) => ({
+          label:
+            name +
+            ' · ' +
+            english.page.dashboard.traders[type === 'reputation' ? 'reputation' : 'loyalty_level'] +
+            ' ' +
+            comparison +
+            ' ' +
+            value,
+          href: null,
+        })),
+      ],
+      href: '#' + level.anchor,
+    }))
+  );
+});
+test('a shared hideout level opens after the tracker hydrates on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  const target = '#requirements-workbench-level-2';
+  await page.addInitScript((key) => {
+    localStorage.setItem(key, JSON.stringify({ hideoutPrimaryView: 'locked' }));
+  }, STORAGE_KEYS.preferences);
+  await page.goto(origin + '/hideout' + target);
+  await expect(page).toHaveURL(origin + '/hideout?view=locked' + target);
+  await expect(page.getByTestId('hideout-view-switcher')).toBeAttached();
+  await expect(page.locator(target)).toBeInViewport();
 });

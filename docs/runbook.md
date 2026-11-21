@@ -80,6 +80,13 @@ metrics; when targeting `/api/logs/client`, it has the same edge-protection prer
 browser log forwarding disabled when enabling these metrics alone. Verify delivery to the approved
 retention/query destination after rebuilding the application.
 
+The production `/api/logs/progress` collector, production-only service binding,
+protection prerequisites, retention and staged verification are documented in
+[Aggregate progress diagnostics](progress-diagnostics.md). Production enables only
+the aggregate progress sink; general, root/local and preview logging stay disabled.
+The [approved rollout evidence](https://github.com/tarkovtracker-org/TarkovTracker/issues/960#issuecomment-6908809905)
+records the synthetic delivery/privacy checks and pre-activation PostgreSQL baseline.
+
 ## Pre-Deploy Validation
 
 1. `pnpm run format:check`
@@ -292,6 +299,29 @@ Before the billing migration, inspect pending/in-progress deletion jobs and the 
 `account-deletion-retry` and `inactive-account-cleanup` cron runs. Record the read-only evidence
 and investigate failures or unexpected activity. This prerequisite does not require manually
 disabling cron: any additional operational intervention needs evidence and separate authority.
+
+The Settings Discord card reads the unique username from the matching Discord auth identity, not
+the display name or cached `discord_username` (which may contain a numeric ID or display name).
+If the username is unavailable, the card shows "Discord account linked" and keeps role sync and
+unlink available.
+The same provider-and-ID lookup selects the identity to unlink; if it is missing, the link stays
+active and no roles are revoked.
+
+Discord identity linking returns to `/settings?discord_linked=1#account`. Supabase readiness
+exchanges its PKCE `code` before the card loads the link or synchronizes roles, then removes
+`code` and `sb_flow_id` while preserving the link marker and account tab. Other Settings or team
+invite `code` parameters are not OAuth callbacks.
+If session readiness fails, the card keeps the complete callback URL for a reload/retry and
+does not load the link or synchronize roles with a stale session.
+Callback readiness rejects after its time budget while the code exchange is still pending.
+An exchange failure remains visible to subsequent readiness callers until a page reload; a
+slow exchange that later succeeds can satisfy a later readiness call without exchanging twice.
+The normal `/auth/callback` page retains its five-second session-settle allowance after a
+pending readiness timeout, awaiting confirmed callback readiness before reporting success.
+A restored session alone does not complete the callback or count as a successful login.
+Navigating to an authenticated or admin route while the callback is pending cancels that
+navigation without clearing the existing session or discarding the callback URL. Access to
+the protected route remains blocked until readiness succeeds.
 
 When a user unlinks their Discord identity, the `discord-unlink` Edge Function first revokes all
 managed roles from that Discord account, then the client removes the identity and the database
@@ -1396,57 +1426,74 @@ first edit ([decision record](./decision-browser-progress.md#historical-rollback
 
 ### Combined task cache contract rollout (v2 to v3)
 
-The progression and overlay changes ship together through PR #826, which supersedes PR #825.
-Do not merge or dispatch the standalone #825 branch: its envelope-format-1 writer uses the same
-v3 keys as the combined envelope-format-2 contract and would replace incompatible payloads.
-Only the reviewed combined producer contract may publish v3 entries. Split producer and consumer
-changes when preseeding is required: first land the compatible producer on `main`, while the
-application continues reading v2 keys.
+Historical release #826 combined progression and overlay provenance in envelope
+format 2, superseding the incompatible standalone #825 writer. That rollout used
+48 `tasks-core-json-v3-*` language/mode entries and
+`overlay-precompute-manifest-json-v3`. These are historical keys. Current neutral
+readers use the complete release below. Reusing an old writer for a current
+snapshot namespace can replace a newer contract, so rollback always requires the
+matching reviewed producer and snapshots still inside their retention window.
 
-For the `tasks-core-json-v2-*` to `tasks-core-json-v3-*` transition, an authorized operator must dispatch
-`.github/workflows/precompute-tarkov-data.yml` on `main` after the reviewed producer changes land
-and before merging or promoting the v3 consumer. Leave both workflow inputs, `lang` and
-`gameMode`, empty to include all 48 combinations across `regular`, `pve`, and `pvp-season`. Require `succeeded: 48` and `failed: 0`,
-verify every `tasks-core-json-v3-*` entry uses envelope format 2, and attach the run and approved
-revision to the release. Fetch the published overlay metadata again for each rollout; never reuse
-a SHA from an older rehearsal. If the SHA changed, repeat the rehearsal and approve the new
-identity before dispatch. Set `expectedOverlaySha` to that approved published SHA and verify
-`overlay-precompute-manifest-json-v3` contains all 48 matching identities.
+### Language-neutral catalog rollout (#1065)
 
-Before rollout, confirm no incompatible original PR revision has a production deployment or an
-in-flight precompute run. After the fresh v3 population and matching overlay identities are
-verified, merge the consumer PR and close #825 as superseded. The scheduled workflow then
-refreshes the combined v3 contract.
-Before relying on the previous app for rollback, confirm its existing `tasks-core-json-v2-*`
-entries remain within their seven-day TTL. Roll back to the previous v2 application, never the
-standalone #825 application. The cold fetch/adapt/overlay fallback is not a safe bridge during
-this cache-key rollout. After deployment, run `pnpm run verify:overlay` and retain the served
-fleet verification before closing issue #729.
+The production release contains 46 neutral objects across 30 mode catalogs, 3 counts views, and 13 language bundles,
+plus three independently validated whole English import snapshots. Follow the
+[producer-before-consumer order](./systems/overlay-and-precompute.md#release-order).
+
+1. Release the overlay's `overlay-neutral.json` sidecar alongside `overlay.json`.
+   Verify both digests and that the sidecar's `$source` names the legacy artifact.
+2. Merge the reviewed Tracker producer while the deployed consumer keeps its old
+   contract. The initial migration runner writes both legacy and neutral catalogs.
+3. Read the intended published overlay's `$meta.sha256`, then dispatch
+   `precompute-tarkov-data.yml` on `main` with that `expectedOverlaySha` and both
+   `lang` and `gameMode` empty. The production-precompute environment owns the KV
+   edit and private overlay read credentials. A changed published SHA requires a
+   new approved full run before promotion.
+4. Require successful storage/readback for every immutable object, the exact 43
+   scopes in `catalogRelease`, its matching `overlaySha`, and successful results
+   for all three English imports. Retain the workflow run and diagnostic artifact.
+   A filtered run, preview namespace, or older localized manifest cannot satisfy
+   this gate.
+5. Promote the consumer after the complete production manifest is available.
+   Supply the private overlay read token through the `OVERLAY_TOKEN` process
+   environment or a secret store. `pnpm run verify:overlay` must report all 46 scopes current and three current
+   imports. It checks raw response digest/length, release timestamp, precompute
+   source, cache policy, and overlay identity, retrying one concurrent release
+   change. A `STALE` fallback does not certify the active release.
+6. Wait at least 90 seconds after the successful producer readback, then confirm
+   the same release is still active. If it changed, verify the new release and
+   restart the wait. Purge browser metadata with **Purge Game Data**, then
+   measure the uncached language switch and return to a fresh cached language.
+   Require one `strings` request and zero game-data requests respectively. Check
+   mode-specific objective translations with stable task/objective IDs. Retain
+   production evidence before closing the issue.
+7. Retire the legacy localized writer after promotion and verification. Preserve
+   the whole English import producer. Rollback must use a compatible reviewed
+   application and complete snapshots whose seven-day retention has not expired.
 
 ### EFT import snapshot rollout (#1161)
 
-`/api/tarkov/tasks-import` reads only `tasks-import-json-v1-en-{regular,pve,pvp-season}` and returns
-503 while a key is missing, so seed before Pages deploys the consumer
-([release order](./systems/overlay-and-precompute.md#release-verification)):
+The retained import contract serves only
+`tasks-import-json-v1-en-{regular,pve,pvp-season}`. Each envelope uses format 2,
+contains a complete English task catalog with its own mode, and includes overlay
+identity and `storedAt`. The endpoint validates progress-critical task/objective
+shape, scope, and bounded age before serving it. Missing, corrupt, wrong-mode, or
+expired snapshots return 503.
 
-1. Split producer and consumer changes if preseeding is required. Land the reviewed producer
-   changes on `main` while keeping the existing consumer compatible. Read the published overlay
-   `$meta.sha256`, then dispatch `precompute-tarkov-data.yml` on `main` with `lang=en`, no mode,
-   and that `expectedOverlaySha`. Require the run's
-   `importSnapshots.failures` to be empty.
-2. Confirm each of the three envelopes in `TARKOV_DATA` has envelope version 2, the expected
-   overlay SHA, a fresh `storedAt` and its own `catalog.gameMode`.
-3. Only after the fresh matching snapshots are verified, merge the consumer PR. After Pages
-   deploys, `GET /api/tarkov/tasks-import?gameMode=<mode>` returns 200 for all three modes, and `pnpm run verify:overlay` (with `OVERLAY_TOKEN` supplied through the process
-   environment or a secret store) reports no import mismatches.
-4. If the overlay changes before consumer promotion, repeat the dispatch and snapshot verification
-   with the new approved `expectedOverlaySha` before merging. Use an unfiltered run on `main` so
-   all 48 core entries and the import keys share the release.
+For an incompatible import contract, land its reviewed producer before promoting
+the consumer. Verify all three target envelopes in the selected namespace, their
+expected overlay SHA, fresh storage time, and whole catalog shape. A current
+neutral manifest alone cannot establish import readiness. An English-only
+maintenance refresh can update imports, but leaves the neutral manifest unchanged.
+Use the unfiltered run for the combined language-neutral release so the 46 neutral
+scopes and all imports carry the intended source-overlay identity.
 
-Rollback: the previous app ignores these keys and returns to its `json-v3` objective entries,
-which can lack overlay provenance (the defect this change fixes), so EFT imports may again fail
-for affected modes. Purge the `json-v3` objective targets with `admin-cache-purge` after rolling
-back so they regenerate with the overlay. The 7-day import keys can be left to expire.
+After deployment, all three `tasks-import?gameMode=` requests must return 200 and
+`pnpm run verify:overlay` must certify their whole-catalog scope, provenance, and
+response headers. Supply `OVERLAY_TOKEN` through the environment or secret store.
+The previous #1161 rollout's `json-v3` objective fallback described an older
+application. Current rollback decisions require the actual compatible reader and
+retained snapshot contract rather than those retired request-path assumptions.
 
 ### Retired automatic-level cleanup
 
