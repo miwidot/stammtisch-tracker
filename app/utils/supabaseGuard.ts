@@ -6,9 +6,15 @@ type SupabaseGuardContext = {
   user: HydratableUser;
 };
 export async function ensureSupabaseReadyForRoute(
-  supabase: SupabaseGuardContext,
+  supabase: SupabaseGuardContext | null | undefined,
   routeName: string
 ): Promise<'ready' | 'callback_pending' | 'failed'> {
+  // The Supabase plugin is browser-only. Without this check a missing client would throw inside
+  // the catch block below (reading `.user` of undefined) and hide the real condition.
+  if (!supabase) {
+    logger.error(`${routeName}: Supabase client unavailable`);
+    return 'failed';
+  }
   try {
     await supabase.ready();
     return 'ready';

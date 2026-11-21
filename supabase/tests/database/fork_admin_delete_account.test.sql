@@ -1,12 +1,13 @@
 BEGIN;
-SELECT plan(23);
+SELECT plan(25);
 
 CREATE TEMP TABLE fork_fixture (name text PRIMARY KEY, user_id uuid NOT NULL);
 INSERT INTO fork_fixture VALUES
   ('solo', '00000000-0000-0000-0000-000000003001'), ('owner', '00000000-0000-0000-0000-000000003002'),
   ('member', '00000000-0000-0000-0000-000000003003'), ('leased', '00000000-0000-0000-0000-000000003004'),
   ('unknown', '00000000-0000-0000-0000-000000003099'), ('broken', '00000000-0000-0000-0000-000000003005'),
-  ('stored', '00000000-0000-0000-0000-000000003006');
+  ('stored', '00000000-0000-0000-0000-000000003006'),
+  ('objowner', '00000000-0000-0000-0000-000000003007');
 CREATE FUNCTION pg_temp.fork_user(p_name text) RETURNS uuid LANGUAGE sql AS $$
   SELECT user_id FROM fork_fixture WHERE name = p_name;
 $$;
@@ -24,8 +25,19 @@ INSERT INTO public.team_events(team_id, event_type, initiated_by)
 VALUES ('00000000-0000-0000-0000-000000003101', 'member_joined', pg_temp.fork_user('solo'));
 INSERT INTO public.api_usage_daily(user_id, token_id, day, reads)
 VALUES (pg_temp.fork_user('solo'), 'fork-test', current_date, 1);
-INSERT INTO storage.buckets(id, name, owner_id)
-VALUES ('fork-test', 'fork-test', pg_temp.fork_user('stored')::text);
+-- trackerdev runs without the Storage service, so storage.* may not exist. Seed it only when present.
+DO $seed$
+BEGIN
+  IF to_regclass('storage.buckets') IS NOT NULL THEN
+    INSERT INTO storage.buckets(id, name, owner_id)
+    VALUES ('fork-test', 'fork-test', pg_temp.fork_user('stored')::text);
+    IF to_regclass('storage.objects') IS NOT NULL THEN
+      INSERT INTO storage.objects(bucket_id, name, owner_id)
+      VALUES ('fork-test', 'fork-test/object.txt', pg_temp.fork_user('objowner')::text);
+    END IF;
+  END IF;
+END
+$seed$;
 INSERT INTO public.account_deletion_jobs(user_id, status, attempts, max_attempts, claim_token, updated_at)
 VALUES (pg_temp.fork_user('leased'), 'in_progress', 1, 5, '00000000-0000-0000-0000-000000003199', now());
 
@@ -57,12 +69,40 @@ SELECT is((public.fork_delete_account(pg_temp.fork_user('leased')))->>'reason', 
 SELECT is((SELECT count(*)::integer FROM auth.users WHERE id = pg_temp.fork_user('leased')), 1,
   'leaves the leased account in place');
 
-SELECT is((public.fork_delete_account(pg_temp.fork_user('stored')))->>'reason', 'storage_owner',
-  'refuses an account that owns Storage data');
-SELECT is((SELECT count(*)::integer FROM auth.users WHERE id = pg_temp.fork_user('stored')), 1,
-  'leaves the Storage owner in place');
-SELECT is((SELECT count(*)::integer FROM public.account_deletion_jobs WHERE user_id = pg_temp.fork_user('stored')), 0,
-  'does not claim a job for the Storage owner');
+-- Storage owner paths: assertions run only where the Storage tables exist, otherwise they are skipped.
+SELECT CASE WHEN to_regclass('storage.buckets') IS NOT NULL THEN
+  (SELECT is((public.fork_delete_account(pg_temp.fork_user('stored')))->>'reason', 'storage_owner',
+    'refuses an account that owns a Storage bucket'))
+  ELSE skip('storage.buckets is absent on this stack', 1) END;
+SELECT CASE WHEN to_regclass('storage.buckets') IS NOT NULL THEN
+  (SELECT is((SELECT count(*)::integer FROM auth.users WHERE id = pg_temp.fork_user('stored')), 1,
+    'leaves the Storage bucket owner in place'))
+  ELSE skip('storage.buckets is absent on this stack', 1) END;
+SELECT CASE WHEN to_regclass('storage.buckets') IS NOT NULL THEN
+  (SELECT is((SELECT count(*)::integer FROM public.account_deletion_jobs WHERE user_id = pg_temp.fork_user('stored')), 0,
+    'does not claim a job for the Storage bucket owner'))
+  ELSE skip('storage.buckets is absent on this stack', 1) END;
+SELECT CASE WHEN to_regclass('storage.objects') IS NOT NULL THEN
+  (SELECT is((public.fork_delete_account(pg_temp.fork_user('objowner')))->>'reason', 'storage_owner',
+    'refuses an account that owns a Storage object'))
+  ELSE skip('storage.objects is absent on this stack', 1) END;
+
+-- Absent-tables path: hide the Storage tables inside this transaction (rolled back at the end), or
+-- rely on their real absence, and the deletion must still work instead of failing on a missing relation.
+DO $hide$
+BEGIN
+  IF to_regclass('storage.objects') IS NOT NULL THEN
+    ALTER TABLE storage.objects RENAME TO objects_hidden_by_test;
+  END IF;
+  IF to_regclass('storage.buckets') IS NOT NULL THEN
+    ALTER TABLE storage.buckets RENAME TO buckets_hidden_by_test;
+  END IF;
+END
+$hide$;
+SELECT is(to_regclass('storage.objects') IS NULL AND to_regclass('storage.buckets') IS NULL, true,
+  'the Storage tables are absent for the next assertions');
+SELECT is(public.fork_delete_account(pg_temp.fork_user('stored')), '{"deleted": true}'::jsonb,
+  'deletes an account when the Storage tables do not exist');
 
 CREATE FUNCTION pg_temp.block_fork_delete() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
