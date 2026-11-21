@@ -25,6 +25,11 @@ vi.mock('@/server/utils/sharedEdgeStore', () => ({
   getSharedCache: mocks.getCache,
   resolveSharedCacheOrigin: () => ({ host: 'tracker.test', protocol: 'https:' }),
 }));
+// Upstream behaviour only; the fork entries merged on top have their own test file.
+vi.mock('@/server/utils/forkChangelog', async (original) => ({
+  ...(await original<typeof import('@/server/utils/forkChangelog')>()),
+  forkChangelogItems: () => [],
+}));
 const event = {} as H3Event;
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
 const release = (tag: string, day: string, body = '- Improved maps') => ({

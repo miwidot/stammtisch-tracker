@@ -122,11 +122,14 @@
     pending,
     error: fetchError,
     refresh,
-  } = useFetch<ChangelogResponse>(() => `/api/changelog?limit=${currentLimit.value}`, {
-    immediate: true,
-    key: 'changelog',
-    watch: false,
-  });
+  } = useFetch<ChangelogResponse>(
+    () => `/api/changelog?limit=${currentLimit.value}&lang=${encodeURIComponent(locale.value)}`,
+    {
+      immediate: true,
+      key: 'changelog',
+      watch: false,
+    }
+  );
   watchEffect(() => {
     if (fetchError.value) {
       logger.error('Failed to fetch changelog entries', fetchError.value);
@@ -197,25 +200,52 @@
   const getBulletStats = (bullet: ChangelogBullet): ChangelogStats | undefined => {
     return typeof bullet === 'string' ? undefined : bullet.stats;
   };
-  const getBulletType = (text: string): string => {
+  // Fork: also recognises the German verbs our own entries start with (see forkChangelog.ts).
+  type BulletKind = 'added' | 'fixed' | 'improved' | 'updated' | 'changed';
+  const BULLET_KIND_PREFIXES: ReadonlyArray<readonly [BulletKind, string]> = [
+    ['added', 'added'],
+    ['added', 'hinzugefügt'],
+    ['fixed', 'fixed'],
+    ['fixed', 'behoben'],
+    ['improved', 'improved'],
+    ['improved', 'verbessert'],
+    ['updated', 'updated'],
+    ['updated', 'aktualisiert'],
+  ];
+  const getBulletKind = (text: string): BulletKind => {
     const lower = text.toLowerCase();
-    if (lower.startsWith('added')) return t('page.changelog.types.added');
-    if (lower.startsWith('fixed')) return t('page.changelog.types.fixed');
-    if (lower.startsWith('improved')) return t('page.changelog.types.improved');
-    if (lower.startsWith('updated')) return t('page.changelog.types.updated');
-    return t('page.changelog.types.changed');
+    return BULLET_KIND_PREFIXES.find(([, prefix]) => lower.startsWith(prefix))?.[0] ?? 'changed';
+  };
+  const getBulletType = (text: string): string => {
+    switch (getBulletKind(text)) {
+      case 'added':
+        return t('page.changelog.types.added');
+      case 'fixed':
+        return t('page.changelog.types.fixed');
+      case 'improved':
+        return t('page.changelog.types.improved');
+      case 'updated':
+        return t('page.changelog.types.updated');
+      default:
+        return t('page.changelog.types.changed');
+    }
   };
   type BadgeColor = 'success' | 'error' | 'info' | 'warning' | 'neutral';
-  const getBulletColor = (text: string): BadgeColor => {
-    const lower = text.toLowerCase();
-    if (lower.startsWith('added')) return 'success';
-    if (lower.startsWith('fixed')) return 'error';
-    if (lower.startsWith('improved')) return 'info';
-    if (lower.startsWith('updated')) return 'warning';
-    return 'neutral';
+  const BULLET_COLORS: Record<BulletKind, BadgeColor> = {
+    added: 'success',
+    fixed: 'error',
+    improved: 'info',
+    updated: 'warning',
+    changed: 'neutral',
   };
+  const getBulletColor = (text: string): BadgeColor => BULLET_COLORS[getBulletKind(text)];
   const cleanBulletText = (text: string): string => {
-    return text.replace(/^(added|fixed|improved|updated)\s+/i, '').replace(/\.$/, '');
+    return text
+      .replace(
+        /^(added|fixed|improved|updated|hinzugefügt|behoben|verbessert|aktualisiert):?\s+/iu,
+        ''
+      )
+      .replace(/\.$/, '');
   };
   const loadChangelog = async (): Promise<boolean> => {
     error.value = false;

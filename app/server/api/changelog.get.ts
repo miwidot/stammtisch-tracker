@@ -1,5 +1,6 @@
 import { defineEventHandler, getQuery, setResponseHeaders } from 'h3';
 import { LRUCache } from 'lru-cache';
+import { forkChangelogItems, parseForkChangelogLocale } from '@/server/utils/forkChangelog';
 import { createLogger } from '@/server/utils/logger';
 import { getSharedCache, resolveSharedCacheOrigin } from '@/server/utils/sharedEdgeStore';
 import {
@@ -14,6 +15,7 @@ import type {
   ChangelogResponse,
   ChangelogStats,
 } from '@/types/changelog';
+import type { H3Event } from 'h3';
 type GitHubRelease = {
   name?: string | null;
   tag_name?: string | null;
@@ -617,7 +619,7 @@ const buildCommitItems = async (
     };
   });
 };
-export default defineEventHandler(async (event): Promise<ChangelogResponse> => {
+const buildUpstreamChangelog = async (event: H3Event): Promise<ChangelogResponse> => {
   setResponseHeaders(event, { 'Cache-Control': 'public, max-age=300, s-maxage=300' });
   try {
     const runtimeConfig = useRuntimeConfig(event);
@@ -687,4 +689,23 @@ export default defineEventHandler(async (event): Promise<ChangelogResponse> => {
     });
     return { source: 'commits', items: [], hasMore: false, error: 'Failed to fetch changelog' };
   }
+};
+// Fork-only: our own entries are merged in after the upstream response (and its caches), so they
+// never depend on GitHub being reachable and survive upstream syncs. See FORK.md.
+export default defineEventHandler(async (event): Promise<ChangelogResponse> => {
+  const upstream = await buildUpstreamChangelog(event);
+  const forkItems = forkChangelogItems(parseForkChangelogLocale(getQuery(event).lang));
+  if (!forkItems.length) return upstream;
+  const limit = clamp(
+    Math.trunc(parseNumber(getQuery(event).limit, changelogConfig.DEFAULT_LIMIT)),
+    1,
+    changelogConfig.MAX_LIMIT
+  );
+  const merged = sortByDateDesc([...forkItems, ...upstream.items]);
+  const items = merged.slice(0, limit);
+  return {
+    source: upstream.source,
+    items,
+    hasMore: upstream.hasMore || merged.length > limit,
+  };
 });
