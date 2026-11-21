@@ -29,6 +29,7 @@ function deepMerge(base: MessageTree, override: MessageTree): MessageTree {
   return merged;
 }
 const deMessages = deepMerge(de as MessageTree, deOverrides as MessageTree) as typeof en;
+// The Nuxt-generated locale union has 14 members; this test only supplies de and en.
 const buildI18n = (locale: 'de' | 'en') =>
   createI18n({
     legacy: false,
@@ -40,7 +41,7 @@ const buildI18n = (locale: 'de' | 'en') =>
       en,
       de: deMessages,
     },
-  });
+  } as never);
 const NuxtLinkStub = { props: ['to'], template: '<a :href="to"><slot /></a>' };
 const UContainerStub = { template: '<main><slot /></main>' };
 const mountHerkunft = async (locale: 'de' | 'en' = 'de') => {
@@ -139,7 +140,7 @@ describe('herkunft page', () => {
         en,
         de: incompleteDe as typeof en,
       },
-    });
+    } as never);
     const { default: HerkunftPage } = await import('@/pages/herkunft.vue');
     const wrapper = mount(HerkunftPage, {
       global: {

@@ -39,7 +39,7 @@ const mountNotice = async (locale: 'de' | 'en') => {
     missingWarn: false,
     fallbackWarn: false,
     messages: { en, de: merge(de as Tree, deOverrides as Tree) as typeof en },
-  });
+  } as never);
   const { default: Notice } =
     await import('@/features/settings/StammtischAccountDeletionNotice.vue');
   return mount(Notice, {
