@@ -67,7 +67,7 @@
         <div class="w-full border-t border-white/10 bg-black/20">
           <div class="flex items-center justify-between px-8 py-4">
             <UButton
-              to="/privacy"
+              :to="legalLinks.privacyUrl"
               target="_blank"
               variant="ghost"
               color="neutral"
@@ -77,7 +77,7 @@
               {{ $t('common.privacy_policy') }}
             </UButton>
             <UButton
-              to="/terms-of-service"
+              :to="legalLinks.termsUrl"
               target="_blank"
               variant="ghost"
               color="neutral"
@@ -97,4 +97,5 @@
   const isOfflineMode = computed(() => $supabase.isOfflineMode === true);
   const { t } = useI18n({ useScope: 'global' });
   const { startHandoff } = useTrackerHandoff();
+  const legalLinks = useLegalLinks();
 </script>

@@ -59,9 +59,14 @@
               class="text-surface-400 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs leading-relaxed"
             >
               <span>{{ t('analytics_consent.change_anytime') }}</span>
-              <router-link to="/privacy" class="text-info-300 hover:text-info-200 underline">
+              <a
+                :href="privacyUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-info-300 hover:text-info-200 underline"
+              >
                 {{ t('analytics_consent.review_details') }}
-              </router-link>
+              </a>
             </div>
           </div>
           <div class="bg-surface-950/70 border-surface-800/80 rounded-xl border p-2">
@@ -104,6 +109,7 @@
   const { accept, closePreferences, decline, hasAnswered, isAccepted, isPromptOpen, state } =
     useAnalyticsConsent();
   const runtimeConfig = useRuntimeConfig();
+  const { privacyUrl } = useLegalLinks();
   const consentDescriptionId = 'analytics-consent-description';
   const consentTitleId = 'analytics-consent-title';
   const analyticsConfigured =

@@ -7,6 +7,11 @@ import { resolveTrustProxySetting } from './app/utils/apiProtectionConfig';
 import { resolveBuildCommit } from './app/utils/buildCommit';
 import { ENTRY_RECOVERY_SCRIPT } from './app/utils/entryRecoveryScript';
 import { robotsTxtAllowingIndexing } from './app/utils/indexingPolicy';
+import {
+  DEFAULT_LEGAL_PRIVACY_URL,
+  DEFAULT_LEGAL_TERMS_URL,
+  resolveLegalUrl,
+} from './app/utils/legalLinks';
 import { SUPPORTED_LOCALES } from './app/utils/locales';
 import {
   assertCloudflarePagesOutput,
@@ -58,7 +63,9 @@ const PUBLIC_APP_URL = resolvePublicAppUrl(process.env);
 const CANONICAL_SITE_URL = resolveCanonicalSiteUrl(PUBLIC_APP_URL);
 // Fork: the supporter sales page does not exist here (no-supporter-sales.global.ts answers 404), so
 // it must not be prerendered, or the build fails on that 404, nor appear in the sitemap.
-const FORK_REMOVED_PUBLIC_ROUTES = new Set(['/supporter']);
+// /privacy and /terms-of-service are redirected to the Stammtisch legal pages, so they are no
+// prerendered documents either (a static file would be served before the redirect middleware).
+const FORK_REMOVED_PUBLIC_ROUTES = new Set(['/supporter', '/privacy', '/terms-of-service']);
 const FORK_PUBLIC_SEO_ROUTES = PUBLIC_SEO_ROUTES.filter(
   (route) => !FORK_REMOVED_PUBLIC_ROUTES.has(route)
 );
@@ -255,6 +262,15 @@ export default defineNuxtConfig({
       accountDeletionUrl:
         process.env.NUXT_PUBLIC_ACCOUNT_DELETION_URL?.trim() ||
         'https://tarkov-stammtisch.de/profile/settings',
+      // Fork: upstream's /privacy and /terms-of-service redirect here (main site legal pages)
+      legalPrivacyUrl: resolveLegalUrl(
+        process.env.NUXT_PUBLIC_LEGAL_PRIVACY_URL,
+        DEFAULT_LEGAL_PRIVACY_URL
+      ),
+      legalTermsUrl: resolveLegalUrl(
+        process.env.NUXT_PUBLIC_LEGAL_TERMS_URL,
+        DEFAULT_LEGAL_TERMS_URL
+      ),
       promotedTwitch: {
         channel: process.env.NUXT_PUBLIC_PROMOTED_TWITCH_CHANNEL || 'honeyxxo',
         displayName: process.env.NUXT_PUBLIC_PROMOTED_TWITCH_DISPLAY_NAME || 'honeyxxo',

@@ -1,14 +1,18 @@
 // @vitest-environment happy-dom
 import { mockNuxtImport } from '@nuxt/test-utils/runtime';
 import { mount } from '@vue/test-utils';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createI18n } from 'vue-i18n';
 import de from '@/locales/de.json';
 import deOverrides from '@/locales/de.overrides.json';
 import en from '@/locales/en.json';
-mockNuxtImport('useRuntimeConfig', () => () => ({
-  public: { discordInviteUrl: 'https://discord.gg/tarkovstammtisch' },
+const runtimeConfig = vi.hoisted(() => ({
+  public: {
+    discordInviteUrl: 'https://discord.gg/tarkovstammtisch',
+    legalPrivacyUrl: undefined as unknown,
+  },
 }));
+mockNuxtImport('useRuntimeConfig', () => () => runtimeConfig);
 type MessageTree = Record<string, unknown>;
 // AppFooter now renders one i18n-driven line (footer.attribution / footer.origin_link);
 // nuxt.config.ts merges de.json + de.overrides.json for the "de" locale, so tests
@@ -162,5 +166,23 @@ describe('AppFooter', () => {
     const wrapper = await mountFooter('de');
     expect(wrapper.text()).not.toContain('footer.attribution');
     expect(wrapper.text()).not.toContain('footer.origin_link');
+  });
+});
+describe('AppFooter legal links from config', () => {
+  afterEach(() => {
+    runtimeConfig.public.legalPrivacyUrl = undefined;
+  });
+  it('uses the configured privacy target', async () => {
+    runtimeConfig.public.legalPrivacyUrl = 'https://dev.tarkov-stammtisch.de/datenschutz';
+    const wrapper = await mountFooter();
+    const link = wrapper.findAll('a').find((a) => a.text() === 'Datenschutzerklärung');
+    expect(link?.attributes('href')).toBe('https://dev.tarkov-stammtisch.de/datenschutz');
+  });
+  it('never points the legal column at upstream or an unsafe target', async () => {
+    runtimeConfig.public.legalPrivacyUrl = 'javascript:alert(1)';
+    const wrapper = await mountFooter();
+    const hrefs = wrapper.findAll('a').map((a) => a.attributes('href') ?? '');
+    expect(hrefs).toContain('https://tarkov-stammtisch.de/datenschutz');
+    expect(hrefs.some((h) => h.startsWith('javascript:') || h === '/privacy')).toBe(false);
   });
 });

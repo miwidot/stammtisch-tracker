@@ -99,6 +99,7 @@
 </template>
 <script setup lang="ts">
   const { t } = useI18n({ useScope: 'global' });
+  const stammtischLegal = useLegalLinks();
   const currentYear = new Date().getFullYear();
   const quickLinks = [
     { href: 'https://tarkov-stammtisch.de/community', label: 'Über uns' },
@@ -111,8 +112,8 @@
   const legalLinks = [
     { href: 'https://tarkov-stammtisch.de/regeln', label: 'Discord Regeln' },
     { href: 'https://tarkov-stammtisch.de/impressum', label: 'Impressum' },
-    { href: 'https://tarkov-stammtisch.de/datenschutz', label: 'Datenschutzerklärung' },
-    { href: 'https://tarkov-stammtisch.de/nutzungsbedingungen', label: 'Nutzungsbedingungen' },
+    { href: stammtischLegal.privacyUrl, label: 'Datenschutzerklärung' },
+    { href: stammtischLegal.termsUrl, label: 'Nutzungsbedingungen' },
     { href: 'https://tarkov-stammtisch.de/danke', label: 'Danke ❤️', pink: true },
   ];
 </script>

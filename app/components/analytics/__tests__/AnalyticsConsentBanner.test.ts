@@ -109,4 +109,10 @@ describe('AnalyticsConsentBanner', () => {
     expect(getStatus().text()).toBe('Analytics Status: Disabled');
     expect(getStatus().attributes('data-color')).toBe('neutral');
   });
+  it('links the details to the Stammtisch privacy page, not the upstream route', async () => {
+    const wrapper = await mountBanner();
+    const link = wrapper.find('a');
+    expect(link.attributes('href')).toBe('https://tarkov-stammtisch.de/datenschutz');
+    expect(link.attributes('rel')).toBe('noopener noreferrer');
+  });
 });
