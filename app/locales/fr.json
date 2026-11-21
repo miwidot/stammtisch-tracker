@@ -1121,6 +1121,7 @@
         "faction": "Disponible pour les caractères {faction}.",
         "trader_story_unlock": "Unlock {trader}: {objective} ({chapter})",
         "trader_unlock": "Débloquez {trader} en complétant {task}.",
+        "trader_unlock_unknown": "Unlock {trader} by completing its required task. Task data is unavailable.",
         "prestige": "Nécessite le Prestige {required} (actuel: {current}).",
         "global_variable_required": "Additional in-game progression required.",
         "global_variable_unknown_required": "Additional in-game progression required. Use Mark available only if this task is available in-game.",
@@ -1997,14 +1998,7 @@
     "interface": {
       "tasks": {
         "title": "Cartes de tâches",
-        "show_required": "Afficher les étiquettes requises",
-        "show_xp": "Afficher les récompenses d'XP",
-        "show_next": "Afficher les quêtes suivantes",
-        "show_prev": "Afficher les quêtes précédentes",
-        "collapse_by_default": "Réduire les quêtes par défaut",
-        "hide_rewards": "Cacher les récompenses",
         "require_trader_levels": "Nécessite le niveau de fidélité du marchand et la réputation pour la disponibilité des tâches",
-        "flags_section": "Affichage des Tâches",
         "availability_section": "Disponibilité des tâches",
         "view_defaults_section": "Vues par défaut"
       },
@@ -2573,6 +2567,9 @@
     "any_of_items": "N'importe lequel de ces articles {count} compte",
     "any_of_items_short": "Niv {count}",
     "view_accepted_items": "Voir tous les articles acceptés par {count}",
+    "search_accepted_items": "Search accepted items...",
+    "no_accepted_items": "No accepted items match your search.",
+    "accepted_items_page": "Page {page} of {pages} · {count} items",
     "not_collected": "Non collecté",
     "hidden_for_you": "Hidden for you",
     "hidden_for_you_hint": "You hid this task. It stays listed because teammates still need this item: {teammates}",

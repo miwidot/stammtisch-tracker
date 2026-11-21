@@ -67,6 +67,7 @@ const preferencesStoreMock = {
   getPinnedTaskIds: [] as string[],
   getHideCompletedMapObjectives: false,
   getMapHiddenTaskIds: [] as string[],
+  getShowMapExtracts: true,
   getHiddenTaskIds: [] as string[],
   unhideTasks: vi.fn(),
   mapTeamAllHidden: false,
@@ -272,6 +273,10 @@ vi.mock('@/features/maps/LeafletMap.vue', () => ({
         type: String,
         default: undefined,
       },
+      showExtracts: {
+        type: Boolean,
+        default: true,
+      },
       showFullscreenToggle: {
         type: Boolean,
         default: false,
@@ -293,7 +298,7 @@ vi.mock('@/features/maps/LeafletMap.vue', () => ({
       });
       return { props };
     },
-    template: `<div data-testid="leaflet-map" :data-marks="JSON.stringify(props.marks ?? [])" :data-initial-view="JSON.stringify(props.initialView ?? null)" :data-initial-floor="props.initialFloor ?? ''">
+    template: `<div data-testid="leaflet-map" :data-marks="JSON.stringify(props.marks ?? [])" :data-initial-view="JSON.stringify(props.initialView ?? null)" :data-initial-floor="props.initialFloor ?? ''" :data-show-extracts="String(props.showExtracts)">
       <button
         v-if="props.showFullscreenToggle"
         type="button"
@@ -389,6 +394,7 @@ describe('tasks page', () => {
     preferencesStoreMock.getTaskMapView = 'all';
     preferencesStoreMock.getHideGlobalTasks = false;
     preferencesStoreMock.getPinnedTaskIds = [];
+    preferencesStoreMock.getShowMapExtracts = true;
     preferencesStoreMock.getHideCompletedMapObjectives = false;
     preferencesStoreMock.getMapHiddenTaskIds = [];
     preferencesStoreMock.getHiddenTaskIds = [];
@@ -424,14 +430,23 @@ describe('tasks page', () => {
           release = resolve;
         })
     );
-    metadataStoreMock.tasksCoreRevision += 1;
-    await nextTick();
-    handleTaskQueryParamMock.mockClear();
-    await wrapper.vm.$router.replace({ query: { task: defaultTask.id } });
-    await nextTick();
-    expect(handleTaskQueryParamMock).not.toHaveBeenCalled();
-    release();
-    await vi.waitFor(() => expect(handleTaskQueryParamMock).toHaveBeenCalled());
+    // Fake timers before the revision bump also hold the bounded detail wait, so only
+    // `release()` can clear readiness; the deep link then waits on the refresh debounce.
+    vi.useFakeTimers();
+    try {
+      metadataStoreMock.tasksCoreRevision += 1;
+      await nextTick();
+      handleTaskQueryParamMock.mockClear();
+      void wrapper.vm.$router.replace({ query: { task: defaultTask.id } });
+      await vi.advanceTimersByTimeAsync(ROUTE_NAVIGATION_MS + TASK_REFRESH_DEBOUNCE_MS);
+      expect(wrapper.vm.$router.currentRoute.value.query.task).toBe(defaultTask.id);
+      expect(handleTaskQueryParamMock).not.toHaveBeenCalled();
+      release();
+      await vi.advanceTimersByTimeAsync(TASK_REFRESH_DEBOUNCE_MS);
+      expect(handleTaskQueryParamMock).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
   it.each([
     'fetchTaskObjectivesData',
@@ -704,6 +719,22 @@ describe('tasks page', () => {
     await jumpButton.trigger('click');
     await nextTick();
     expect(toggleButton.attributes('aria-expanded')).toBe('true');
+  });
+  it('opens both task maps with extracts following the saved preference', async () => {
+    preferencesStoreMock.getTaskPrimaryView = 'maps';
+    preferencesStoreMock.getTaskMapView = 'map-1';
+    preferencesStoreMock.getShowMapExtracts = false;
+    metadataStoreMock.mapsWithSvg = [{ id: 'map-1', name: 'Map One' }];
+    await mountPage();
+    expect(wrapper.get('[data-testid="leaflet-map"]').attributes('data-show-extracts')).toBe(
+      'false'
+    );
+    await wrapper.find('[data-testid="map-fullscreen-toggle"]').trigger('click');
+    await flushTransition();
+    const fullscreenMap = wrapper.get(
+      '[data-testid="map-fullscreen-overlay"] [data-testid="leaflet-map"]'
+    );
+    expect(fullscreenMap.attributes('data-show-extracts')).toBe('false');
   });
   it('opens and closes the map full screen overlay', async () => {
     preferencesStoreMock.getTaskPrimaryView = 'maps';

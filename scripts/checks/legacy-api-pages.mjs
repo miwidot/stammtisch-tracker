@@ -1,9 +1,15 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { after, before, test } from 'node:test';
 import { createTestHarness } from 'wrangler';
 const root = fileURLToPath(new URL('../../', import.meta.url));
+const tarkovRoutes = readdirSync(new URL('../../app/server/api/tarkov/', import.meta.url), {
+  recursive: true,
+})
+  .filter((name) => name.endsWith('.get.ts'))
+  .map((name) => name.replaceAll('\\', '/').replace('.get.ts', ''));
+assert.ok(tarkovRoutes.includes('access-check'), 'Tarkov GET route discovery must not be empty');
 const routes = JSON.parse(
   // Generated build output is deliberately absent from Fallow's source-only audit snapshot.
   // fallow-ignore-next-line unresolved-import
@@ -177,6 +183,70 @@ test('compiled static assets retain the original Request and ASSETS binding', as
   assert.equal(response.headers.get('X-Test-Body-Reads'), '0');
   assert.equal(response.headers.get('X-Test-Assets-Read'), 'true');
 });
+test('compiled unknown Tarkov paths return uncacheable JSON instead of the SPA', async () => {
+  for (const path of [
+    '/api/tarkov',
+    '/api/tarkov/',
+    '/api/tarkov/missing',
+    '/api/tarkov/missing/nested',
+    '/api/tarkov/missing/?lang=en',
+  ]) {
+    for (const method of ['GET', 'HEAD', 'POST']) {
+      const response = await harness.fetch(`https://tarkovtracker.org${path}`, {
+        method,
+        headers: { Accept: 'text/html' },
+      });
+      assert.equal(response.status, 404, `${method} ${path}`);
+      assert.equal(response.headers.get('Cache-Control'), 'no-store');
+      assert.match(response.headers.get('Content-Type'), /^application\/json/);
+      if (method === 'HEAD') assert.equal(await response.text(), '');
+      else assert.equal((await response.json()).statusCode, 404);
+    }
+  }
+  assert.deepEqual(outbound, []);
+});
+test('compiled known Tarkov route takes precedence over the fallback', async () => {
+  for (const method of ['GET', 'HEAD', 'GET', 'HEAD']) {
+    const response = await harness.fetch('https://tarkovtracker.org/api/tarkov/access-check', {
+      method,
+    });
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('Content-Type'), /^application\/json/);
+    assert.equal(response.headers.get('Cache-Control'), 'no-store');
+    if (method === 'HEAD') assert.equal(await response.text(), '');
+    else assert.deepEqual(await response.json(), { ok: true });
+  }
+  assert.deepEqual(outbound, []);
+});
+for (const route of tarkovRoutes) {
+  test(`compiled ${route} HEAD preserves GET metadata without a body`, async () => {
+    for (const suffix of ['', '/?gameMode=pve&lang=en']) {
+      const url = `https://tarkovtracker.org/api/tarkov/${route}${suffix}`;
+      const requestHead = () =>
+        harness.fetch(url, { method: 'HEAD', headers: { Accept: 'text/html' } });
+      const coldHead = await requestHead();
+      const get = await harness.fetch(url, { headers: { Accept: 'text/html' } });
+      assert.equal(get.status, 200, `${url}: GET fixture must succeed`);
+      assert.match(get.headers.get('Content-Type'), /^application\/json/, url);
+      await get.json();
+      for (const head of [coldHead, await requestHead()]) {
+        assert.equal(head.status, get.status, url);
+        for (const header of [
+          'Content-Type',
+          'Cache-Control',
+          'Cloudflare-CDN-Cache-Control',
+          'Vary',
+          'X-Overlay-Version',
+          'X-Overlay-Sha256',
+        ]) {
+          assert.equal(head.headers.get(header), get.headers.get(header), `${url}: ${header}`);
+        }
+        assert.equal(await head.text(), '', url);
+      }
+    }
+    assert.deepEqual(outbound, []);
+  });
+}
 test('compiled normal API paths and other hosts keep their existing protection', async () => {
   for (const url of [
     'https://tarkovtracker.org/api/v20',

@@ -1121,6 +1121,7 @@
         "faction": "仅 {faction} 角色可接取。",
         "trader_story_unlock": "Unlock {trader}: {objective} ({chapter})",
         "trader_unlock": "完成 {task} 以解锁 {trader}。",
+        "trader_unlock_unknown": "Unlock {trader} by completing its required task. Task data is unavailable.",
         "prestige": "需要声望等级 {required}（当前：{current}）。",
         "global_variable_required": "Additional in-game progression required.",
         "global_variable_unknown_required": "Additional in-game progression required. Use Mark available only if this task is available in-game.",
@@ -1997,14 +1998,7 @@
     "interface": {
       "tasks": {
         "title": "任务卡片",
-        "show_required": "显示必需标签",
-        "show_xp": "显示经验奖励",
-        "show_next": "显示后续任务",
-        "show_prev": "显示前置任务",
-        "collapse_by_default": "默认情况下收起任务",
-        "hide_rewards": "隐藏奖励",
         "require_trader_levels": "显示任务时要求满足商人忠诚等级和声望条件",
-        "flags_section": "任务显示",
         "availability_section": "任务可用性",
         "view_defaults_section": "默认视图"
       },
@@ -2573,6 +2567,9 @@
     "any_of_items": "以下 {count} 个物品中的任意一个都符合条件",
     "any_of_items_short": "任意 {count} 个",
     "view_accepted_items": "查看全部 {count} 个符合条件的物品",
+    "search_accepted_items": "Search accepted items...",
+    "no_accepted_items": "No accepted items match your search.",
+    "accepted_items_page": "Page {page} of {pages} · {count} items",
     "not_collected": "未收集",
     "hidden_for_you": "Hidden for you",
     "hidden_for_you_hint": "You hid this task. It stays listed because teammates still need this item: {teammates}",

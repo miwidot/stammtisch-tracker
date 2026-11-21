@@ -1121,6 +1121,7 @@
         "faction": "Disponibile ai personaggi della {faction}.",
         "trader_story_unlock": "Unlock {trader}: {objective} ({chapter})",
         "trader_unlock": "Sblocca {trader} completando {task}.",
+        "trader_unlock_unknown": "Unlock {trader} by completing its required task. Task data is unavailable.",
         "prestige": "Richiede Prestigio {required} (attuale: {current}).",
         "global_variable_required": "Additional in-game progression required.",
         "global_variable_unknown_required": "Additional in-game progression required. Use Mark available only if this task is available in-game.",
@@ -1997,14 +1998,7 @@
     "interface": {
       "tasks": {
         "title": "Pannello missione",
-        "show_required": "Mostra etichetta Richiesta",
-        "show_xp": "Mostra ricompense XP",
-        "show_next": "Mostra missioni successive",
-        "show_prev": "Mostra missioni precedenti",
-        "collapse_by_default": "Comprimi le missioni di default",
-        "hide_rewards": "Nascondi Ricompense",
         "require_trader_levels": "Richiede livello di fedeltà trader e reputazione per la disponibilità della missione",
-        "flags_section": "Schermata Missioni",
         "availability_section": "Disponibilità Missioni",
         "view_defaults_section": "Viste Predefinite"
       },
@@ -2573,6 +2567,9 @@
     "any_of_items": "Ognuno di questi {count} elementi conta",
     "any_of_items_short": "Tutti e {count}",
     "view_accepted_items": "Visualizza tutti i {count} elementi accettati",
+    "search_accepted_items": "Search accepted items...",
+    "no_accepted_items": "No accepted items match your search.",
+    "accepted_items_page": "Page {page} of {pages} · {count} items",
     "not_collected": "Non raccolto",
     "hidden_for_you": "Hidden for you",
     "hidden_for_you_hint": "You hid this task. It stays listed because teammates still need this item: {teammates}",

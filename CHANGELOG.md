@@ -1,3 +1,43 @@
+# [1.90.0](https://github.com/tarkovtracker-org/TarkovTracker/compare/v1.89.0...v1.90.0) (2026-11-14)
+
+
+### Bug Fixes
+
+* **maps:** drop bundled extract rules now that the overlay serves them ([#1421](https://github.com/tarkovtracker-org/TarkovTracker/issues/1421)) ([4717180](https://github.com/tarkovtracker-org/TarkovTracker/commit/4717180fc2661788df6f6b1d22535b0c7db0394c))
+* gate account deletion before billing cutover ([#1429](https://github.com/tarkovtracker-org/TarkovTracker/issues/1429)) ([e38f86d](https://github.com/tarkovtracker-org/TarkovTracker/commit/e38f86d958fda42f1dddf7130b35a9fe0138f2b0))
+* handle HEAD on every Tarkov data route ([#1425](https://github.com/tarkovtracker-org/TarkovTracker/issues/1425)) ([472d4cc](https://github.com/tarkovtracker-org/TarkovTracker/commit/472d4cce33af1d3a694db6c69e2dd1b68ad76801))
+* **maps:** hide outlines of zones smaller than their icon ([#1419](https://github.com/tarkovtracker-org/TarkovTracker/issues/1419)) ([71de132](https://github.com/tarkovtracker-org/TarkovTracker/commit/71de1320e7402c3ba9417f95fd95d6ae33fa9ea6))
+* **maps:** honor the Show Extracts by Default setting on task maps ([#1414](https://github.com/tarkovtracker-org/TarkovTracker/issues/1414)) ([d1495d8](https://github.com/tarkovtracker-org/TarkovTracker/commit/d1495d82ec2d2386313698e6c3ee5df719c804b2))
+* **data:** prevent stale HTML in Tarkov API cache ([#1417](https://github.com/tarkovtracker-org/TarkovTracker/issues/1417)) ([d2a83aa](https://github.com/tarkovtracker-org/TarkovTracker/commit/d2a83aa9a050cf9d8a6e1f3e9593b9165ad0c496))
+* **precompute:** recognize inactive task identity ledger ([#1390](https://github.com/tarkovtracker-org/TarkovTracker/issues/1390)) ([935e90d](https://github.com/tarkovtracker-org/TarkovTracker/commit/935e90d897a78fdb7548f9adc4c37dc307df72d9))
+* **maps:** remember hidden extract, transit and spawn layers ([#1416](https://github.com/tarkovtracker-org/TarkovTracker/issues/1416)) ([b47e12c](https://github.com/tarkovtracker-org/TarkovTracker/commit/b47e12c52c18ac3b0b93d36ec3fb37ff9f83564d))
+* **data:** serve uncached JSON headers for clearance HEAD requests ([#1420](https://github.com/tarkovtracker-org/TarkovTracker/issues/1420)) ([d213278](https://github.com/tarkovtracker-org/TarkovTracker/commit/d21327803445fd1329ecdfbfa640754618cbafb3))
+* **security:** verify protected Crowdin credential scope ([#1426](https://github.com/tarkovtracker-org/TarkovTracker/issues/1426)) ([23952e6](https://github.com/tarkovtracker-org/TarkovTracker/commit/23952e67b155196c4ca67c8461dbcf11c1f56305))
+
+
+### Features
+
+* **maps:** add floor guidance and extract requirements ([#1401](https://github.com/tarkovtracker-org/TarkovTracker/issues/1401)) ([e14312a](https://github.com/tarkovtracker-org/TarkovTracker/commit/e14312a7e5824f45550c72329ecbde4e20f5c470))
+* **maps:** add transit location toggle ([#1399](https://github.com/tarkovtracker-org/TarkovTracker/issues/1399)) ([2460c39](https://github.com/tarkovtracker-org/TarkovTracker/commit/2460c39fe3dbabf0b4e3bd31808c17cbe774f85b))
+* **maps:** serve extract requirements from the data overlay ([#1409](https://github.com/tarkovtracker-org/TarkovTracker/issues/1409)) ([6eba630](https://github.com/tarkovtracker-org/TarkovTracker/commit/6eba630514285faab0c55ce2027fa6771eedaae1))
+* **tasks:** show static time-gate durations ([#1424](https://github.com/tarkovtracker-org/TarkovTracker/issues/1424)) ([6f9dbd6](https://github.com/tarkovtracker-org/TarkovTracker/commit/6f9dbd6b78261b05b7c726140ba68706f8eb7dfe))
+* surface Storyline next steps and unlock guidance ([#1418](https://github.com/tarkovtracker-org/TarkovTracker/issues/1418)) ([052b379](https://github.com/tarkovtracker-org/TarkovTracker/commit/052b379451c4247f6bf9e6a71881d077073a7dc9))
+
+# [1.89.0](https://github.com/tarkovtracker-org/TarkovTracker/compare/v1.88.0...v1.89.0) (2026-11-06)
+
+
+### Bug Fixes
+
+* **tasks:** preserve trader gates and missing-quest log recovery ([#1381](https://github.com/tarkovtracker-org/TarkovTracker/issues/1381)) ([f87896b](https://github.com/tarkovtracker-org/TarkovTracker/commit/f87896bf4d399f91adaa73172fb01844bb26f99b))
+* **tasks:** show full accepted-item pools for sell objectives ([#1384](https://github.com/tarkovtracker-org/TarkovTracker/issues/1384)) ([0910c9a](https://github.com/tarkovtracker-org/TarkovTracker/commit/0910c9a367e228eb02535a90414f55a194728e40))
+* **security:** unblock vetted advisory updates without dropping cooldown ([#1370](https://github.com/tarkovtracker-org/TarkovTracker/issues/1370)) ([82751e5](https://github.com/tarkovtracker-org/TarkovTracker/commit/82751e51d8b93ee6d66fd367a251ed3763e40de0))
+
+
+### Features
+
+* **progress:** preserve task identity across placeholder replacements ([#1385](https://github.com/tarkovtracker-org/TarkovTracker/issues/1385)) ([d5da9f3](https://github.com/tarkovtracker-org/TarkovTracker/commit/d5da9f30510b398075bdcad7b9c736d5f67ae063))
+* **tasks:** track weapon build parts on task cards ([#1382](https://github.com/tarkovtracker-org/TarkovTracker/issues/1382)) ([3554af3](https://github.com/tarkovtracker-org/TarkovTracker/commit/3554af39fc4bbca4cb0e95cf3d54091c66373292))
+
 # [1.88.0](https://github.com/tarkovtracker-org/TarkovTracker/compare/v1.87.0...v1.88.0) (2026-10-29)
 
 

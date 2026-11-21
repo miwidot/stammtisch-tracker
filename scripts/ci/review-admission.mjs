@@ -1,8 +1,8 @@
 import { execFileSync } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
-import { currentAdminAttestation } from './pr-control-state.mjs';
+import { promotionBranch } from '../release/release-promotion.mjs';
+import { approvalCommandPrefix, currentAdminAttestation } from './review-admission-attestation.mjs';
 import {
   activeQueueGroup,
   allPages,
@@ -58,7 +58,7 @@ async function evidence(github, repo, pr) {
   const adminAttestation = await currentAdminAttestation(
     github,
     repo,
-    pr.number,
+    listedComments,
     pr.head.sha
   ).catch(() => null);
   return {
@@ -177,7 +177,7 @@ async function currentReceiptDecision(github, context, result) {
   if (group) await requireReleaseSource(github, context.repo, pr, group, live.files);
   const decision = admissionDecision(live);
   await publicationRevision(github, context, pr, group);
-  return decision;
+  return { decision, pr };
 }
 async function publicationGroup(github, context, pr, result) {
   if (result.statusSha === pr.head.sha) return null;
@@ -206,21 +206,24 @@ function requireSameDecision(result, decision) {
     'Review decision changed after evidence upload; recheck admission.'
   );
 }
+const EXEMPTION_SUMMARIES = {
+  'crowdin-policy': 'Verified Crowdin translation policy exemption; low risk admission approved.',
+  'release-policy': 'Verified generated release assets exemption; low risk admission approved.',
+};
+function admissionSummary(decision) {
+  return (
+    EXEMPTION_SUMMARIES[decision.review.provider] ??
+    `Verified ${decision.review.provider} review; ${decision.risk} risk admission approved.`
+  );
+}
 export async function publishReviewAdmission({ github, context, sha }) {
   requireEvidence(SHA.test(sha), 'Publication requires exact admission SHA.');
   try {
     const result = await uploadedReceipt(github, context, sha);
-    const decision = await currentReceiptDecision(github, context, result);
+    const { decision, pr } = await currentReceiptDecision(github, context, result);
     requireSameDecision(result, decision);
-    await status(
-      github,
-      context,
-      sha,
-      'success',
-      decision.review.provider === 'crowdin-policy'
-        ? 'Verified Crowdin translation policy exemption; low risk admission approved.'
-        : `Verified ${decision.review.provider} review; ${decision.risk} risk admission approved.`
-    );
+    await status(github, context, sha, 'success', admissionSummary(decision));
+    return pr;
   } catch (error) {
     await status(github, context, sha, 'failure', error.message);
     throw error;
@@ -439,7 +442,6 @@ function requireEventGroup(eventGroup, current) {
 async function evaluateScope(github, context, core, target, source) {
   const scope = await reviewScope(github, context, target);
   try {
-    await writeAdmissionTarget(context, core, scope.number);
     const head = await evaluateAdmission({ github, context, number: scope.number, source });
     core.setOutput('admission_sha', head.statusSha);
     if (scope.group) await evaluateQueuedScope(github, context, core, scope, source);
@@ -458,11 +460,8 @@ async function evaluateQueuedScope(github, context, core, scope, source) {
   });
   core.setOutput('queue_sha', queued.statusSha);
 }
-function sensitiveCommand(body) {
-  return typeof body === 'string' && body.trimStart().startsWith('/approve-sensitive ');
-}
 function approvalComment(payload) {
-  return [payload.comment?.body, payload.changes?.body?.from].some(sensitiveCommand);
+  return [payload.comment?.body, payload.changes?.body?.from].some(approvalCommandPrefix);
 }
 export function relevantComment(payload) {
   return [approvalComment(payload), codeRabbitCommentEvent(payload)].some(Boolean);
@@ -523,23 +522,16 @@ function receiptOutput(outputs) {
 }
 export async function publishReviewScope({ github, context, head, queued }) {
   const shas = [head, queued].filter(Boolean);
+  const published = [];
   try {
-    for (const sha of shas) await publishReviewAdmission({ github, context, sha });
+    for (const sha of shas) published.push(await publishReviewAdmission({ github, context, sha }));
+    return requestPromotion(published[0], queued, context.repo);
   } catch (error) {
     await scopeStatuses(github, context, shas, 'failure', error.message);
     throw error;
   }
 }
-async function writeAdmissionTarget(context, core, number) {
-  core.setOutput('pull_request', String(number));
-  if (!process.env.RUNNER_TEMP) return;
-  const locator = {
-    repository: `${context.repo.owner}/${context.repo.repo}`,
-    number,
-    runId: Number(context.runId),
-    runAttempt: Number(process.env.GITHUB_RUN_ATTEMPT),
-  };
-  const directory = join(process.env.RUNNER_TEMP, 'review-admission-target');
-  await mkdir(directory, { recursive: true });
-  await writeFile(join(directory, 'target.json'), `${JSON.stringify(locator)}\n`);
+function requestPromotion(pr, queued, repo) {
+  if (!pr || queued) return false;
+  return Boolean(promotionBranch(pr, repo));
 }

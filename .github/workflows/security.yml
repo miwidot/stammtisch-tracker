@@ -25,7 +25,7 @@ jobs:
         with:
           # Audits consume the isolated manifest/lockfile below, not node_modules. The weekly
           # outdated check retains the installed workspace; every security scan still runs.
-          install-dependencies: ${{ github.event_name == 'schedule' }}
+          install-dependencies: 'false'
       - name: Prepare pnpm audit workspace
         id: prepare-audit
         run: |
@@ -43,7 +43,7 @@ jobs:
         # (or a same-release companion of one); everything else waits out minimumReleaseAge.
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: pnpm run audit:release-age
+        run: node scripts/checks/release-age-exceptions.mjs
       - name: Audit all dependencies (informational)
         working-directory: ${{ steps.prepare-audit.outputs.audit_dir }}
         # Advisory only: development-dependency findings are reported, never gated.
@@ -51,6 +51,15 @@ jobs:
           if ! pnpm audit --audit-level=high; then
             echo "::notice title=Informational dependency audit::High-severity findings exist in development dependencies. This audit is advisory and does not gate CI."
           fi
+      - name: Cache pnpm for scheduled outdated check
+        if: github.event_name == 'schedule'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install for scheduled outdated check
+        if: github.event_name == 'schedule'
+        run: pnpm install --frozen-lockfile
       - name: Check for outdated dependencies
         if: github.event_name == 'schedule'
         run: pnpm outdated || true
@@ -135,10 +144,10 @@ jobs:
         with:
           persist-credentials: false
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
           languages: javascript-typescript
           queries: security-extended
       # The analysis must complete; individual alerts are triaged in code scanning, not here.
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1

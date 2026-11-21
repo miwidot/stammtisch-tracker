@@ -36,6 +36,37 @@ describe('default fetch budget', () => {
     expect(worstCaseMs).toBeLessThan(100_000);
   });
 });
+describe('map transit data', () => {
+  it.each(['regular', 'pve', 'pvp-season'] as const)(
+    'preserves localized transit coordinates through the %s map adapter',
+    async (gameMode) => {
+      const transit = {
+        id: '9',
+        description: 'CUST_TRANSIT_9_DESC',
+        map: 'reserve',
+        position: { x: 650.64, y: 1.59, z: 124.94 },
+      };
+      const fetcher = createFetcher({
+        [`https://json.tarkov.dev/${gameMode}/maps`]: {
+          data: { maps: { customs: { id: 'customs', name: 'Customs', transits: [transit] } } },
+          translations: ['$.data.maps.*.transits[*].description'],
+        },
+        [`https://json.tarkov.dev/${gameMode}/maps_de`]: { data: {} },
+        [`https://json.tarkov.dev/${gameMode}/maps_en`]: {
+          data: { CUST_TRANSIT_9_DESC: 'Transit to Reserve' },
+        },
+      });
+      const payload = await fetchTarkovJsonEndpoint<{ maps: Record<string, unknown> }>('maps', {
+        gameMode,
+        lang: 'de',
+        deps: { fetcher },
+      });
+      const result = adaptTasksCoreResponse({}, payload, {}).data;
+      expect(result.maps[0]?.transits).toEqual([{ ...transit, description: 'Transit to Reserve' }]);
+      expect(transit.description).toBe('CUST_TRANSIT_9_DESC');
+    }
+  );
+});
 describe('createTarkovJsonBootstrapFetcher', () => {
   it('reads player levels from the base envelope without fetching language envelopes', async () => {
     const fetcher = createFetcher({
@@ -637,6 +668,40 @@ describe('tarkov JSON adapters', () => {
     });
     expect(result.maps[0]?.spawns).toHaveLength(1);
     expect(result.traders[0]?.levels).toHaveLength(1);
+  });
+  it('carries positive time-gate delays and drops absent, zero, or invalid ones', () => {
+    const base = tasksPayload.tasks.task1;
+    const delays: Record<string, Record<string, unknown>> = {
+      ranged: { availableDelaySecondsMin: 1800, availableDelaySecondsMax: 2100 },
+      fixed: { availableDelaySecondsMin: 36000, availableDelaySecondsMax: 36000 },
+      zero: { availableDelaySecondsMin: 0, availableDelaySecondsMax: 0 },
+      absent: {},
+      invalid: {
+        availableDelaySecondsMin: '3600',
+        availableDelaySecondsMax: Number.POSITIVE_INFINITY,
+      },
+      negative: { availableDelaySecondsMin: -5, availableDelaySecondsMax: Number.NaN },
+    };
+    const payload = {
+      tasks: Object.fromEntries(
+        Object.entries(delays).map(([id, fields]) => [id, { ...base, id, ...fields }])
+      ),
+    };
+    const tasks = adaptTasksCoreResponse(payload, mapsPayload, tradersPayload).data.tasks;
+    const byId = new Map(tasks.map((task) => [task.id, task]));
+    expect(byId.get('ranged')).toMatchObject({
+      availableDelaySecondsMin: 1800,
+      availableDelaySecondsMax: 2100,
+    });
+    expect(byId.get('fixed')).toMatchObject({
+      availableDelaySecondsMin: 36000,
+      availableDelaySecondsMax: 36000,
+    });
+    for (const id of ['zero', 'absent', 'invalid', 'negative']) {
+      expect(byId.get(id)).toBeDefined();
+      expect(byId.get(id)).not.toHaveProperty('availableDelaySecondsMin');
+      expect(byId.get(id)).not.toHaveProperty('availableDelaySecondsMax');
+    }
   });
   it('adapts map spawns', () => {
     expect(adaptMapSpawnsResponse(mapsPayload).data.maps[0]).toMatchObject({

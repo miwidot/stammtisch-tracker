@@ -212,6 +212,8 @@ export interface TaskObjective {
     map?: { id: string };
     outline?: Array<{ x: number; y: number; z: number }>;
     position?: { x: number; y: number; z: number };
+    top?: number;
+    bottom?: number;
   }>;
   possibleLocations?: Array<{
     map?: { id: string };
@@ -309,6 +311,12 @@ export interface Task {
   /** In-game trader task-list group from the overlay; absent when unknown. Never a gate. */
   traderTaskGroup?: TraderTaskGroup;
   minPlayerLevel?: number;
+  /**
+   * Upstream in-game delay, in seconds, between the prerequisites completing and the task being
+   * offered. Present only when positive. Displayed as static information; never a gate or timer.
+   */
+  availableDelaySecondsMin?: number;
+  availableDelaySecondsMax?: number;
   requiredPrestige?: TaskPrestigeReference;
   /**
    * Declared gates dropped because they could not be interpreted. The evaluator turns each one
@@ -345,6 +353,15 @@ export interface MapPosition {
   y: number;
   z: number;
 }
+/** A transit location on the source map; `map` identifies its destination. */
+export interface MapTransit {
+  id: string;
+  description: string;
+  map: string;
+  position?: MapPosition;
+  top?: number;
+  bottom?: number;
+}
 export interface MapSpawn {
   zoneName?: string;
   position: MapPosition;
@@ -355,6 +372,8 @@ export interface MapSpawn {
  * Extraction point on a map
  */
 export interface MapExtract {
+  /** Upstream transfer cost; static JSON uses an item ID, adapted payloads may embed the item. */
+  transferItem?: { item: string | { id: string; name?: string }; count: number };
   id: string;
   name: string;
   /** Faction that can use this extract: 'pmc', 'scav', 'shared', or null */
@@ -402,6 +421,7 @@ export interface TarkovMap {
   spawns?: MapSpawn[];
   /** Extraction points available on this map */
   extracts?: MapExtract[];
+  transits?: MapTransit[];
   /** Whether the map is unavailable for display */
   unavailable?: boolean;
   svg?: string | MapSvgConfig;

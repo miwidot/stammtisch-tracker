@@ -12,6 +12,21 @@ from the community-maintained `json.tarkov.dev` static JSON API. The browser nev
 client expects, and (for most endpoints) applies corrections (see [Overlay](./overlay-and-precompute.md#overlay-corrections))
 before returning it.
 
+Unknown `/api/tarkov/*` paths terminate with HTTP 404 JSON and `Cache-Control: no-store`,
+including requests that accept HTML. They never fall through to the SPA renderer. Specific
+endpoint handlers take precedence over this namespace fallback.
+
+Every GET endpoint explicitly registers a HEAD handler that reuses its GET implementation.
+HEAD preserves the route's JSON, cache, and overlay response headers without a body. These
+explicit handlers keep the installed Nitro router from falling through to the SPA for HEAD.
+The compiled Worker regression discovers every GET endpoint and checks both methods, so a new
+route without working HEAD support fails validation. The `access-check` clearance probe uses
+`Cache-Control: no-store` for both methods.
+
+The admin **Tarkov data** purge includes `/api/tarkov/extract-requirements` on each authorized
+cache origin, alongside the current and retired synthetic `/__edge-cache/tarkov/*` keys. This
+also removes a stale CDN response cached at that public URL before its handler was deployed.
+
 > **Note on upstream endpoints.** `json.tarkov.dev` is the static JSON API TarkovTracker uses for
 > all Tarkov.dev game data. TarkovTracker no longer uses the older `api.tarkov.dev` GraphQL API;
 > do not use it for new TarkovTracker functionality. The current static endpoint list is available
@@ -26,22 +41,23 @@ before returning it.
 
 ### Endpoints
 
-| Endpoint                       | Purpose                          | Cache TTL  | Precomputed? | Overlay? |
-| ------------------------------ | -------------------------------- | ---------- | ------------ | -------- |
-| `/api/tarkov/bootstrap`        | Player levels (no `lang`)        | 12h        | no           | no       |
-| `/api/tarkov/tasks-core`       | Tasks, maps, traders             | 12h        | **yes**      | yes      |
-| `/api/tarkov/tasks-import`     | Whole English EFT import catalog | no-store   | **yes**      | yes      |
-| `/api/tarkov/tasks-objectives` | Task objectives                  | 12h        | no           | yes      |
-| `/api/tarkov/tasks-rewards`    | Task rewards                     | 12h        | no           | yes      |
-| `/api/tarkov/hideout`          | Hideout stations                 | 12h        | no           | yes      |
-| `/api/tarkov/items-lite`       | Items (minimal)                  | 24h        | no           | yes      |
-| `/api/tarkov/items`            | Items (full)                     | 24h        | no           | yes      |
-| `/api/tarkov/prestige`         | Prestige levels                  | 24h        | no           | yes      |
-| `/api/tarkov/editions`         | Editions, chapters, perks        | 1h overlay | no           | yes      |
-| `/api/tarkov/overlay-status`   | Last complete fleet manifest     | no-store   | no           | metadata |
-| `/api/tarkov/map-spawns`       | Map spawn points                 | 12h        | no           | no       |
-| `/api/tarkov/cache-meta`       | Cache purge status               | 5m edge    | no           | no       |
-| `/api/tarkov/access-check`     | Browser clearance probe          | no-store   | no           | no       |
+| Endpoint                           | Purpose                            | Cache TTL  | Precomputed? | Overlay? |
+| ---------------------------------- | ---------------------------------- | ---------- | ------------ | -------- |
+| `/api/tarkov/bootstrap`            | Player levels (no `lang`)          | 12h        | no           | no       |
+| `/api/tarkov/tasks-core`           | Tasks, maps, traders               | 12h        | **yes**      | yes      |
+| `/api/tarkov/tasks-import`         | Whole English EFT import catalog   | no-store   | **yes**      | yes      |
+| `/api/tarkov/tasks-objectives`     | Task objectives                    | 12h        | no           | yes      |
+| `/api/tarkov/tasks-rewards`        | Task rewards                       | 12h        | no           | yes      |
+| `/api/tarkov/hideout`              | Hideout stations                   | 12h        | no           | yes      |
+| `/api/tarkov/items-lite`           | Items (minimal)                    | 24h        | no           | yes      |
+| `/api/tarkov/items`                | Items (full)                       | 24h        | no           | yes      |
+| `/api/tarkov/prestige`             | Prestige levels                    | 24h        | no           | yes      |
+| `/api/tarkov/editions`             | Editions, chapters, perks          | 1h overlay | no           | yes      |
+| `/api/tarkov/extract-requirements` | Extract rules and cues (all modes) | no-cache   | no           | yes      |
+| `/api/tarkov/overlay-status`       | Last complete fleet manifest       | no-store   | no           | metadata |
+| `/api/tarkov/map-spawns`           | Map spawn points                   | 12h        | no           | no       |
+| `/api/tarkov/cache-meta`           | Cache purge status                 | 5m edge    | no           | no       |
+| `/api/tarkov/access-check`         | Browser clearance probe            | no-store   | no           | no       |
 
 Task, hideout, item and prestige endpoints consume overlays. The editions endpoint projects
 editions, story chapters and Seasonal perks from the same validated loader. Bootstrap and
@@ -80,8 +96,8 @@ flowchart LR
 ### Files
 
 - `app/server/api/tarkov/*.get.ts` — one handler per endpoint. Most are thin wrappers around
-  `edgeCache`; `editions.get.ts` projects the overlay directly and `overlay-status.get.ts` reads the
-  precompute manifest, so neither goes through the cache layers.
+  `edgeCache`; `editions.get.ts` and `extract-requirements.get.ts` project the overlay directly and `overlay-status.get.ts` reads the
+  precompute manifest, so none of them goes through the cache layers.
 - `app/server/utils/tarkov-json.ts` — upstream fetch + adapt into client types.
 - `app/server/utils/tarkov-cache-config.ts` — TTL constants and game-mode validation.
 - `app/types/tarkov.ts` — the adapted shapes the client stores.
@@ -343,7 +359,7 @@ flowchart TD
   `inFlightRevalidations`).
 - `X-Cache-Status` must be set on every successful response served through `edgeCache`. Responses
   from its catch block do not set it (`503` when the failure already carried `503`, otherwise `502`),
-  and the routes that deliberately bypass the cache layers (`editions`, `overlay-status`) do not set
+  and the routes that deliberately bypass the cache layers (`editions`, `extract-requirements`, `overlay-status`) do not set
   it either — the invariant covers the `edgeCache` success paths only.
 - The cache key must include language and game mode so two locales or modes never share an entry.
   The exception is data with no translatable text: `bootstrap` (player levels) is keyed by game mode

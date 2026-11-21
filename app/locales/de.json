@@ -1121,6 +1121,7 @@
         "faction": "Verfügbar für {faction} Zeichen.",
         "trader_story_unlock": "Unlock {trader}: {objective} ({chapter})",
         "trader_unlock": "Schalte {trader} frei, indem du {task} abschließt.",
+        "trader_unlock_unknown": "Unlock {trader} by completing its required task. Task data is unavailable.",
         "prestige": "Benötigt Prestige {required} (aktuell: {current}).",
         "global_variable_required": "Additional in-game progression required.",
         "global_variable_unknown_required": "Additional in-game progression required. Use Mark available only if this task is available in-game.",
@@ -1997,14 +1998,7 @@
     "interface": {
       "tasks": {
         "title": "Aufgabenkarten",
-        "show_required": "Erforderlich-Labels anzeigen",
-        "show_xp": "XP-Belohnungen anzeigen",
-        "show_next": "Nächste Aufgaben anzeigen",
-        "show_prev": "Vorherige Aufgaben anzeigen",
-        "collapse_by_default": "Quests standardmäßig einklappen",
-        "hide_rewards": "Verstecke Belohnungen",
         "require_trader_levels": "Für die Verfügbarkeit von Aufgaben werden Loyalitätsstufe und Ruf der Händler berücksichtigt",
-        "flags_section": "Aufgabenanzeige",
         "availability_section": "Aufgabenverfügbarkeit",
         "view_defaults_section": "Standardaufrufe"
       },
@@ -2573,6 +2567,9 @@
     "any_of_items": "Einer dieser {count} Gegenstände reicht aus",
     "any_of_items_short": "Einer von {count}",
     "view_accepted_items": "Alle {count} akzeptierten Gegenstände anzeigen",
+    "search_accepted_items": "Search accepted items...",
+    "no_accepted_items": "No accepted items match your search.",
+    "accepted_items_page": "Page {page} of {pages} · {count} items",
     "not_collected": "Nicht gesammelt",
     "hidden_for_you": "Hidden for you",
     "hidden_for_you_hint": "You hid this task. It stays listed because teammates still need this item: {teammates}",
