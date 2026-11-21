@@ -93,8 +93,14 @@ async function openStream(path: string): Promise<ReadableStream<Uint8Array>> {
     file.once('error', reject);
   });
 }
+/**
+ * The slice of the Nitro event context this module touches. The index signature is what makes
+ * `H3EventContext` (a `Record<string, any>`) assignable: without it TypeScript treats the
+ * all-optional type as a weak type and rejects an argument that shares no property with it (TS2559).
+ */
 type EventContext = {
   cloudflare?: { env?: Record<string, unknown> } & Record<string, unknown>;
+  [key: string]: unknown;
 };
 /** Adds the reader as `TARKOV_DATA` unless a real binding is already present. */
 export function attachLocalKv(context: EventContext, reader: LocalKvReader): void {

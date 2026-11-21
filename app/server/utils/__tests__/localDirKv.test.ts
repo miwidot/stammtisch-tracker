@@ -9,6 +9,8 @@ import {
   kvFilePath,
 } from '@/server/utils/localDirKv';
 import { getPrecomputedStore } from '@/server/utils/precomputedTarkov';
+import { BASE_SITE_CONTEXT } from './eventStubs';
+import type { H3EventContext } from 'h3';
 // The OS reclaims the temp directories; tests never delete files.
 let root: string;
 beforeEach(async () => {
@@ -152,6 +154,11 @@ describe('attachLocalKv', () => {
     expect(context.cloudflare.env).toMatchObject({ OTHER: 1 });
     expect(context.cloudflare.context.waitUntil).toBeTypeOf('function');
     expect((context.cloudflare.env as Record<string, unknown>).TARKOV_DATA).toBeDefined();
+  });
+  it('accepts the real H3EventContext type the Nitro request hook passes (TS2559 regression)', () => {
+    const context: H3EventContext = { ...BASE_SITE_CONTEXT };
+    attachLocalKv(context, createDirKvReader(root));
+    expect((context.cloudflare as { env: Record<string, unknown> }).env.TARKOV_DATA).toBeDefined();
   });
   it('never replaces a real binding', () => {
     const real = { get: () => Promise.resolve(null) };
