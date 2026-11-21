@@ -272,7 +272,8 @@
     "report_problem": "Report a problem",
     "login_aria": "Log in to your account",
     "switch_to_light_theme": "Switch to light theme",
-    "switch_to_dark_theme": "Switch to dark theme"
+    "switch_to_dark_theme": "Switch to dark theme",
+    "report_problem_discord": "Report a problem on Discord"
   },
   "progress_save_status": {
     "live_updates_delayed_label": "Live updates delayed",
@@ -1763,7 +1764,8 @@
         "discord": "Community support on Discord",
         "github_issues": "Report a bug or request a feature on GitHub",
         "security": "Report a security issue (private)",
-        "credits_link": "Beta testers and open source contributors — see Credits"
+        "credits_link": "Beta testers and open source contributors — see Credits",
+        "discord_support": "Get help or report a problem on Discord"
       },
       "github_profile": "GitHub profile",
       "roles": {
@@ -2089,7 +2091,8 @@
         "caption": "Community video walkthrough. Steps may differ slightly from the written guide.",
         "play": "Play video: {title}"
       },
-      "official_guide_label": "TarkovTracker.org Guide"
+      "official_guide_label": "TarkovTracker.org Guide",
+      "suggest_discord_cta": "Suggest a resource on Discord"
     },
     "herkunft": {
       "title": "Origin",

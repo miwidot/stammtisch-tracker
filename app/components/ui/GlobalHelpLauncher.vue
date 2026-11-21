@@ -88,7 +88,7 @@
               <UIcon name="i-mdi-chevron-right" class="text-surface-500 h-3.5 w-3.5 shrink-0" />
             </button>
             <a
-              href="https://github.com/tarkovtracker-org/TarkovTracker/issues/new"
+              :href="discordInviteUrl"
               target="_blank"
               rel="noopener noreferrer"
               class="border-surface-700/70 bg-surface-950/55 hover:border-primary-500/35 hover:bg-surface-800 focus-visible:ring-primary-500/50 flex items-center gap-3 rounded-xl border px-3 py-2 text-left transition focus-visible:ring-2 focus-visible:outline-none"
@@ -297,7 +297,10 @@
   const keyboardShortcutsLabel = computed(() =>
     copy('app_bar.keyboard_shortcuts', 'Keyboard shortcuts')
   );
-  const reportProblemLabel = computed(() => copy('app_bar.report_problem', 'Report a problem'));
+  const discordInviteUrl = useDiscordInvite();
+  const reportProblemLabel = computed(() =>
+    copy('app_bar.report_problem_discord', 'Report a problem on Discord')
+  );
   const closeLabel = computed(() => t('common.close'));
   const previousLabel = computed(() => t('common.previous'));
   const nextLabel = computed(() => t('common.next'));

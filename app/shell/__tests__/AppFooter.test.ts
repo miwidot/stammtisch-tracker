@@ -1,10 +1,14 @@
 // @vitest-environment happy-dom
+import { mockNuxtImport } from '@nuxt/test-utils/runtime';
 import { mount } from '@vue/test-utils';
 import { describe, expect, it } from 'vitest';
 import { createI18n } from 'vue-i18n';
 import de from '@/locales/de.json';
 import deOverrides from '@/locales/de.overrides.json';
 import en from '@/locales/en.json';
+mockNuxtImport('useRuntimeConfig', () => () => ({
+  public: { discordInviteUrl: 'https://discord.gg/tarkovstammtisch' },
+}));
 type MessageTree = Record<string, unknown>;
 // AppFooter now renders one i18n-driven line (footer.attribution / footer.origin_link);
 // nuxt.config.ts merges de.json + de.overrides.json for the "de" locale, so tests

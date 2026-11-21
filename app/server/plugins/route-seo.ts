@@ -1,3 +1,5 @@
+import { useRuntimeConfig } from '#imports';
+import { applyIndexingPolicy, isIndexingAllowed } from '@/utils/indexingPolicy';
 import { createRouteSeoHead, PUBLIC_SEO_ROUTES, resolveRouteSeo } from '@/utils/routeSeo';
 const escapeHtml = (value: string): string =>
   value
@@ -11,7 +13,11 @@ export default defineNitroPlugin((nitroApp) => {
     const rawPath = event.path.split(/[?#]/)[0] ?? '/';
     const path = rawPath.replace(/\/+$/, '') || '/';
     if (PUBLIC_SEO_ROUTES.includes(path)) return;
-    const head = createRouteSeoHead(path);
+    // Fork: noindex, no canonical, no JSON-LD unless indexing is switched on.
+    const head = applyIndexingPolicy(
+      createRouteSeoHead(path),
+      isIndexingAllowed(useRuntimeConfig(event).public.allowIndexing)
+    );
     html.head.push(
       `<title>${escapeHtml(head.title)}</title>`,
       ...head.meta.map((tag) => {

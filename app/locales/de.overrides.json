@@ -71,6 +71,14 @@
           "collapse_completed_objectives": "Ziele abgeschlossener Aufgaben einklappen"
         }
       }
+    },
+    "resources": {
+      "suggest_discord_cta": "Ressource auf Discord vorschlagen"
+    },
+    "about": {
+      "help": {
+        "discord_support": "Hilfe holen oder ein Problem auf Discord melden"
+      }
     }
   },
   "settings": {
@@ -80,5 +88,8 @@
       "device_hint": "Nur die in diesem Browser gespeicherten Daten löschst du im Bereich Gerätedaten weiter oben.",
       "link": "Konto beim Tarkov Stammtisch löschen"
     }
+  },
+  "app_bar": {
+    "report_problem_discord": "Problem auf Discord melden"
   }
 }

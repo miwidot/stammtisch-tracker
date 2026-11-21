@@ -1,7 +1,7 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime';
 import { describe, expect, it } from 'vitest';
 import { defineComponent, h, nextTick } from 'vue';
-import { useNuxtApp, useRouter } from '#imports';
+import { useNuxtApp, useRouter, useRuntimeConfig } from '#imports';
 import { useRouteSeo } from '@/composables/useRouteSeo';
 import { RESOURCES } from '@/features/resources/resourceData';
 describe('route metadata navigation', () => {
@@ -18,6 +18,9 @@ describe('route metadata navigation', () => {
     // only reachable for a signed-in user.
     const supabaseUser = useNuxtApp().$supabase.user as { loggedIn: boolean };
     supabaseUser.loggedIn = true;
+    // Fork: this test covers upstream's indexable behavior, which the fork switch restores.
+    const publicConfig = useRuntimeConfig().public as { allowIndexing: boolean };
+    publicConfig.allowIndexing = true;
     let router: ReturnType<typeof useRouter>;
     const wrapper = await mountSuspended(
       defineComponent({
@@ -67,6 +70,7 @@ describe('route metadata navigation', () => {
       );
     } finally {
       supabaseUser.loggedIn = false;
+      publicConfig.allowIndexing = false;
       delete resource.guide.shareImage;
       wrapper.unmount();
     }

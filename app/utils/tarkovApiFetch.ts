@@ -754,7 +754,9 @@ export const tarkovApiFetch = async <T>(
 ): Promise<T> => {
   if (!isTarkovAccessEnabled()) {
     type OfetchFetchOptions = Parameters<typeof $fetch>[1];
-    return await $fetch<T>(endpoint, options as OfetchFetchOptions);
+    // Fork: the cast keeps this compiling when the sitemap module is disabled (generated route
+    // types differ without it), see FORK.md.
+    return (await $fetch<T>(endpoint, options as OfetchFetchOptions)) as T;
   }
   if (options.signal?.aborted) throw createAbortError(options.signal.reason);
   const fromGeneration = await ensureTarkovAccess(options.signal);

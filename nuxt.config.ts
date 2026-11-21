@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { resolveTrustProxySetting } from './app/utils/apiProtectionConfig';
 import { resolveBuildCommit } from './app/utils/buildCommit';
 import { ENTRY_RECOVERY_SCRIPT } from './app/utils/entryRecoveryScript';
+import { robotsTxtAllowingIndexing } from './app/utils/indexingPolicy';
 import { SUPPORTED_LOCALES } from './app/utils/locales';
 import {
   assertCloudflarePagesOutput,
@@ -31,6 +32,7 @@ import {
   SHELL_DRAWER_EXPANDED_WIDTH,
   SHELL_DRAWER_RAIL_STORAGE_KEY,
 } from './app/utils/shellConfig';
+import { resolveDiscordInviteUrl } from './app/utils/supportLinks';
 import { THEME_BOOT_SCRIPT } from './app/utils/theme';
 import { TURNSTILE_TEST_SECRET_KEY, TURNSTILE_TEST_SITE_KEY } from './app/utils/turnstileKeys';
 import { cleanCloudflareOutput, filterAutoImports } from './scripts/nuxt/buildHooks';
@@ -61,6 +63,8 @@ const FORK_PUBLIC_SEO_ROUTES = PUBLIC_SEO_ROUTES.filter(
   (route) => !FORK_REMOVED_PUBLIC_ROUTES.has(route)
 );
 const IS_PRODUCTION_BUILD = process.env.NODE_ENV === 'production';
+// Fork: noindex everywhere unless NUXT_PUBLIC_ALLOW_INDEXING=true (app/utils/indexingPolicy.ts).
+const ALLOW_INDEXING = process.env.NUXT_PUBLIC_ALLOW_INDEXING === 'true';
 const GOOGLE_ANALYTICS_MEASUREMENT_ID = process.env.GA_MEASUREMENT_ID || '';
 const MICROSOFT_CLARITY_PROJECT_ID = process.env.CLARITY_PROJECT_ID || '';
 const {
@@ -244,6 +248,9 @@ export default defineNuxtConfig({
       githubOwner: process.env.GITHUB_OWNER || 'tarkovtracker-org',
       githubRepo: process.env.GITHUB_REPO || 'TarkovTracker',
       trackerHandoffUrl: resolveTrackerHandoffUrl(process.env),
+      allowIndexing: ALLOW_INDEXING,
+      // Fork: Discord invite for report/support links (falls back to the Stammtisch default)
+      discordInviteUrl: resolveDiscordInviteUrl(process.env.NUXT_PUBLIC_DISCORD_INVITE_URL),
       // Fork: where users delete their account (main site; the tracker account goes with it)
       accountDeletionUrl:
         process.env.NUXT_PUBLIC_ACCOUNT_DELETION_URL?.trim() ||
@@ -282,6 +289,13 @@ export default defineNuxtConfig({
     hooks: {
       async compiled(nitro) {
         cleanCloudflareOutput(nitro.options.preset, nitro.options.output.serverDir);
+        // Fork: public/robots.txt disallows everything; with indexing on, ship upstream's rules.
+        if (ALLOW_INDEXING) {
+          writeFileSync(
+            resolve(nitro.options.output.publicDir, 'robots.txt'),
+            robotsTxtAllowingIndexing(CANONICAL_SITE_URL)
+          );
+        }
       },
     },
   },
@@ -289,7 +303,14 @@ export default defineNuxtConfig({
     '/neededitems': { redirect: { to: '/needed-items', statusCode: 301 } },
     '/streamer-tools': { redirect: { to: '/settings#streamer-tools', statusCode: 301 } },
     // Most application routes stay client-rendered; public documents opt into SSR.
-    '/**': { ...cspRouteRules['/**'], ssr: false },
+    '/**': {
+      ...cspRouteRules['/**'],
+      // Fork: no search indexing, also for static files such as the prerendered `/`.
+      ...(ALLOW_INDEXING
+        ? {}
+        : { headers: { ...cspRouteRules['/**']?.headers, 'X-Robots-Tag': 'noindex, nofollow' } }),
+      ssr: false,
+    },
     ...Object.fromEntries(
       FORK_PUBLIC_SEO_ROUTES.map((route) => [route, { ssr: true, prerender: true }])
     ),
@@ -383,7 +404,10 @@ export default defineNuxtConfig({
       meta: [
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-        { name: 'robots', content: 'index, follow, max-image-preview:large' },
+        {
+          name: 'robots',
+          content: ALLOW_INDEXING ? 'index, follow, max-image-preview:large' : 'noindex, nofollow',
+        },
         {
           name: 'description',
           content:
@@ -457,6 +481,8 @@ export default defineNuxtConfig({
     name: 'Tarkov Stammtisch',
   },
   sitemap: {
+    // Fork: no sitemap unless indexing is switched on (app/utils/indexingPolicy.ts).
+    enabled: ALLOW_INDEXING,
     zeroRuntime: true,
     xslColumns: [
       { label: 'URL', width: '65%' },

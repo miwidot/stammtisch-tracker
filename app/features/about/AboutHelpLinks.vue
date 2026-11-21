@@ -29,21 +29,9 @@
   }
   const helpResources: HelpResource[] = [
     {
-      href: 'https://discord.gg/M8nBgA2sT6',
+      href: useDiscordInvite(),
       icon: 'i-mdi-discord',
-      labelKey: 'page.about.help.discord',
-      external: true,
-    },
-    {
-      href: 'https://github.com/tarkovtracker-org/TarkovTracker/issues/new',
-      icon: 'i-mdi-github',
-      labelKey: 'page.about.help.github_issues',
-      external: true,
-    },
-    {
-      href: 'https://github.com/tarkovtracker-org/TarkovTracker/security/policy',
-      icon: 'i-mdi-shield-lock-outline',
-      labelKey: 'page.about.help.security',
+      labelKey: 'page.about.help.discord_support',
       external: true,
     },
     {

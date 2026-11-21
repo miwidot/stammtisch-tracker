@@ -1,6 +1,2 @@
-User-Agent: *
-Allow: /
-Disallow: /api/
-Disallow: /overlay
-
-Sitemap: https://tarkovtracker.org/sitemap.xml
+User-agent: *
+Disallow: /

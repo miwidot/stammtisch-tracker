@@ -113,7 +113,7 @@
             </p>
           </div>
           <UButton
-            href="https://github.com/tarkovtracker-org/TarkovTracker/issues/new?title=Resource%20suggestion%3A%20&labels=enhancement"
+            :href="discordInviteUrl"
             target="_blank"
             rel="noopener noreferrer"
             color="neutral"
@@ -123,7 +123,7 @@
             class="min-h-9 w-full shrink-0 justify-center sm:w-auto"
           >
             <span class="text-center sm:truncate">
-              {{ t('page.resources.suggest_cta', 'Suggest a resource') }}
+              {{ t('page.resources.suggest_discord_cta', 'Suggest a resource on Discord') }}
             </span>
           </UButton>
         </div>
@@ -143,6 +143,7 @@
     type ResourceCategory,
   } from '@/features/resources/resourceData';
   type CategoryFilterId = 'all' | ResourceCategory;
+  const discordInviteUrl = useDiscordInvite();
   const { t } = useI18n({ useScope: 'global' });
   definePageMeta({ layout: 'default' });
   const searchInputId = useId();

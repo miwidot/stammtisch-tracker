@@ -128,7 +128,7 @@ describe('route SEO registry', () => {
     ]);
     expect(guide['@graph'][3].itemListElement[2].item).toBe(`${SEO_ORIGIN}/resources/ratscanner`);
   });
-  it('keeps the llms public inventory aligned and permits crawlers to read private noindex HTML', () => {
+  it('keeps the llms public inventory aligned and, in this fork, disallows all crawling in robots.txt', () => {
     const llms = readFileSync('public/llms.txt', 'utf8');
     const inventory = [...llms.matchAll(/\]\((https:\/\/tarkovtracker\.org[^)]*)\):/g)].map(
       (match) => new URL(match[1]!).pathname
@@ -137,8 +137,8 @@ describe('route SEO registry', () => {
       [...PUBLIC_SEO_ROUTES].sort()
     );
     const robots = readFileSync('public/robots.txt', 'utf8');
-    expect(robots).toContain('Disallow: /api/');
-    expect(robots).toContain('Disallow: /overlay');
-    expect(robots).not.toMatch(/Disallow: \/(?:account|profile|settings|team|auth|login)/);
+    // Fork: indexing is switched off (app/utils/indexingPolicy.ts), robots.txt disallows everything.
+    expect(robots).toMatch(/^Disallow: \/$/m);
+    expect(robots).not.toMatch(/^Allow:/im);
   });
 });

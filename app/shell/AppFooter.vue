@@ -105,7 +105,7 @@
     { href: 'https://tarkov-stammtisch.de/konvoi', label: 'Konvoi System' },
     { href: 'https://tarkov-stammtisch.de/streamers', label: 'Streamer' },
     { href: 'https://tarkov-stammtisch.de/for-streamers', label: 'Für Streamer' },
-    { href: 'https://discord.gg/tarkovstammtisch', label: 'Discord Server', external: true },
+    { href: useDiscordInvite(), label: 'Discord Server', external: true },
     { href: 'https://tarkov-stammtisch.de/spenden', label: 'Spenden ❤️', pink: true },
   ];
   const legalLinks = [
