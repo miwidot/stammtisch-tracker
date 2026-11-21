@@ -31,6 +31,9 @@ const AUTH_CREDENTIAL_KEYS = new Set([
   'sb_flow_id',
   'state',
   'token',
+  // Stammtisch login handoff fragment (tracker-handoff.client.ts): never record it.
+  'tracker_state',
+  'tracker_token',
 ]);
 const isOAuthPath = (path: string): boolean => {
   try {

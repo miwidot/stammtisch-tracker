@@ -1,11 +1,12 @@
 BEGIN;
-SELECT plan(15);
+SELECT plan(23);
 
 CREATE TEMP TABLE fork_fixture (name text PRIMARY KEY, user_id uuid NOT NULL);
 INSERT INTO fork_fixture VALUES
   ('solo', '00000000-0000-0000-0000-000000003001'), ('owner', '00000000-0000-0000-0000-000000003002'),
   ('member', '00000000-0000-0000-0000-000000003003'), ('leased', '00000000-0000-0000-0000-000000003004'),
-  ('unknown', '00000000-0000-0000-0000-000000003099'), ('broken', '00000000-0000-0000-0000-000000003005');
+  ('unknown', '00000000-0000-0000-0000-000000003099'), ('broken', '00000000-0000-0000-0000-000000003005'),
+  ('stored', '00000000-0000-0000-0000-000000003006');
 CREATE FUNCTION pg_temp.fork_user(p_name text) RETURNS uuid LANGUAGE sql AS $$
   SELECT user_id FROM fork_fixture WHERE name = p_name;
 $$;
@@ -23,6 +24,8 @@ INSERT INTO public.team_events(team_id, event_type, initiated_by)
 VALUES ('00000000-0000-0000-0000-000000003101', 'member_joined', pg_temp.fork_user('solo'));
 INSERT INTO public.api_usage_daily(user_id, token_id, day, reads)
 VALUES (pg_temp.fork_user('solo'), 'fork-test', current_date, 1);
+INSERT INTO storage.buckets(id, name, owner_id)
+VALUES ('fork-test', 'fork-test', pg_temp.fork_user('stored')::text);
 INSERT INTO public.account_deletion_jobs(user_id, status, attempts, max_attempts, claim_token, updated_at)
 VALUES (pg_temp.fork_user('leased'), 'in_progress', 1, 5, '00000000-0000-0000-0000-000000003199', now());
 
@@ -54,6 +57,13 @@ SELECT is((public.fork_delete_account(pg_temp.fork_user('leased')))->>'reason', 
 SELECT is((SELECT count(*)::integer FROM auth.users WHERE id = pg_temp.fork_user('leased')), 1,
   'leaves the leased account in place');
 
+SELECT is((public.fork_delete_account(pg_temp.fork_user('stored')))->>'reason', 'storage_owner',
+  'refuses an account that owns Storage data');
+SELECT is((SELECT count(*)::integer FROM auth.users WHERE id = pg_temp.fork_user('stored')), 1,
+  'leaves the Storage owner in place');
+SELECT is((SELECT count(*)::integer FROM public.account_deletion_jobs WHERE user_id = pg_temp.fork_user('stored')), 0,
+  'does not claim a job for the Storage owner');
+
 CREATE FUNCTION pg_temp.block_fork_delete() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF OLD.id = pg_temp.fork_user('broken') THEN RAISE EXCEPTION 'simulated auth delete failure'; END IF;
@@ -64,8 +74,18 @@ CREATE TRIGGER block_fork_delete BEFORE DELETE ON auth.users
   FOR EACH ROW EXECUTE FUNCTION pg_temp.block_fork_delete();
 SELECT throws_ok($$SELECT public.fork_delete_account('00000000-0000-0000-0000-000000003005')$$,
   'P0001', 'simulated auth delete failure', 'a failing Auth delete aborts the call');
+SELECT ok(NOT has_function_privilege('anon', 'public.fork_delete_account(uuid)', 'EXECUTE'),
+  'anon cannot execute public.fork_delete_account(uuid)');
 SELECT ok(NOT has_function_privilege('authenticated', 'public.fork_delete_account(uuid)', 'EXECUTE'),
-  'authenticated callers cannot delete accounts');
+  'authenticated cannot execute public.fork_delete_account(uuid)');
+SELECT ok(has_function_privilege('service_role', 'public.fork_delete_account(uuid)', 'EXECUTE'),
+  'service_role can execute public.fork_delete_account(uuid)');
+SELECT ok(NOT has_function_privilege('anon', 'private.fork_delete_account(uuid)', 'EXECUTE'),
+  'anon cannot execute private.fork_delete_account(uuid)');
+SELECT ok(NOT has_function_privilege('authenticated', 'private.fork_delete_account(uuid)', 'EXECUTE'),
+  'authenticated cannot execute private.fork_delete_account(uuid)');
+SELECT ok(has_function_privilege('service_role', 'private.fork_delete_account(uuid)', 'EXECUTE'),
+  'service_role can execute private.fork_delete_account(uuid)');
 
 SELECT * FROM finish();
 ROLLBACK;

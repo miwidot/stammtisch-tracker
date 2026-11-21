@@ -7,11 +7,7 @@
  */
 import { createClient } from '@supabase/supabase-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  createOwnerFencedAuthStorage,
-  isSupabaseSessionChangedError,
-  supabaseAuthStorageKey,
-} from '@/utils/supabaseAuthFence';
+import { createOwnerFencedAuthStorage, supabaseAuthStorageKey } from '@/utils/supabaseAuthFence';
 vi.mock('@/utils/logger', () => ({
   logger: { debug: vi.fn(), error: vi.fn(), info: vi.fn(), warn: vi.fn() },
 }));
@@ -73,6 +69,8 @@ const runHandoff = async (nuxtApp: unknown, hash: string) => {
 describe('tracker handoff against the real supabase client and owner-fenced storage', () => {
   beforeEach(() => {
     vi.resetModules();
+    // A pending login in this tab, as the login page leaves it (see trackerHandoffState.ts).
+    window.sessionStorage.setItem('tt_tracker_handoff_state', 'nonce-1');
     fetchMock.mockReset();
     fetchMock.mockImplementation(async (url: string) => {
       if (String(url).includes('/auth/v1/verify')) return jsonResponse(200, sessionFor(NEW_USER));
@@ -87,7 +85,7 @@ describe('tracker handoff against the real supabase client and owner-fenced stor
   });
   it('redeems the token against /auth/v1/verify and persists the session under that key', async () => {
     const { base, nuxtApp, client } = setup();
-    await runHandoff(nuxtApp, '#tracker_token=otp-hash-123');
+    await runHandoff(nuxtApp, '#tracker_token=otp-hash-123&tracker_state=nonce-1');
     const verifyCall = fetchMock.mock.calls.find(([url]) =>
       String(url).includes('/auth/v1/verify')
     );
@@ -103,35 +101,40 @@ describe('tracker handoff against the real supabase client and owner-fenced stor
   });
   it('never writes the one-time token into auth storage', async () => {
     const { base, nuxtApp } = setup();
-    await runHandoff(nuxtApp, '#tracker_token=otp-hash-secret');
+    await runHandoff(nuxtApp, '#tracker_token=otp-hash-secret&tracker_state=nonce-1');
     expect([...base.values.values()].join('')).not.toContain('otp-hash-secret');
   });
-  it('replaces a different account left in storage without tripping the owner fence', async () => {
+  it('refuses to replace the session of another account and keeps it intact', async () => {
     const { base, nuxtApp } = setup({ [STORAGE_KEY]: JSON.stringify(sessionFor(OLD_USER)) });
-    await runHandoff(nuxtApp, '#tracker_token=otp-hash-swap');
+    await runHandoff(nuxtApp, '#tracker_token=otp-hash-swap&tracker_state=nonce-1');
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/auth/v1/verify'))).toBe(
+      false
+    );
+    expect(JSON.parse(base.values.get(STORAGE_KEY)!).user.id).toBe(OLD_USER);
+    expect(window.location.hash).toBe('');
+  });
+  it('redeems after the previous user signed out under the owner fence', async () => {
+    const { base, nuxtApp, client, fenced } = setup({
+      [STORAGE_KEY]: JSON.stringify(sessionFor(OLD_USER)),
+    });
+    fetchMock.mockImplementation(async (url: string) =>
+      String(url).includes('/auth/v1/verify')
+        ? jsonResponse(200, sessionFor(NEW_USER))
+        : new Response(null, { status: 204 })
+    );
+    await fenced.withOwnerFence(OLD_USER, () => client.auth.signOut({ scope: 'global' }));
+    expect(base.values.has(STORAGE_KEY)).toBe(false);
+    await runHandoff(nuxtApp, '#tracker_token=otp-hash-after&tracker_state=nonce-1');
     expect(JSON.parse(base.values.get(STORAGE_KEY)!).user.id).toBe(NEW_USER);
   });
   it('lets the redeemed user sign out under their own fence', async () => {
     const { base, nuxtApp, client, fenced } = setup();
-    await runHandoff(nuxtApp, '#tracker_token=otp-hash-out');
+    await runHandoff(nuxtApp, '#tracker_token=otp-hash-out&tracker_state=nonce-1');
     fetchMock.mockImplementation(async () => new Response(null, { status: 204 }));
     await fenced.withOwnerFence(NEW_USER, () => client.auth.signOut({ scope: 'global' }));
     expect(base.values.has(STORAGE_KEY)).toBe(false);
   });
-  it('keeps the fence protective: a stale tab fenced for the previous owner cannot clear the new session', async () => {
-    const { base, nuxtApp, client, fenced } = setup({
-      [STORAGE_KEY]: JSON.stringify(sessionFor(OLD_USER)),
-    });
-    await runHandoff(nuxtApp, '#tracker_token=otp-hash-stale');
-    // Whether the SDK reports the fence error or throws it, the new owner's session must survive.
-    await fenced
-      .withOwnerFence(OLD_USER, () => client.auth.signOut({ scope: 'local' }))
-      .catch((error: unknown) => {
-        expect(isSupabaseSessionChangedError(error)).toBe(true);
-      });
-    expect(JSON.parse(base.values.get(STORAGE_KEY)!).user.id).toBe(NEW_USER);
-  });
-  it('leaves an existing session untouched when the token is rejected', async () => {
+  it('stores no session when the token is rejected by the auth server', async () => {
     fetchMock.mockImplementation(async () =>
       jsonResponse(403, {
         code: 403,
@@ -139,15 +142,19 @@ describe('tracker handoff against the real supabase client and owner-fenced stor
         msg: 'Email link is invalid or has expired',
       })
     );
-    const { base, nuxtApp } = setup({ [STORAGE_KEY]: JSON.stringify(sessionFor(OLD_USER)) });
-    await expect(runHandoff(nuxtApp, '#tracker_token=expired-hash')).resolves.toBeUndefined();
-    expect(JSON.parse(base.values.get(STORAGE_KEY)!).user.id).toBe(OLD_USER);
+    const { base, nuxtApp } = setup();
+    await expect(
+      runHandoff(nuxtApp, '#tracker_token=expired-hash&tracker_state=nonce-1')
+    ).resolves.toBeUndefined();
+    expect(base.values.has(STORAGE_KEY)).toBe(false);
     expect(window.location.hash).toBe('');
   });
   it('survives an unreachable auth server and still strips the token from the URL', async () => {
     fetchMock.mockRejectedValue(new TypeError('fetch failed'));
     const { base, nuxtApp } = setup();
-    await expect(runHandoff(nuxtApp, '#tracker_token=net-down-hash')).resolves.toBeUndefined();
+    await expect(
+      runHandoff(nuxtApp, '#tracker_token=net-down-hash&tracker_state=nonce-1')
+    ).resolves.toBeUndefined();
     expect(base.values.has(STORAGE_KEY)).toBe(false);
     expect(window.location.hash).toBe('');
   });
@@ -155,7 +162,9 @@ describe('tracker handoff against the real supabase client and owner-fenced stor
     const { SupabaseCallbackPendingError } = await import('@/utils/supabaseReadiness');
     const { nuxtApp } = setup();
     nuxtApp.$supabase.ready.mockRejectedValueOnce(new SupabaseCallbackPendingError());
-    await expect(runHandoff(nuxtApp, '#tracker_token=pending-hash')).resolves.toBeUndefined();
+    await expect(
+      runHandoff(nuxtApp, '#tracker_token=pending-hash&tracker_state=nonce-1')
+    ).resolves.toBeUndefined();
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/auth/v1/verify'))).toBe(
       false
     );

@@ -157,6 +157,7 @@
             :href="trackerHandoffUrl"
             class="bg-primary-500 light:bg-primary-800 hover:bg-primary-400 light:hover:bg-primary-900 border-primary-500 light:border-primary-800 text-surface-950 flex h-10 w-10 min-w-10 items-center justify-center gap-1.5 rounded-lg border text-[13px] leading-none font-semibold transition-colors @min-[561px]:w-auto @min-[561px]:px-3"
             :aria-label="t('app_bar.login_aria')"
+            @click.prevent="startHandoff"
           >
             <UIcon name="i-lucide-user-round" class="size-4 shrink-0" />
             <span class="hidden truncate @min-[561px]:inline">
@@ -192,7 +193,7 @@
   } from '@/utils/shellConfig';
   import type { DropdownMenuItem } from '@nuxt/ui';
   const { t } = useI18n({ useScope: 'global' });
-  const trackerHandoffUrl = useRuntimeConfig().public.trackerHandoffUrl;
+  const { startHandoff, trackerHandoffUrl } = useTrackerHandoff();
   const { isLightTheme, toggleThemeMode } = useTheme();
   const themeToggleLabel = computed(() =>
     isLightTheme.value

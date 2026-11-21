@@ -96,6 +96,8 @@ describe('microsoft clarity plugin', () => {
     '/settings?discord_linked=1&error=access_denied&state=private-sentinel',
     '/settings?%63ode=private-sentinel',
     '/tasks#access_token=private-sentinel&refresh_token=private-sentinel',
+    '/#tracker_token=private-sentinel&tracker_state=private-sentinel',
+    '/tasks#tracker_state=private-sentinel',
   ])('skips Clarity entirely on initial OAuth URL %s', async (path) => {
     window.happyDOM.setURL(`https://tarkovtracker.org${path}`);
     const plugin = (await import('@/plugins/06.microsoft-clarity.client')).default;

@@ -3,6 +3,12 @@ import { getRequestHeader, readRawBody } from 'h3';
 import { useRuntimeConfig } from '#imports';
 import { adminSupabaseFetch, normalizeSupabaseUrl } from '@/server/utils/adminSupabase';
 import { createLogger } from '@/server/utils/logger';
+import { getClientAddress } from '@/server/utils/requestIdentity';
+import {
+  consumeSharedRateLimitWithReset,
+  createSharedCacheHandle,
+  getRateLimiterBinding,
+} from '@/server/utils/sharedEdgeStore';
 import type { H3Event } from 'h3';
 /**
  * Fork-only: server-to-server account deletion for the Stammtisch main site.
@@ -18,12 +24,19 @@ import type { H3Event } from 'h3';
  *   200 {ok:true, deleted:true}                          user and tracker data removed
  *   200 {ok:true, deleted:false, reason:"not_found"}     nothing to do (idempotent)
  *   409 {ok:false, deleted:false, reason:"in_progress"}  another deletion holds the lease; retry
+ *   409 {ok:false, deleted:false, reason:"storage_owner"} account owns Storage data; clean up first
  *   401 missing credentials, 403 wrong secret, 400 bad body, 413 oversized, 405 wrong method,
+ *   429 more than 20 requests per minute from one address,
  *   502 deletion failed (rolled back, logged), 503 not configured
  */
 export const FORK_ACCOUNT_DELETE_PATH = '/api/fork/account-delete';
 const MIN_SECRET_LENGTH = 32;
 const MAX_BODY_BYTES = 1024;
+// The only legitimate caller is the main site, a handful of requests per minute at most.
+const RATE_LIMIT_PER_MINUTE = 20;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_PREFIX = 'fork-account-delete-rate';
+const WRONG_SECRET_LOG_INTERVAL_MS = 60_000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const logger = createLogger('ForkAccountDelete');
 export interface ForkAccountDeleteResult {
@@ -36,6 +49,46 @@ const fail = (
   error: string,
   headers?: Record<string, string>
 ): ForkAccountDeleteResult => ({ status, body: { ok: false, error }, headers });
+let lastWrongSecretLogAt = 0;
+let suppressedWrongSecretLogs = 0;
+/** At most one warning per interval, so a guessing client cannot flood the log. */
+function logWrongSecret(): void {
+  const now = Date.now();
+  if (lastWrongSecretLogAt !== 0 && now - lastWrongSecretLogAt < WRONG_SECRET_LOG_INTERVAL_MS) {
+    suppressedWrongSecretLogs += 1;
+    return;
+  }
+  logger.warn('Rejected fork account deletion with a wrong secret', {
+    suppressedSinceLastLog: suppressedWrongSecretLogs,
+  });
+  lastWrongSecretLogAt = now;
+  suppressedWrongSecretLogs = 0;
+}
+async function isRateLimited(
+  event: H3Event,
+  config: ReturnType<typeof useRuntimeConfig>
+): Promise<{ limited: boolean; retryAfter: number }> {
+  const trustProxy = Boolean(
+    (config as { apiProtection?: { trustProxy?: boolean } }).apiProtection?.trustProxy
+  );
+  const handle = createSharedCacheHandle(
+    (config.public as { appUrl?: unknown } | undefined)?.appUrl,
+    getRateLimiterBinding(event)
+  );
+  const verdict = await consumeSharedRateLimitWithReset(
+    handle,
+    RATE_LIMIT_PREFIX,
+    `fork-account-delete:ip:${getClientAddress(event, trustProxy) ?? 'unknown'}`,
+    RATE_LIMIT_PER_MINUTE,
+    RATE_LIMIT_WINDOW_MS,
+    (failure) => logger.warn('Fork account deletion rate-limit store failed', failure.error)
+  );
+  const resetAt = verdict.resetAt ?? Date.now() + RATE_LIMIT_WINDOW_MS;
+  return {
+    limited: !verdict.allowed,
+    retryAfter: Math.min(60, Math.max(1, Math.ceil((resetAt - Date.now()) / 1000))),
+  };
+}
 function digest(value: string): Buffer {
   return createHash('sha256').update(value).digest();
 }
@@ -74,7 +127,9 @@ function interpretRpcResult(result: unknown, userId: string): ForkAccountDeleteR
     return { status: 200, body: { ok: true, deleted: false, reason: 'not_found' } };
   }
   logger.warn('Account deletion not started', { userId, reason: String(value.reason) });
-  return { status: 409, body: { ok: false, deleted: false, reason: 'in_progress' } };
+  // Retrying cannot help while the account owns Storage data; it needs manual cleanup first.
+  const reason = value.reason === 'storage_owner' ? 'storage_owner' : 'in_progress';
+  return { status: 409, body: { ok: false, deleted: false, reason } };
 }
 export async function handleForkAccountDelete(event: H3Event): Promise<ForkAccountDeleteResult> {
   if (event.method !== 'POST') return fail(405, 'method_not_allowed', { Allow: 'POST' });
@@ -87,12 +142,16 @@ export async function handleForkAccountDelete(event: H3Event): Promise<ForkAccou
     logger.error('Fork account deletion is not configured');
     return fail(503, 'not_configured');
   }
+  const rate = await isRateLimited(event, config);
+  if (rate.limited) {
+    return fail(429, 'too_many_requests', { 'Retry-After': String(rate.retryAfter) });
+  }
   const provided = readBearer(getRequestHeader(event, 'authorization'));
   if (provided === null) {
     return fail(401, 'authentication_required', { 'WWW-Authenticate': 'Bearer' });
   }
   if (!secretMatches(provided, secret)) {
-    logger.warn('Rejected fork account deletion with a wrong secret');
+    logWrongSecret();
     return fail(403, 'forbidden');
   }
   let userId: string | null;

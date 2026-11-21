@@ -57,7 +57,7 @@
           class="flex h-12 w-full items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
           :disabled="isOfflineMode"
           :aria-label="$t('app_bar.login_aria', 'Log in to your account')"
-          @click="redirectToHandoff"
+          @click="startHandoff"
         >
           <UIcon name="i-mdi-account-outline" class="mr-3 h-6 w-6 shrink-0" />
           <span class="font-medium whitespace-nowrap">{{ $t('common.login') }}</span>
@@ -96,8 +96,5 @@
   const { $supabase } = useNuxtApp();
   const isOfflineMode = computed(() => $supabase.isOfflineMode === true);
   const { t } = useI18n({ useScope: 'global' });
-  const trackerHandoffUrl = useRuntimeConfig().public.trackerHandoffUrl;
-  function redirectToHandoff() {
-    window.location.href = trackerHandoffUrl;
-  }
+  const { startHandoff } = useTrackerHandoff();
 </script>

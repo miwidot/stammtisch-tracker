@@ -121,6 +121,53 @@ describe('fork account deletion (main site -> tracker)', () => {
       }
     );
   });
+  describe('abuse limits', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+    it('answers 429 with Retry-After after 20 requests per minute, before touching the secret or the database', async () => {
+      fetchMock.mockResolvedValue(rpcOk({ deleted: false, reason: 'not_found' }));
+      for (let i = 0; i < 20; i += 1) expect((await call(makeEvent())).status).toBe(200);
+      const limited = await call(makeEvent());
+      expect(limited.status).toBe(429);
+      expect(Number(limited.headers?.['Retry-After'])).toBeGreaterThanOrEqual(1);
+      expect(Number(limited.headers?.['Retry-After'])).toBeLessThanOrEqual(60);
+      expect(fetchMock).toHaveBeenCalledTimes(20);
+    });
+    it('counts wrong-secret guesses too, so guessing is throttled', async () => {
+      for (let i = 0; i < 20; i += 1) {
+        expect((await call(makeEvent({ auth: `Bearer ${'x'.repeat(40)}` }))).status).toBe(403);
+      }
+      expect((await call(makeEvent({ auth: `Bearer ${'x'.repeat(40)}` }))).status).toBe(429);
+      // Even the right secret is refused while the window is exhausted.
+      expect((await call(makeEvent())).status).toBe(429);
+    });
+    it('allows requests again after the window passes', async () => {
+      vi.useFakeTimers();
+      fetchMock.mockResolvedValue(rpcOk({ deleted: false, reason: 'not_found' }));
+      for (let i = 0; i < 21; i += 1) await call(makeEvent());
+      expect((await call(makeEvent())).status).toBe(429);
+      vi.advanceTimersByTime(61_000);
+      expect((await call(makeEvent())).status).toBe(200);
+    });
+    it('logs a wrong secret once per minute and counts what it suppressed', async () => {
+      vi.useFakeTimers();
+      for (let i = 0; i < 10; i += 1) {
+        expect((await call(makeEvent({ auth: `Bearer ${'y'.repeat(40)}` }))).status).toBe(403);
+      }
+      expect(loggerMock.warn).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(61_000);
+      await call(makeEvent({ auth: `Bearer ${'y'.repeat(40)}` }));
+      expect(loggerMock.warn).toHaveBeenCalledTimes(2);
+      expect(loggerMock.warn.mock.calls[1]?.[1]).toEqual({ suppressedSinceLastLog: 9 });
+    });
+    it('never puts the guessed or the real secret into the log', async () => {
+      await call(makeEvent({ auth: 'Bearer guessed-secret-value-guessed-secret-value' }));
+      const logged = JSON.stringify(loggerMock.warn.mock.calls);
+      expect(logged).not.toContain('guessed-secret-value');
+      expect(logged).not.toContain(SECRET);
+    });
+  });
   describe('input validation', () => {
     it.each([
       ['empty body', { rawBody: '' }],
@@ -191,6 +238,12 @@ describe('fork account deletion (main site -> tracker)', () => {
       expect(result.status).toBe(409);
       expect(result.body).toEqual({ ok: false, deleted: false, reason: 'in_progress' });
       expect(loggerMock.warn).toHaveBeenCalled();
+    });
+    it('reports 409 storage_owner (not retryable) for an account that owns Storage data', async () => {
+      fetchMock.mockResolvedValueOnce(rpcOk({ deleted: false, reason: 'storage_owner' }));
+      const result = await call(makeEvent());
+      expect(result.status).toBe(409);
+      expect(result.body).toEqual({ ok: false, deleted: false, reason: 'storage_owner' });
     });
     it('reports 502 and logs when the database call fails (partial failure rolls back)', async () => {
       fetchMock.mockResolvedValueOnce({

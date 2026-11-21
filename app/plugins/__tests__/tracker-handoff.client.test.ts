@@ -11,6 +11,7 @@ const { loggerMock } = vi.hoisted(() => ({
 vi.mock('@/utils/logger', () => ({
   logger: loggerMock,
 }));
+const getSession = vi.fn().mockResolvedValue({ data: { session: null }, error: null });
 const OFFLINE_STUB_MARKER = 'offline-stub';
 const setHash = (hash: string) => {
   window.history.replaceState(null, '', `/dashboard${hash}`);
@@ -18,19 +19,22 @@ const setHash = (hash: string) => {
 describe('tracker-handoff plugin', () => {
   beforeEach(() => {
     vi.resetModules();
+    // A pending login in this tab, as the login page leaves it (see trackerHandoffState.ts).
+    window.sessionStorage.setItem('tt_tracker_handoff_state', 'nonce-1');
     Object.values(loggerMock).forEach((fn) => fn.mockClear());
+    getSession.mockClear();
     setHash('');
   });
   afterEach(() => {
     setHash('');
   });
   it('redeems a valid handoff token and removes it from the URL', async () => {
-    setHash('#tracker_token=abc123');
+    setHash('#tracker_token=abc123&tracker_state=nonce-1');
     const verifyOtp = vi.fn().mockResolvedValue({ data: {}, error: null });
     const ready = vi.fn().mockResolvedValue(undefined);
     const nuxtApp = {
       $supabase: {
-        client: { auth: { verifyOtp } },
+        client: { auth: { verifyOtp, getSession } },
         ready,
       },
     };
@@ -50,7 +54,7 @@ describe('tracker-handoff plugin', () => {
     const ready = vi.fn();
     const nuxtApp = {
       $supabase: {
-        client: { auth: { verifyOtp } },
+        client: { auth: { verifyOtp, getSession } },
         ready,
       },
     };
@@ -62,7 +66,7 @@ describe('tracker-handoff plugin', () => {
     expect(verifyOtp).not.toHaveBeenCalled();
   });
   it('handles a verifyOtp failure without throwing, removes the token, and never logs it', async () => {
-    setHash('#tracker_token=super-secret-token');
+    setHash('#tracker_token=super-secret-token&tracker_state=nonce-1');
     const verifyOtp = vi.fn().mockResolvedValue({
       data: {},
       error: { message: 'Token has expired or is invalid' },
@@ -70,7 +74,7 @@ describe('tracker-handoff plugin', () => {
     const ready = vi.fn().mockResolvedValue(undefined);
     const nuxtApp = {
       $supabase: {
-        client: { auth: { verifyOtp } },
+        client: { auth: { verifyOtp, getSession } },
         ready,
       },
     };
@@ -87,16 +91,16 @@ describe('tracker-handoff plugin', () => {
     expect(allLoggedArgs).not.toContain('super-secret-token');
   });
   it('waits for supabase.ready() before touching the client, never calling the offline stub', async () => {
-    setHash('#tracker_token=needs-ready');
+    setHash('#tracker_token=needs-ready&tracker_state=nonce-1');
     const stubVerifyOtp = vi.fn().mockRejectedValue(new Error(OFFLINE_STUB_MARKER));
     const realVerifyOtp = vi.fn().mockResolvedValue({ data: {}, error: null });
     const supabaseState: {
-      client: { auth: { verifyOtp: typeof stubVerifyOtp } };
+      client: { auth: { verifyOtp: typeof stubVerifyOtp; getSession: typeof getSession } };
       ready: () => Promise<void>;
     } = {
-      client: { auth: { verifyOtp: stubVerifyOtp } },
+      client: { auth: { verifyOtp: stubVerifyOtp, getSession } },
       ready: vi.fn().mockImplementation(async () => {
-        supabaseState.client = { auth: { verifyOtp: realVerifyOtp } };
+        supabaseState.client = { auth: { verifyOtp: realVerifyOtp, getSession } };
       }),
     };
     const nuxtApp = { $supabase: supabaseState };
@@ -109,16 +113,16 @@ describe('tracker-handoff plugin', () => {
     });
   });
   it.each([
-    ['empty token value', '#tracker_token='],
-    ['whitespace-only token value', '#tracker_token=%20%20'],
-    ['malformed percent-encoding', '#tracker_token=abc%25XYZ'],
+    ['empty token value', '#tracker_token=&tracker_state=nonce-1'],
+    ['whitespace-only token value', '#tracker_token=%20%20&tracker_state=nonce-1'],
+    ['malformed percent-encoding', '#tracker_token=abc%25XYZ&tracker_state=nonce-1'],
   ])('cleanly ignores a broken fragment token (%s)', async (_label, hash) => {
     setHash(hash);
     const verifyOtp = vi.fn();
     const ready = vi.fn();
     const nuxtApp = {
       $supabase: {
-        client: { auth: { verifyOtp } },
+        client: { auth: { verifyOtp, getSession } },
         ready,
       },
     };
@@ -166,7 +170,7 @@ describe('tracker-handoff plugin', () => {
       };
     };
     it('wins the race against a successful-redemption replay', async () => {
-      const initialHash = '#tracker_token=abc123';
+      const initialHash = '#tracker_token=abc123&tracker_state=nonce-1';
       setHash(initialHash);
       const router = buildFakeRouter(initialHash);
       const registry = buildHookRegistry();
@@ -179,7 +183,7 @@ describe('tracker-handoff plugin', () => {
       const ready = vi.fn().mockResolvedValue(undefined);
       const nuxtApp = {
         $router: router,
-        $supabase: { client: { auth: { verifyOtp } }, ready },
+        $supabase: { client: { auth: { verifyOtp, getSession } }, ready },
         hook: registry.hook,
       };
       const plugin = (await import('@/plugins/tracker-handoff.client')).default;
@@ -189,7 +193,7 @@ describe('tracker-handoff plugin', () => {
       expect(router.currentRoute.value.hash).toBe('');
     });
     it('wins the race against a failed-redemption replay and never logs the token', async () => {
-      const initialHash = '#tracker_token=super-secret-token';
+      const initialHash = '#tracker_token=super-secret-token&tracker_state=nonce-1';
       setHash(initialHash);
       const router = buildFakeRouter(initialHash);
       const registry = buildHookRegistry();
@@ -203,7 +207,7 @@ describe('tracker-handoff plugin', () => {
       const ready = vi.fn().mockResolvedValue(undefined);
       const nuxtApp = {
         $router: router,
-        $supabase: { client: { auth: { verifyOtp } }, ready },
+        $supabase: { client: { auth: { verifyOtp, getSession } }, ready },
         hook: registry.hook,
       };
       const plugin = (await import('@/plugins/tracker-handoff.client')).default;

@@ -8,7 +8,8 @@
 -- private.delete_inactive_account): claim the job lease, hand populated owned teams to the oldest
 -- member, drop team events and API accounting, delete the Auth user (all other user data cascades),
 -- then complete the job. Everything runs in one transaction, so a failure leaves the account
--- untouched. Storage is not deployed on this instance, so there is no Storage ownership check.
+-- untouched. Like upstream, it refuses accounts that own Storage objects or buckets, because
+-- Storage bytes must be removed through the Storage API and never orphaned by SQL deletion.
 CREATE FUNCTION private.fork_delete_account(p_user_id uuid)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' SET lock_timeout = '2s' AS $$
 DECLARE v_claim record;
@@ -17,6 +18,10 @@ BEGIN
   PERFORM 1 FROM auth.users WHERE id = p_user_id FOR UPDATE;
   -- Unknown or already deleted: nothing to do, safe to repeat.
   IF NOT FOUND THEN RETURN jsonb_build_object('deleted', false, 'reason', 'not_found'); END IF;
+  IF EXISTS (SELECT 1 FROM storage.objects WHERE owner_id = p_user_id::text)
+    OR EXISTS (SELECT 1 FROM storage.buckets WHERE owner_id = p_user_id::text) THEN
+    RETURN jsonb_build_object('deleted', false, 'reason', 'storage_owner');
+  END IF;
   SELECT * INTO v_claim FROM public.claim_account_deletion_job(p_user_id, true);
   -- A live lease (user-requested or scheduled deletion in flight) stays with its owner.
   IF NOT COALESCE(v_claim.claimed, false) THEN
