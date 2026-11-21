@@ -514,6 +514,9 @@
     "not_available_description": "\"{mapName}\"的互动地图尚不可用。我们正在等待兼容地图的制作。",
     "placeholder": "该地点",
     "floors": "楼层",
+    "extract_names": {
+      "scav_underboat_hideout": "Hideout Under the Landing Stage"
+    },
     "factions": {
       "pmc": "PMC"
     },
@@ -568,7 +571,8 @@
       "go_to_in_task_list": "在任务列表中前往目标",
       "complete": "完成目标",
       "uncomplete": "取消完成目标",
-      "objective_unavailable": "目标不可用。"
+      "objective_unavailable": "目标不可用。",
+      "stacked_objectives": "{count} objectives here"
     }
   },
   "page": {
@@ -992,7 +996,25 @@
         "map_complete_tasks_toggle_show": "显示隐藏项",
         "map_complete_tasks_toggle_hide": "隐藏地图已完成",
         "map_hidden_hint": "隐藏地图 - 点击显示",
-        "raid_time_tooltip": "当前游戏内搜查时间"
+        "raid_time_tooltip": "当前游戏内搜查时间",
+        "raid_plan": {
+          "title": "在地图上的任务",
+          "summary_all": "Showing all {total}",
+          "summary_hidden": "{hidden} of {total} hidden",
+          "choose_quests": "选择任务",
+          "show_all": "显示全部",
+          "popover_description": "取消勾选你没有运行这次突击来清除它们。\"只能隐藏其他一切。",
+          "only": "仅限",
+          "show_only_named": "Show only {name} on the map",
+          "show_only_quest": "仅在地图上显示此任务",
+          "hide_quest": "从地图隐藏",
+          "show_quest": "在地图上显示",
+          "all_hidden_hint": "此地图上的每一个任务都是隐藏的。使用显示所有来将它们带回来。",
+          "hidden_section_title": "Hidden from map ({count})",
+          "hidden_section_description": "仍在跟踪，只需在地图上绘制。",
+          "hidden_section_expand": "显示隐藏任务",
+          "hidden_section_collapse": "收起隐藏的任务"
+        }
       },
       "pinned_tasks_section": "已固定任务",
       "focused_task_section": "当前聚焦任务",
@@ -1024,6 +1046,7 @@
         "of": "/",
         "mark_failed": "标记为失败",
         "available_button": "标记为可接取",
+        "clear_availability_confirmation": "清除游戏内可用性确认",
         "uncomplete_button": "标记为未完成",
         "reset_item_counts": "重置物品计数",
         "collapse_task": "折叠任务",
@@ -1109,6 +1132,11 @@
         "faction": "Available to {faction} characters.",
         "trader_unlock": "Unlock {trader} by completing {task}.",
         "prestige": "Requires Prestige {required} (current: {current}).",
+        "global_variable": "Server progression value {comparison} {required} required (current: {current}).",
+        "global_variable_unknown": "Requires server progression {comparison} {required}. Your current value is not available to the tracker. Use Mark available only if this task is available in-game; no counter tasks will be marked complete.",
+        "task_counter": "Requires {comparison} {required} completed tasks from this trader loyalty tier (completed: {current}). If this task is already available in-game, use Mark available.",
+        "dialogue": "需要游戏内的交易者对话。只有在确认此任务在游戏中可用后才能使用标记。",
+        "story_objective": "Complete the story objective \"{objective}\" ({chapter}).",
         "unknown": "要求数据不可用或不支持。可用性无法确认。",
         "cycle": "必备链包含一个周期。可用性无法确认。",
         "complete": "此任务已完成。",
@@ -1738,6 +1766,8 @@
     "analytics_preferences": "分析偏好",
     "game_attribution": "Escape from Tarkov 及相关游戏内容和素材是 Battlestate Games Limited 及其授权方的商标和版权作品。保留所有权利。TarkovTracker 是非官方粉丝项目，与 Battlestate Games 无关联且未获其认可。",
     "tagline": "跟踪您从Tarkov的追求、隐藏升级和物品需求在一个地方。",
+    "version_release_link": "View the release notes for version {version} on GitHub",
+    "build_commit_link": "View build commit {commit} on GitHub",
     "sections": {
       "explore": "浏览",
       "project": "项目",

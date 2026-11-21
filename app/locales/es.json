@@ -514,6 +514,9 @@
     "not_available_description": "El mapa interactivo de {mapName} aún no está disponible. Estamos esperando a que se cree un mapa compatible.",
     "placeholder": "esta ubicación",
     "floors": "Pisos",
+    "extract_names": {
+      "scav_underboat_hideout": "Escondido bajo la Etapa de Tierra"
+    },
     "factions": {
       "pmc": "PMC"
     },
@@ -568,7 +571,8 @@
       "go_to_in_task_list": "Ir al objetivo en la lista de tareas",
       "complete": "Completar objetivo",
       "uncomplete": "Descompletar objetivo",
-      "objective_unavailable": "Objetivo no disponible."
+      "objective_unavailable": "Objetivo no disponible.",
+      "stacked_objectives": "{count} objectives here"
     }
   },
   "page": {
@@ -992,7 +996,25 @@
         "map_complete_tasks_toggle_show": "Mostrar ocultas",
         "map_complete_tasks_toggle_hide": "Ocultar completadas en mapa",
         "map_hidden_hint": "Mapa oculto — haga clic para mostrar",
-        "raid_time_tooltip": "Tiempo actual de la banda del juego"
+        "raid_time_tooltip": "Tiempo actual de la banda del juego",
+        "raid_plan": {
+          "title": "Misiones en el mapa",
+          "summary_all": "Mostrando todo {total}",
+          "summary_hidden": "{hidden} of {total} hidden",
+          "choose_quests": "Elegir misiones",
+          "show_all": "Mostrar todo",
+          "popover_description": "Desmarca las misiones que no estés ejecutando esta banda para borrarlas del mapa. \"Sólo\" oculta todo lo demás.",
+          "only": "Sólo",
+          "show_only_named": "Mostrar solo {name} en el mapa",
+          "show_only_quest": "Mostrar sólo esta misión en el mapa",
+          "hide_quest": "Ocultar del mapa",
+          "show_quest": "Mostrar en el mapa",
+          "all_hidden_hint": "Cada misión en este mapa está oculta. Usa Mostrar todos para traerlos de vuelta.",
+          "hidden_section_title": "Escondido del mapa ({count})",
+          "hidden_section_description": "Seguidamente seguido, no dibujado en el mapa.",
+          "hidden_section_expand": "Mostrar misiones ocultas",
+          "hidden_section_collapse": "Colapsar misiones ocultas"
+        }
       },
       "pinned_tasks_section": "Tareas fijadas",
       "focused_task_section": "Tarea enfocada",
@@ -1024,6 +1046,7 @@
         "of": "de",
         "mark_failed": "Marcar como fallida",
         "available_button": "Marcar como disponible",
+        "clear_availability_confirmation": "Borrar confirmación de disponibilidad en el juego",
         "uncomplete_button": "Marcar como no completado",
         "reset_item_counts": "Restablecer conteos de objetos",
         "collapse_task": "Colapsar tarea",
@@ -1109,6 +1132,11 @@
         "faction": "Disponible para caracteres {faction}.",
         "trader_unlock": "Desbloquea {trader} completando {task}.",
         "prestige": "Requiere Prestigio {required} (actual: {current}).",
+        "global_variable": "Valor de progresión del servidor {comparison} {required} requerido (actual: {current}).",
+        "global_variable_unknown": "Requiere progresión del servidor {comparison} {required}. Tu valor actual no está disponible para el rastreador. Usar Marca disponible sólo si esta tarea está disponible dentro del juego; no se marcarán las tareas contadoras.",
+        "task_counter": "Requiere {comparison} {required} tareas completadas de este nivel de lealtad del trader (completado: {current}). Si esta tarea ya está disponible en el juego, usa la marca disponible.",
+        "dialogue": "Requiere una conversación en el juego. Usa la marca disponible sólo después de confirmar que esta tarea está disponible en el juego.",
+        "story_objective": "Completa el objetivo de la historia \"{objective}\" ({chapter}).",
         "unknown": "Los datos requeridos no están disponibles o no soportados. No se puede confirmar la disponibilidad.",
         "cycle": "La cadena de prerrequisitos contiene un ciclo. La disponibilidad no puede ser confirmada.",
         "complete": "Esta tarea se ha completado.",
@@ -1738,6 +1766,8 @@
     "analytics_preferences": "Preferencias de analítica",
     "game_attribution": "Escape from Tarkov y el contenido y materiales relacionados del juego son marcas comerciales y obras protegidas por derechos de autor de Battlestate Games Limited y sus licenciantes. Todos los derechos reservados. TarkovTracker es un proyecto de fans no oficial y no está afiliado ni respaldado por Battlestate Games.",
     "tagline": "Registra tu huida desde misiones Tarkov, mejoras de escondite y requisitos de objetos en un solo lugar.",
+    "version_release_link": "Ver las notas de lanzamiento de la versión {version} en GitHub",
+    "build_commit_link": "Ver commit de compilación {commit} en GitHub",
     "sections": {
       "explore": "Explorar",
       "project": "Projekt",

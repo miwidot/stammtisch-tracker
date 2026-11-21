@@ -4,7 +4,7 @@
     "@vueuse/core": "Previously pinned to 13.9.0 due to Nuxt/@nuxt/ui/reka-ui compatibility; updated to ^14.1.0 after upgrading Nuxt/@nuxt/ui.",
     "fast-xml-parser": "Pinned fast-xml-parser to the patched v5 line on 2026-02-18 to avoid potential v6 API regressions in @nuxtjs/sitemap dependency paths; remediation: remove this override after @nuxtjs/sitemap officially supports fast-xml-parser v6 and confirm sitemap generation in CI."
   },
-  "version": "1.81.1",
+  "version": "1.85.0",
   "dependencies": {
     "@iconify-json/heroicons": "^1.2.3",
     "@iconify-json/lucide": "^1.2.122",
@@ -25,6 +25,7 @@
     "jsonpath-plus": "^10.4.0",
     "leaflet": "^1.9.4",
     "lru-cache": "^11.3.3",
+    "mdast-util-from-markdown": "2.0.3",
     "nuxt": "^4.5.1",
     "ofetch": "^1.5.1",
     "pinia": "^4.0.2",
@@ -66,7 +67,7 @@
     "semantic-release": "^25.0.3",
     "supabase": "^2.109.1",
     "tailwindcss": "^4.2.2",
-    "taze": "^19.14.1",
+    "taze": "^21.1.0",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",
     "vitest": "^4.1.4",
@@ -99,7 +100,7 @@
     "lint:blank-lines": "node scripts/lint-blank-lines.mjs",
     "typecheck": "NODE_ENV=development nuxt typecheck && tsc -p scripts/precompute",
     "lint:fix": "NODE_ENV=development nuxt prepare && eslint app shared --fix && pnpm run format:blank-lines",
-    "lint:unused": "knip --reporter compact",
+    "lint:unused": "knip --config .github/knip.json --reporter compact",
     "postinstall": "NODE_ENV=development nuxt prepare",
     "verify:overlay": "tsx --tsconfig scripts/precompute/tsconfig.json scripts/precompute/check-overlay.ts",
     "precompute:tarkov": "tsx --tsconfig scripts/precompute/tsconfig.json scripts/precompute/run.ts",
@@ -116,7 +117,7 @@
     "test:api-gateway": "vitest --config workers/api-gateway/vitest.config.ts",
     "validate:openapi": "pnpm --filter api-gateway run validate:openapi",
     "validate:changes": "node scripts/validate-changes.mjs",
-    "test:workflow": "node --test scripts/ci-tests/*.mjs"
+    "test:workflow": "node --test scripts/ci-tests/*.mjs scripts/codex-review*-tests.mjs"
   },
   "type": "module",
   "lint-staged": {

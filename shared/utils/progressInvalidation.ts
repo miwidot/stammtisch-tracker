@@ -8,6 +8,12 @@
  * their faction and recorded completions/failures. Tasks that ARE failed are not invalid — they
  * are simply failed; invalidation targets what the failure makes unreachable downstream.
  */
+import {
+  acceptsFailedStatus as acceptsNormalizedFailedStatus,
+  isFailedOnlyStatus,
+  normalizeRequirementStatuses,
+  requiresCompletionOrActive as requiresNormalizedCompletionOrActive,
+} from './requirementStatus';
 export type InvalidationTaskCompletion = { complete?: boolean; failed?: boolean };
 export type InvalidationTaskRequirement = { task?: { id: string }; status?: string[] };
 export type InvalidationTask = {
@@ -30,35 +36,30 @@ export type InvalidationResult = {
   invalidTasks: Record<string, boolean>;
   invalidObjectives: Record<string, boolean>;
 };
-const COMPLETION_OR_ACTIVE_STATUSES = ['complete', 'completed', 'active', 'accept', 'accepted'];
-const normalizeStatuses = (statuses: string[] | undefined): string[] =>
-  (statuses ?? []).map((status) => status.toLowerCase());
-const hasAnyStatus = (statuses: string[], values: string[]): boolean =>
-  values.some((value) => statuses.includes(value));
-/** An empty status list means "must be complete or active" (upstream default). */
-const requiresCompletionOrActive = (statuses: string[] | undefined): boolean => {
-  const normalized = normalizeStatuses(statuses);
-  if (normalized.length === 0) return true;
-  return hasAnyStatus(normalized, COMPLETION_OR_ACTIVE_STATUSES);
-};
+// Graph snapshots normalize requirement statuses once; predicates then read them as-is.
+const statusesOf = (statuses: string[] | undefined): string[] => statuses ?? [];
+const requiresCompletionOrActive = (statuses: string[] | undefined): boolean =>
+  requiresNormalizedCompletionOrActive(statusesOf(statuses));
 const acceptsFailedStatus = (statuses: string[] | undefined): boolean =>
-  normalizeStatuses(statuses).includes('failed');
-/** The requirement is satisfied only by a failed prerequisite (e.g. `status: ['failed']`). */
-const isFailedRequirementOnly = (statuses: string[] | undefined): boolean => {
-  const normalized = normalizeStatuses(statuses);
-  if (normalized.length === 0) return false;
-  return normalized.includes('failed') && !hasAnyStatus(normalized, COMPLETION_OR_ACTIVE_STATUSES);
-};
+  acceptsNormalizedFailedStatus(statusesOf(statuses));
+const isFailedRequirementOnly = (statuses: string[] | undefined): boolean =>
+  isFailedOnlyStatus(statusesOf(statuses));
 const isCompleted = (completion: InvalidationTaskCompletion | undefined): boolean =>
   completion?.complete === true && completion?.failed !== true;
-export const computeInvalidProgress = ({
-  tasks,
-  taskCompletions,
-  pmcFaction,
-}: InvalidationInput): InvalidationResult => {
-  const invalidTasks: Record<string, boolean> = {};
-  const invalidObjectives: Record<string, boolean> = {};
-  if (!tasks.length) return { invalidTasks, invalidObjectives };
+function snapshotTask(task: InvalidationTask): InvalidationTask {
+  return {
+    id: task.id,
+    factionName: task.factionName,
+    objectives: task.objectives?.map((objective) => ({ id: objective?.id })),
+    alternatives: task.alternatives?.slice(),
+    taskRequirements: task.taskRequirements?.map((requirement) => ({
+      task: requirement.task ? { id: requirement.task.id } : undefined,
+      status: requirement.status && normalizeRequirementStatuses(requirement.status),
+    })),
+  };
+}
+function buildTaskGraph(source: readonly InvalidationTask[]) {
+  const tasks = source.map(snapshotTask);
   const tasksById = new Map<string, InvalidationTask>();
   const requiredBy = new Map<string, Set<string>>();
   tasks.forEach((task) => {
@@ -72,6 +73,24 @@ export const computeInvalidProgress = ({
       requiredBy.get(requiredTaskId)!.add(task.id);
     });
   });
+  return { tasks, tasksById, requiredBy };
+}
+type ProgressState = Pick<InvalidationInput, 'taskCompletions' | 'pmcFaction'>;
+/** Capture a catalog snapshot once; each invocation still computes fresh player-specific state. */
+export function createProgressInvalidator(tasks: readonly InvalidationTask[]) {
+  const graph = buildTaskGraph(tasks);
+  return (state: ProgressState): InvalidationResult => computeWithGraph(state, graph);
+}
+/** Mutable app catalogs must use this entry point so in-place edits remain visible. */
+export const computeInvalidProgress = (input: InvalidationInput): InvalidationResult =>
+  computeWithGraph(input, buildTaskGraph(input.tasks));
+function computeWithGraph(
+  { taskCompletions, pmcFaction }: ProgressState,
+  { tasks, tasksById, requiredBy }: ReturnType<typeof buildTaskGraph>
+): InvalidationResult {
+  const invalidTasks: Record<string, boolean> = {};
+  const invalidObjectives: Record<string, boolean> = {};
+  if (!tasks.length) return { invalidTasks, invalidObjectives };
   const markInvalid = (task: InvalidationTask) => {
     // Terminal outcomes take precedence over every invalidation entry point.
     const completion = taskCompletions[task.id];
@@ -150,4 +169,4 @@ export const computeInvalidProgress = ({
     });
   });
   return { invalidTasks, invalidObjectives };
-};
+}

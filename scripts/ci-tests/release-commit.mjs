@@ -132,7 +132,11 @@ function assertReleaseWorkflowBoundaries(ci, releaseWorkflow) {
   assert.doesNotMatch(workflowEvent(ci, 'push'), /wip/);
   const release = jobBlock(releaseWorkflow, 'release');
   const eligibility = release.slice(0, release.indexOf('    steps:'));
-  assert.match(eligibility, /head_branch == 'main'/);
+  assert.match(eligibility, /github\.ref == 'refs\/heads\/main'/);
+  assert.match(workflowEvent(releaseWorkflow, 'schedule'), /cron: '[^']+'/);
+  const triggers = releaseWorkflow.slice(0, releaseWorkflow.indexOf('\npermissions:'));
+  assert.match(triggers, /^ {2}workflow_dispatch:$/m);
+  assert.doesNotMatch(releaseWorkflow, /^ {2}workflow_run:/m);
   assert.match(permissionsBlock(eligibility, '    '), /^ {6}actions: write$/m);
   assert.match(
     workflowStep(release, 'Semantic Release'),
@@ -147,6 +151,11 @@ test('release staging runs ordinary CI while publication retains its main-only g
   );
   const config = JSON.parse(read('.releaserc.json'));
   assert.ok(config.plugins.includes('./scripts/release-commit.mjs'));
+  // Internal-scope filtering must wrap both the version analysis and the notes.
+  const names = config.plugins.map((plugin) => (Array.isArray(plugin) ? plugin[0] : plugin));
+  assert.equal(names[0], './scripts/release-scope.mjs');
+  assert.ok(!names.includes('@semantic-release/commit-analyzer'));
+  assert.ok(!names.includes('@semantic-release/release-notes-generator'));
   assert.deepEqual(config.branches, ['main']);
 });
 test('unrelated triggers, jobs and steps cannot satisfy the release workflow contract', () => {
@@ -159,8 +168,8 @@ test('unrelated triggers, jobs and steps cannot satisfy the release workflow con
   assert.notEqual(wrongTrigger, ci);
   assert.throws(() => assertReleaseWorkflowBoundaries(wrongTrigger, release));
   const wrongJob =
-    release.replace("head_branch == 'main'", "head_branch == 'develop'") +
-    "\n  unrelated:\n    if: head_branch == 'main'\n";
+    release.replace("github.ref == 'refs/heads/main'", "github.ref == 'refs/heads/develop'") +
+    "\n  unrelated:\n    if: github.ref == 'refs/heads/main'\n";
   assert.throws(() => assertReleaseWorkflowBoundaries(ci, wrongJob));
   const wrongStep =
     release.replace('GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}', 'GITHUB_TOKEN: missing') +

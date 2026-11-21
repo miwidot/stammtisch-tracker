@@ -2,38 +2,32 @@
 
 ## Required Environment Variables
 
+Canonical variable map (owner): [`architecture.md` §Environment Variables](./architecture.md#environment-variables).
 Naming: `NUXT_*` = Nuxt private (server-only), `NUXT_PUBLIC_*` = Nuxt public (browser-exposed).
 
-**Nuxt app (Cloudflare Pages):**
-
-- `SUPABASE_URL` — Supabase project URL, managed as plaintext in `wrangler.toml`
-- `SUPABASE_ANON_KEY` — Supabase anon key, managed as plaintext in `wrangler.toml`
-- `NUXT_SUPABASE_SERVICE_KEY` — encrypted Supabase service role key in the Pages dashboard
-- `APP_URL` — production application URL in `wrangler.toml`; previews use `CF_PAGES_URL`
-- `API_ALLOWED_HOSTS` — production host allowlist
-- `API_TRUST_PROXY` — only when overriding proxy auto-detection (forwarded headers are trusted
-  only when `API_TRUST_PROXY=true` or `NITRO_PRESET` is explicitly set to a `cloudflare*`
-  preset)
+**Nuxt app (Cloudflare Pages):** see the canonical map for `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+`NUXT_SUPABASE_SERVICE_KEY`, `APP_URL`, `API_ALLOWED_HOSTS`, and `API_TRUST_PROXY`. Plaintext
+`[vars]` stay in `wrangler.toml`; encrypted secrets stay in the Pages dashboard. Previews use
+`CF_PAGES_URL`. Forwarded headers are trusted only when `API_TRUST_PROXY=true` or `NITRO_PRESET`
+is explicitly set to a `cloudflare*` preset.
 
 ### Stripe checkout (Nuxt server)
 
-- `STRIPE_SECRET_KEY` for the Nuxt `/api/stripe/checkout` route to create Checkout Sessions.
-- `STRIPE_PRICE_SCAV_MONTHLY`, `STRIPE_PRICE_SCAV_6MONTH`, `STRIPE_PRICE_SCAV_YEARLY`
-- `STRIPE_PRICE_TIMMY_MONTHLY`, `STRIPE_PRICE_TIMMY_6MONTH`, `STRIPE_PRICE_TIMMY_YEARLY`
-- `STRIPE_PRICE_CHAD_MONTHLY`, `STRIPE_PRICE_CHAD_6MONTH`, `STRIPE_PRICE_CHAD_YEARLY`
+See the canonical map for `STRIPE_SECRET_KEY` and the nine `STRIPE_PRICE_*` IDs used by the Nuxt
+`/api/stripe/checkout` route to create Checkout Sessions.
 
 ### Stripe webhook (Supabase Edge Function `stripe-webhook`)
 
-Set these in Supabase Dashboard → Project Settings → Edge Functions:
+Set these in Supabase Dashboard → Project Settings → Edge Functions (canonical definitions in
+[`architecture.md` §Environment Variables](./architecture.md#environment-variables) and
+`supabase/functions/.env.example`):
 
 - `STRIPE_WEBHOOK_SECRET` (Stripe Dashboard → Webhooks → Signing secret)
 - `STRIPE_SECRET_KEY` (Stripe Dashboard → Developers → API keys); required so refund and
   dispute events can correlate the charge back to its subscription/customer before revoking
   supporter access. The function refuses to start without it.
-- `STRIPE_PRICE_SCAV_MONTHLY`, `STRIPE_PRICE_SCAV_6MONTH`, `STRIPE_PRICE_SCAV_YEARLY`
-- `STRIPE_PRICE_TIMMY_MONTHLY`, `STRIPE_PRICE_TIMMY_6MONTH`, `STRIPE_PRICE_TIMMY_YEARLY`
-- `STRIPE_PRICE_CHAD_MONTHLY`, `STRIPE_PRICE_CHAD_6MONTH`, `STRIPE_PRICE_CHAD_YEARLY`; the
-  webhook uses these IDs as the source of truth when a customer changes plans in Stripe's portal.
+- The nine `STRIPE_PRICE_*` IDs; the webhook uses these IDs as the source of truth when a customer
+  changes plans in Stripe's portal.
 - `SUPABASE_SERVICE_ROLE_KEY` and `SUPABASE_URL` (auto-injected in hosted Supabase)
 - `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_SUPPORTER_ROLE_ID` for role sync. The
   per-tier role IDs `DISCORD_SCAV_ROLE_ID` / `DISCORD_TIMMY_ROLE_ID` / `DISCORD_CHAD_ROLE_ID` are
@@ -67,21 +61,18 @@ product.
 
 ### Account IP audit
 
-- `NUXT_ACCOUNT_IP_HASH_SECRET` for the Nuxt `/api/account/activity` route. It stores an HMAC
-  digest of each authenticated user's IP address, never the raw address. Use a unique, long random
-  value and retain it while historical hashes need to remain comparable.
+- `NUXT_ACCOUNT_IP_HASH_SECRET` (canonical map) for the Nuxt `/api/account/activity` route. It
+  stores an HMAC digest of each authenticated user's IP address, never the raw address. Use a
+  unique, long random value and retain it while historical hashes need to remain comparable.
 
 ## Optional Environment Variables
 
-- `NUXT_LOG_SINK_URL` — centralized server logs (Sentry/Datadog/HTTP collector)
-- `NUXT_PUBLIC_CLIENT_LOG_SINK_URL` — browser error forwarding; disabled when unset. Set it at
-  build time to `/api/logs/client` only when the edge/WAF rate limit for that path is enabled, or
-  use an external collector URL.
-- `NUXT_PUBLIC_LOG_LEVEL` — client log level (debug, info, warn, error)
-- `NUXT_TEAM_MEMBERS_RATE_LIMIT_PER_MINUTE`
-- `NUXT_TEAM_MEMBERS_CACHE_TTL_MS`
-- `NUXT_SHARED_PROFILE_RATE_LIMIT_PER_MINUTE`
-- `NUXT_SHARED_PROFILE_CACHE_TTL_MS`
+See the canonical map for `NUXT_LOG_SINK_URL`, `NUXT_PUBLIC_CLIENT_LOG_SINK_URL`,
+`NUXT_PUBLIC_LOG_LEVEL`, `NUXT_TEAM_MEMBERS_RATE_LIMIT_PER_MINUTE`,
+`NUXT_TEAM_MEMBERS_CACHE_TTL_MS`, `NUXT_SHARED_PROFILE_RATE_LIMIT_PER_MINUTE`, and
+`NUXT_SHARED_PROFILE_CACHE_TTL_MS`. Operational note: set the browser log sink at build time to
+`/api/logs/client` only when the edge/WAF rate limit for that path is enabled, or use an external
+collector URL.
 
 ## Pre-Deploy Validation
 
@@ -566,7 +557,7 @@ deployed function sources in the same change.
 The database change alone does not cover the handler behavior: the deployed handlers filter cooldown
 reads on `server_verified = true`, and the preserved pre-containment rows are `server_verified = false`
 with possibly forged timestamps, so the older handlers would trust that history again. See the
-`team_events` invariants in `docs/SYSTEMS.md`.
+`team_events` invariants in `docs/systems.md`.
 
 ### Atomic-leave checkout recovery (`20260912085904`)
 
@@ -613,6 +604,30 @@ After merging the complete recovery, verify the new `main` commit's `Supabase Pr
 and repeat linked history/dry-run checks. Pull-request previews intentionally skip deployment,
 so a green PR alone does not establish that the production integration has recovered. Do not
 roll back to the pre-atomic leave handler or apply unrelated account-deletion migrations.
+
+### Atomic team-kick rollout (`20260926090000`)
+
+PR #938 (fix for #864) ships the atomic `kick_team` RPC in migration
+`20260926090000_atomic_team_kick.sql` together with the rewritten `team-kick` handler sources in
+one change, mirroring the atomic-leave unit rule: never separate the migration from the handler
+sources it requires. The rollout is database-first: after the merge, the Supabase GitHub
+integration applies the migration and deploys the edge functions (including `team-kick`) together
+in the same integration run against the merge commit — there is no manual SQL step:
+
+- **Do not apply the migration out of band** (no dashboard SQL editor, no `db push`) from PR #938's
+  branch or any unmerged revision — see "Deploy migrations only from a revision that is already
+  merged to `main`" above. Deploying the handler sources without the migration (or the migration
+  without the required handler sources) breaks the RPC-version parity the atomic-leave recovery
+  had to restore.
+- The pre-merge state is already safe: the deployed `team-kick` (non-atomic, direct DELETE +
+  event INSERT) never referenced `kick_team`, so the migration and the handler deploy land in the
+  same integration run on the merge commit with no regression window.
+- PR checks report `Supabase Preview` as `skipping` (per-PR preview databases are intentionally
+  disabled), so validation is: green `Supabase DB` job on the PR, then after merge confirm on the
+  merge commit that `Supabase Preview` succeeded, `supabase migration list --linked` shows
+  `20260926090000` applied remotely (no blank REMOTE rows) and the `team-kick` function shows a
+  new version in the Supabase dashboard. A blank REMOTE row is the pending case; the fallback is
+  the manual `db push` block in "Deployment", not a hand-written apply of the migration.
 
 ### Reconcile migration `20260630075121_reconcile_prod_schema_drift`
 
@@ -666,16 +681,22 @@ Keep the invoking environment free of privileged credentials. Export `PROD_DB_EN
 invoking shell to select a different file (for example, `export PROD_DB_ENV_FILE=/path/to/observer.env`);
 setting this selector inside `.env` is unsupported. The command fails if the selected file cannot be
 read; an absent default `.env` is allowed. Values are literal:
-no shell or variable expansion occurs. Use absolute certificate paths in `sslrootcert`, not `$HOME`
-or `${HOME}`. An inline environment
+no shell or variable expansion occurs. The wrapper rejects relative or missing certificate paths
+before invoking the CLI. Use absolute certificate paths in `sslrootcert`, not `$HOME` or
+`${HOME}`. An inline environment
 assignment remains supported for non-interactive automation whose secret store masks command input.
 
 Available reports include `health`, `schema`, `migration-history`, `db-stats`, `table-stats`,
 `index-stats`, `traffic`, `outliers`, `calls`, `locks`, `blocking`, `long-running`, `vacuum`,
 `bloat`, `role-stats`, bounded `sample`, `distribution`, and `count`. `sample` excludes columns
 matching the sensitive-column policy and is capped at 20 rows; `distribution` is capped at 50
-groups. `EXPLAIN ANALYZE`, arbitrary SQL, writes, DDL, migration commands, and unbounded row access
-are not supported.
+groups. The schema report exposes catalog ACL entries, PUBLIC grants, observer-effective privileges
+through inherited roles, privileges effective for existing `anon`, `authenticated`, and `service_role`
+roles, per-role schema `USAGE`, relation owners, and row-level-security flags. A privilege counts as
+effective only when the role can also use the relation's schema. Column-level ACL entries and
+the per-column privileges they make effective are listed separately. Health shows schema usage and read
+access to the migration `version` and `statements` columns. `EXPLAIN ANALYZE`, arbitrary SQL,
+writes, DDL, migration commands, and unbounded row access are not supported.
 
 `migration-history` reads applied version identifiers from `supabase_migrations.schema_migrations`
 and compares them with `supabase/migrations` in the current checkout. It reports `missing_locally`
@@ -697,7 +718,8 @@ guaranteed to describe the same environment as the observer credential.
 `canary` is the first production validation command. It runs only health and telemetry reports:
 `db-stats`, `role-stats`, `table-stats`, `index-stats`, and `outliers`. It does not sample rows,
 run distributions, or execute migration preflight. Before collecting telemetry it rejects
-privileged or write-capable roles, persistent-object creation privileges, disabled default
+privileged or write-capable roles, persistent-object creation privileges, read access to stored
+migration `statements`, disabled default
 read-only transactions, and unbounded statement or lock timeouts. Every report includes an
 `observation` object with capture time, observer application name, database statistics reset time,
 statement statistics reset time, and I/O statistics reset time. These reset times are required to
@@ -707,9 +729,12 @@ interpret cumulative counters.
 then combines that information with production table/index, traffic, vacuum, query, lock, and
 blocking reports. The result is evidence-only and must be reviewed by a human before a migration is
 merged. It does not execute the migration. If the parser sees dynamic SQL, unsupported statements,
-quoted identifiers, multiple statements, or any unclassified syntax, it returns
-`assessment: incomplete`, `risk: unknown`, and `requires_manual_review: true`; it never treats an
-unrecognized migration as safe.
+quoted identifiers, malformed literals or comments, multiple statements, or any unclassified syntax,
+it returns `assessment: incomplete`, `risk: unknown`, and `requires_manual_review: true`; it never
+treats an unrecognized migration as safe. The only multi-statement exception is a migration made
+entirely of table-level `GRANT`/`REVOKE` statements, optionally wrapped in one `BEGIN`/`COMMIT`
+pair. Privilege names such as `UPDATE` and `DELETE` in those statements are not data changes, and
+the explicit transaction is still reported as transaction control.
 
 Provision the observer role out of band through the Supabase SQL editor or approved database
 operation. Grant only `CONNECT`, required schema/catalog visibility, and `pg_monitor`; Supabase CLI
@@ -759,7 +784,7 @@ Pi access. Do not make production role provisioning or the canary an automatic m
    - `NUXT_SHARED_PROFILE_RATE_LIMIT_PER_MINUTE`
    - For `/api/tarkov-dev/profile`, add or tighten a Cloudflare rule; the app route also has a fixed per-IP limiter.
    - Cache API-backed shared rate limits are best-effort under concurrent bursts; use Cloudflare or Durable Objects for hard enforcement.
-   - Full ownership map (Worker DO vs Edge mutation limits vs Pages vs Auth): [`RATE_LIMITING.md`](./RATE_LIMITING.md).
+   - Full ownership map (Worker DO vs Edge mutation limits vs Pages vs Auth): [`rate-limiting.md`](./rate-limiting.md).
 3. If API protection blocks valid traffic, update `API_ALLOWED_HOSTS` and redeploy.
 
 ### Combined task cache contract rollout (v2 to v3)

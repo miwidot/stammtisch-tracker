@@ -514,6 +514,9 @@
     "not_available_description": "La carte interactive de {mapName} n'est pas encore disponible. Nous attendons la création d'une carte compatible.",
     "placeholder": "cet endroit",
     "floors": "Étages",
+    "extract_names": {
+      "scav_underboat_hideout": "Cachez sous la phase d'atterrissage"
+    },
     "factions": {
       "pmc": "PMC"
     },
@@ -568,7 +571,8 @@
       "go_to_in_task_list": "Aller à l'objectif dans la liste des tâches",
       "complete": "Terminer l'objectif",
       "uncomplete": "Annuler l'objectif",
-      "objective_unavailable": "Objectif indisponible."
+      "objective_unavailable": "Objectif indisponible.",
+      "stacked_objectives": "Objectifs {count} ici"
     }
   },
   "page": {
@@ -992,7 +996,25 @@
         "map_complete_tasks_toggle_show": "Afficher masquées",
         "map_complete_tasks_toggle_hide": "Masquer terminées carte",
         "map_hidden_hint": "Carte masquée - cliquez pour afficher",
-        "raid_time_tooltip": "Temps de raid actuel en jeu"
+        "raid_time_tooltip": "Temps de raid actuel en jeu",
+        "raid_plan": {
+          "title": "Quêtes sur la carte",
+          "summary_all": "Affichage de tous les {total}",
+          "summary_hidden": "{hidden} sur {total} masqué",
+          "choose_quests": "Choisir les quêtes",
+          "show_all": "Afficher tout",
+          "popover_description": "Décochez les quêtes que vous n'utilisez pas ce raid pour les éliminer de la carte. « Seulement» masque tout le reste.",
+          "only": "Seulement",
+          "show_only_named": "Afficher seulement {name} sur la carte",
+          "show_only_quest": "Ne montrer que cette quête sur la carte",
+          "hide_quest": "Cacher de la carte",
+          "show_quest": "Afficher sur la carte",
+          "all_hidden_hint": "Chaque quête de cette carte est masquée. Utilisez Show all pour les ramener.",
+          "hidden_section_title": "Masqué sur la carte ({count})",
+          "hidden_section_description": "Toujours suivi, tout simplement pas dessiné sur la carte.",
+          "hidden_section_expand": "Afficher les quêtes cachées",
+          "hidden_section_collapse": "Réduire les quêtes cachées"
+        }
       },
       "pinned_tasks_section": "Quêtes épinglées",
       "focused_task_section": "Quête ciblée",
@@ -1024,6 +1046,7 @@
         "of": "de",
         "mark_failed": "Marquer comme échouée",
         "available_button": "Disponible",
+        "clear_availability_confirmation": "Effacer la confirmation de disponibilité en jeu",
         "uncomplete_button": "Annuler",
         "reset_item_counts": "Réinitialiser les compteurs d'objets",
         "collapse_task": "Réduire la tâche",
@@ -1109,6 +1132,11 @@
         "faction": "Disponible pour les caractères {faction}.",
         "trader_unlock": "Débloquez {trader} en complétant {task}.",
         "prestige": "Nécessite le Prestige {required} (actuel: {current}).",
+        "global_variable": "Valeur de progression du serveur {comparison} {required} requise (courant: {current}).",
+        "global_variable_unknown": "Nécessite la progression du serveur {comparison} {required}. Votre valeur actuelle n'est pas disponible pour le tracker. Utiliser le marquage disponible uniquement si cette tâche est disponible en jeu; aucune tâche de compteur ne sera marquée comme terminée.",
+        "task_counter": "Nécessite les tâches {comparison} {required} accomplies depuis ce niveau de fidélité du trader (accomplies : {current}). Si cette tâche est déjà disponible en jeu, utilisez Marque disponible.",
+        "dialogue": "Nécessite une conversation de trader en jeu. Utilisez Marque disponible seulement après avoir confirmé que cette tâche est disponible en jeu.",
+        "story_objective": "Complétez l'objectif de l'histoire \"{objective}\" ({chapter}).",
         "unknown": "Les données requises sont indisponibles ou non pris en charge. La disponibilité ne peut pas être confirmée.",
         "cycle": "La chaîne de prérequis contient un cycle. La disponibilité ne peut pas être confirmée.",
         "complete": "Cette tâche est terminée.",
@@ -1738,6 +1766,8 @@
     "analytics_preferences": "Préférences analytiques",
     "game_attribution": "Escape from Tarkov et le contenu et les matériaux de jeu associés sont des marques déposées et des œuvres protégées par le droit d'auteur de Battlestate Games Limited et de ses concédants. Tous droits réservés. TarkovTracker est un projet de fans non officiel et n'est pas affilié à Battlestate Games ni approuvé par celui-ci.",
     "tagline": "Suivez votre fuite des quêtes de Tarkov, des améliorations cachées et des exigences d'objets en un seul endroit.",
+    "version_release_link": "Voir les notes de publication pour la version {version} sur GitHub",
+    "build_commit_link": "Voir le commit de construction {commit} sur GitHub",
     "sections": {
       "explore": "Explorer",
       "project": "Projet",

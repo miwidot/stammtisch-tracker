@@ -3,7 +3,7 @@ import { execFile } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseEnv, promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
@@ -86,6 +86,28 @@ const HEALTH_SQL = `select
   r.rolbypassrls as can_bypass_rls,
   pg_has_role(current_user, 'pg_write_all_data', 'member') as is_write_role,
   has_schema_privilege(current_user, 'public', 'create') as can_create_in_public,
+  coalesce(
+    has_schema_privilege(current_user, to_regnamespace('supabase_migrations'), 'usage'),
+    false
+  ) as can_use_migration_schema,
+  coalesce(
+    has_column_privilege(
+      current_user,
+      (select c.oid from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace where n.nspname = 'supabase_migrations' and c.relname = 'schema_migrations'),
+      'version',
+      'select'
+    ),
+    false
+  ) as can_read_migration_versions,
+  coalesce(
+    has_column_privilege(
+      current_user,
+      (select c.oid from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace where n.nspname = 'supabase_migrations' and c.relname = 'schema_migrations'),
+      'statements',
+      'select'
+    ),
+    false
+  ) as can_read_migration_statements,
   has_database_privilege(current_user, current_database(), 'create') as can_create_in_database,
   exists (
     select 1
@@ -220,6 +242,16 @@ function validateConnectionUrl(parsed) {
 function validateConnectionSecurity(parsed) {
   const sslMode = parsed.searchParams.get('sslmode');
   if (sslMode !== 'verify-full') throw new Error('PROD_DB_URL must set sslmode=verify-full');
+  validateRootCertificate(parsed.searchParams.get('sslrootcert'));
+}
+function validateRootCertificate(rootCertificate) {
+  if (rootCertificate === null) return;
+  if (!isAbsolute(rootCertificate))
+    throw new Error(
+      'PROD_DB_URL sslrootcert must be an absolute path; environment values are literal, so expand $HOME before setting the certificate path'
+    );
+  if (!existsSync(rootCertificate))
+    throw new Error(`PROD_DB_URL sslrootcert certificate file does not exist: ${rootCertificate}`);
 }
 function validateConnectionProtocol(parsed) {
   if (!['postgres:', 'postgresql:'].includes(parsed.protocol))
@@ -494,6 +526,7 @@ function validateCanaryHealth(report) {
     'has_table_write',
     'can_create_in_public',
     'can_create_in_database',
+    'can_read_migration_statements',
     'default_transaction_read_only',
     'statement_timeout',
     'lock_timeout',
@@ -509,6 +542,7 @@ function validateCanaryHealth(report) {
     [health.has_table_write, 'observer role can write application tables'],
     [health.can_create_in_public, 'observer role can create objects in public'],
     [health.can_create_in_database, 'observer role can create schemas'],
+    [health.can_read_migration_statements, 'observer role can read stored migration statements'],
     [health.default_transaction_read_only !== 'on', 'default_transaction_read_only is not on'],
     [/^0(?:ms|s|min)?$/.test(health.statement_timeout ?? ''), 'statement_timeout is not bounded'],
     [/^0(?:ms|s|min)?$/.test(health.lock_timeout ?? ''), 'lock_timeout is not bounded'],
@@ -537,6 +571,114 @@ async function runSchema() {
     when 'f' then 'foreign_table'
     else c.relkind::text
   end as relation_type,
+  (select owner.rolname from pg_catalog.pg_roles owner where owner.oid = c.relowner) as owner_role,
+  c.relrowsecurity as row_level_security,
+  c.relforcerowsecurity as force_row_level_security,
+  coalesce(
+    (
+      select jsonb_agg(jsonb_build_object(
+        'grantee', case when acl.grantee = 0 then 'PUBLIC' else coalesce(role.rolname, acl.grantee::text) end,
+        'privilege', acl.privilege_type,
+        'grantable', acl.is_grantable,
+        'inherited_by_observer', case
+          when acl.grantee = 0 then true
+          when acl.grantee = (select oid from pg_catalog.pg_roles where rolname = current_user) then true
+          else pg_has_role(current_user, acl.grantee, 'USAGE')
+        end
+      ) order by coalesce(role.rolname, 'PUBLIC'), acl.privilege_type)
+      from aclexplode(coalesce(c.relacl, acldefault('r', c.relowner))) acl
+      left join pg_catalog.pg_roles role on role.oid = acl.grantee
+    ),
+    '[]'::jsonb
+  ) as grants,
+  coalesce(
+    (
+      select array_agg(distinct acl.privilege_type order by acl.privilege_type)
+      from aclexplode(coalesce(c.relacl, acldefault('r', c.relowner))) acl
+      where acl.grantee = 0
+    ),
+    array[]::text[]
+  ) as public_privileges,
+  coalesce(
+    (
+      select array_agg(privilege order by privilege)
+      from (
+        select distinct lower(acl.privilege_type) as privilege
+        from aclexplode(acldefault('r', c.relowner)) acl
+      ) available
+      where has_schema_privilege(current_user, n.oid, 'usage')
+        and has_table_privilege(current_user, c.oid, privilege)
+    ),
+    array[]::text[]
+  ) as effective_observer_privileges,
+  coalesce(
+    (
+      select jsonb_object_agg(core_role.rolname, coalesce(effective.privileges, '[]'::jsonb))
+      from pg_catalog.pg_roles core_role
+      left join lateral (
+        select jsonb_agg(privilege order by privilege) as privileges
+        from (
+          select distinct lower(acl.privilege_type) as privilege
+          from aclexplode(acldefault('r', c.relowner)) acl
+        ) available
+        where has_schema_privilege(core_role.oid, n.oid, 'usage')
+          and has_table_privilege(core_role.oid, c.oid, privilege)
+      ) effective on true
+      where core_role.rolname in ('anon', 'authenticated', 'service_role')
+    ),
+    '{}'::jsonb
+  ) as effective_core_role_privileges,
+  jsonb_build_object('observer', has_schema_privilege(current_user, n.oid, 'usage')) || coalesce(
+    (
+      select jsonb_object_agg(core_role.rolname, has_schema_privilege(core_role.oid, n.oid, 'usage'))
+      from pg_catalog.pg_roles core_role
+      where core_role.rolname in ('anon', 'authenticated', 'service_role')
+    ),
+    '{}'::jsonb
+  ) as schema_usage,
+  coalesce(
+    (
+      select jsonb_agg(jsonb_build_object(
+        'column', a.attname,
+        'grantee', case when acl.grantee = 0 then 'PUBLIC' else coalesce(role.rolname, acl.grantee::text) end,
+        'privilege', acl.privilege_type,
+        'grantable', acl.is_grantable
+      ) order by a.attnum, coalesce(role.rolname, 'PUBLIC'), acl.privilege_type)
+      from pg_catalog.pg_attribute a
+      cross join lateral aclexplode(a.attacl) acl
+      left join pg_catalog.pg_roles role on role.oid = acl.grantee
+      where a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped and a.attacl is not null
+    ),
+    '[]'::jsonb
+  ) as column_grants,
+  coalesce(
+    (
+      select jsonb_object_agg(per_role.role_name, per_role.columns)
+      from (
+        select per_column.role_name, jsonb_object_agg(per_column.column_name, per_column.privileges) as columns
+        from (
+          select checked.role_name, a.attname as column_name, jsonb_agg(column_privilege order by column_privilege) as privileges
+          from (
+            select 'observer' as role_name, observer.oid as role_oid
+            from pg_catalog.pg_roles observer
+            where observer.rolname = current_user
+            union all
+            select core_role.rolname, core_role.oid
+            from pg_catalog.pg_roles core_role
+            where core_role.rolname in ('anon', 'authenticated', 'service_role')
+          ) checked
+          cross join pg_catalog.pg_attribute a
+          cross join unnest(array['select', 'insert', 'update', 'references']) as column_privilege
+          where a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped and a.attacl is not null
+            and has_schema_privilege(checked.role_oid, n.oid, 'usage')
+            and has_column_privilege(checked.role_oid, c.oid, a.attnum, column_privilege)
+          group by checked.role_name, a.attnum, a.attname
+        ) per_column
+        group by per_column.role_name
+      ) per_role
+    ),
+    '{}'::jsonb
+  ) as effective_column_privileges,
   pg_total_relation_size(c.oid) as total_size_bytes,
   obj_description(c.oid, 'pg_class') as description
 from pg_catalog.pg_class c
@@ -707,39 +849,187 @@ function normalizeMigrationSql(source) {
       index += 1;
       continue;
     }
-    normalized += source.slice(index, token.end).replace(/[^\n]/g, ' ');
-    if (token.malformed) normalized += "'";
+    normalized += formatMaskedSqlToken(source, index, token);
     index = token.end;
   }
   return normalized;
+}
+function formatMaskedSqlToken(source, index, token) {
+  if (token.kind === 'dollar') return formatDollarQuotedToken(source, index, token);
+  const masked = source.slice(index, token.end).replace(/[^\n]/g, ' ');
+  return `${masked}${getSqlTokenMarker(token)}`;
+}
+// Dollar-quoted bodies can be executable (DO blocks, function bodies), so their text stays visible
+// to every check; only quote characters are blanked because string rules do not apply inside.
+function formatDollarQuotedToken(source, index, token) {
+  return source.slice(index, token.end).replaceAll("'", ' ');
+}
+function getSqlTokenMarker(token) {
+  return token.kind === 'literal' ? getLiteralTokenMarker(token) : getCommentTokenMarker(token);
+}
+function getLiteralTokenMarker(token) {
+  return token.malformed ? "\u0001'" : '\u0001';
+}
+function getCommentTokenMarker(token) {
+  return token.malformed ? '\u0002' : '';
 }
 function getMaskedSqlToken(source, index) {
   const lineComment = getDelimitedSqlToken(source, index, '--', '\n', 0);
   if (lineComment) return lineComment;
   const blockComment = getDelimitedSqlToken(source, index, '/*', '*/', 2);
   if (blockComment) return blockComment;
-  if (source[index] !== "'") return undefined;
-  return getSqlLiteralToken(source, index);
+  return getSqlStringToken(source, index) ?? getDollarQuotedToken(source, index);
+}
+const SQL_IDENTIFIER_CHARACTER = /[a-zA-Z0-9_$\u0080-\uffff]/;
+const SQL_DOLLAR_QUOTE_TAG = /\$(?:[a-zA-Z_\u0080-\uffff][a-zA-Z0-9_\u0080-\uffff]*)?\$/y;
+function getDollarQuoteTag(source, index) {
+  if (SQL_IDENTIFIER_CHARACTER.test(source[index - 1] ?? '')) return undefined;
+  SQL_DOLLAR_QUOTE_TAG.lastIndex = index;
+  return SQL_DOLLAR_QUOTE_TAG.exec(source)?.[0];
+}
+// `$tag$ ... $tag$` has no escapes or nested quoting, so `'` and E'...' inside it never start a
+// literal. An unclosed body runs to the end of the source, as in PostgreSQL.
+function getDollarQuotedToken(source, index) {
+  const tag = source[index] === '$' ? getDollarQuoteTag(source, index) : undefined;
+  if (!tag) return undefined;
+  const close = source.indexOf(tag, index + tag.length);
+  const end = close === -1 ? source.length : close + tag.length;
+  return { end, kind: 'dollar', malformed: close === -1 };
+}
+function getSqlStringToken(source, index) {
+  if (source[index] === "'") return getSqlLiteralToken(source, index, false);
+  if (isEscapeStringStart(source, index)) return getSqlLiteralToken(source, index + 1, true);
+  return undefined;
+}
+// E'...' starts an escape string only when E is not the tail of an identifier (`xE'a'` is the
+// identifier `xe` followed by a standard string). PostgreSQL treats bytes >= 0x80 as identifier
+// characters, so any non-ASCII character is treated the same way.
+function isEscapeStringStart(source, index) {
+  const isPrefix = /[eE]/.test(source[index]) && source[index + 1] === "'";
+  return isPrefix && !SQL_IDENTIFIER_CHARACTER.test(source[index - 1] ?? '');
 }
 function getDelimitedSqlToken(source, index, opening, closing, closingLength) {
   if (!source.startsWith(opening, index)) return undefined;
   const end = source.indexOf(closing, index + opening.length);
-  return { end: end === -1 ? source.length : end + closingLength };
+  return {
+    end: end === -1 ? source.length : end + closingLength,
+    kind: 'comment',
+    malformed: isMalformedDelimitedComment(source, index, opening, closing, end),
+  };
 }
-function getSqlLiteralToken(source, start) {
-  let index = start + 1;
-  while (index < source.length) {
-    if (source[index] !== "'") {
-      index += 1;
-      continue;
-    }
-    if (source[index + 1] === "'") {
-      index += 2;
-      continue;
-    }
-    return { end: index + 1, malformed: false };
+function isMalformedDelimitedComment(source, index, opening, closing, end) {
+  return (
+    isUnclosedComment(closing, end) || hasNestedBlockComment(source, index, opening, closing, end)
+  );
+}
+function isUnclosedComment(closing, end) {
+  return end === -1 && closing !== '\n';
+}
+function hasNestedBlockComment(source, index, opening, closing, end) {
+  return (
+    closing === '*/' && end !== -1 && source.slice(index + opening.length, end).includes(opening)
+  );
+}
+// `start` is the opening quote. Escape strings skip the character after each backslash, so `\'`
+// does not close the literal. Continuation segments are consumed iteratively so the number of
+// segments never grows the call stack.
+function getSqlLiteralToken(source, start, backslashEscapes) {
+  for (let quote = start; ;) {
+    const close = findSqlLiteralClose(source, quote + 1, backslashEscapes);
+    if (close === -1) return { end: source.length, kind: 'literal', malformed: true };
+    const next = getContinuationQuote(source, close + 1, backslashEscapes);
+    if (next === -1) return { end: close + 1, kind: 'literal', malformed: false };
+    quote = next;
   }
-  return { end: source.length, malformed: true };
+}
+// Index of the closing quote at or after `index`, or -1 when the literal is unterminated.
+function findSqlLiteralClose(source, index, backslashEscapes) {
+  let cursor = index;
+  while (cursor < source.length) {
+    const step = getSqlLiteralStep(source, cursor, backslashEscapes);
+    if (step === 0) return cursor;
+    cursor += step;
+  }
+  return -1;
+}
+// Returns how far to advance inside a literal, or 0 when `index` is the closing quote.
+function getSqlLiteralStep(source, index, backslashEscapes) {
+  if (source[index] === "'") return source[index + 1] === "'" ? 2 : 0;
+  return isBackslashEscape(source[index], backslashEscapes) ? 2 : 1;
+}
+function isBackslashEscape(character, backslashEscapes) {
+  return backslashEscapes && character === '\\';
+}
+// PostgreSQL continues a string at the next quote when whitespace containing a newline separates
+// the segments, and `--` comments count as whitespace (scan.l). An escape string's continuation
+// segments keep backslash escapes. As in scan.l, whitespace before the first newline excludes
+// carriage returns and newlines. The gap is scanned with explicit one-step helpers instead of a
+// regex: a comment body matching runs of dashes overlaps later repetitions of `--`, so an
+// equivalent regex backtracks exponentially on gaps of many repeated comment markers.
+const SQL_HORIZONTAL_SPACE = ' \t\f\v';
+const SQL_CONTINUATION_SPACE = `${SQL_HORIZONTAL_SPACE}\n\r`;
+function isSqlHorizontalSpace(character) {
+  return SQL_HORIZONTAL_SPACE.includes(character);
+}
+// Horizontal whitespace after the continuation newline may also include newlines (scan.l `space`).
+function isSqlContinuationSpace(character) {
+  return SQL_CONTINUATION_SPACE.includes(character);
+}
+function isSqlNewline(character) {
+  return character === '\n' || character === '\r';
+}
+// Index just past the newline that must end the first gap between segments, or -1 when the gap
+// cannot reach one. A `--` comment decides the gap: the newline ending it is the gap's mandatory
+// newline, so it splits the gap into the inter-quote side and the newline-opened side in one step.
+function getAfterContinuationNewline(source, index) {
+  const cursor = skipHorizontalSpaces(source, index);
+  if (isCommentStart(source, cursor)) return skipThroughSqlNewline(source, cursor + 2);
+  return cursor < source.length && isSqlNewline(source[cursor]) ? cursor + 1 : -1;
+}
+function skipHorizontalSpaces(source, index) {
+  let cursor = index;
+  while (cursor < source.length && isSqlHorizontalSpace(source[cursor])) {
+    cursor += 1;
+  }
+  return cursor;
+}
+// Index of the quote opening the next segment, or -1 when no continuation follows the newline.
+function skipToContinuationQuote(source, index) {
+  let cursor = index;
+  while (cursor < source.length) {
+    if (source[cursor] === "'") return cursor;
+    const stepped = skipContinuationStep(source, cursor);
+    if (stepped === -1) return -1;
+    cursor = stepped;
+  }
+  return -1;
+}
+// End of one continuation step: one whitespace character (newlines included, after the newline
+// that opened it), or a `--` comment running through the newline that ends it, because comments
+// are whitespace in scan.l. A comment running to EOF cannot continue: -1, like any other
+// non-whitespace character.
+function skipContinuationStep(source, index) {
+  if (isSqlContinuationSpace(source[index])) return index + 1;
+  return isCommentStart(source, index) ? skipThroughSqlNewline(source, index + 2) : -1;
+}
+function isCommentStart(source, index) {
+  return source[index] === '-' && source[index + 1] === '-';
+}
+// Index just past the newline that ends a `--` comment, or -1 when the comment runs to EOF.
+function skipThroughSqlNewline(source, index) {
+  let cursor = index;
+  while (cursor < source.length) {
+    if (isSqlNewline(source[cursor])) return cursor + 1;
+    cursor += 1;
+  }
+  return -1;
+}
+// Index of the next segment's opening quote, or -1 when the escape string ends at `end`.
+function getContinuationQuote(source, end, backslashEscapes) {
+  if (!backslashEscapes) return -1;
+  const afterNewline = getAfterContinuationNewline(source, end);
+  if (afterNewline === -1) return -1;
+  return skipToContinuationQuote(source, afterNewline);
 }
 function extractMigrationRelations(source) {
   const normalizedSource = normalizeMigrationSql(source);
@@ -754,15 +1044,65 @@ function extractMigrationRelations(source) {
     new RegExp(String.raw`\bfrom\s+${identifier}`, 'gi'),
     new RegExp(String.raw`\bjoin\s+${identifier}`, 'gi'),
   ];
-  const matches = patterns.flatMap((pattern) => [...normalizedSource.matchAll(pattern)]);
+  const matches = normalizedSource.split(';').flatMap((statement) => {
+    if (/^\s*(?:grant|revoke)\b/i.test(statement)) {
+      const aclRelationPattern = new RegExp(
+        String.raw`\bon\s+(?:table\s+)?((?:${identifier})(?:\s*,\s*${identifier})*)\s+(?:to|from)\b`,
+        'gi'
+      );
+      return [...statement.matchAll(aclRelationPattern)].flatMap((match) =>
+        match[1].split(',').map((relation) => [undefined, relation.trim()])
+      );
+    }
+    return patterns.flatMap((pattern) => [...statement.matchAll(pattern)]);
+  });
   const relations = matches.map((match) => normalizeRelation(match[1])).filter(Boolean);
   return [...new Set(relations)].sort((left, right) => left.localeCompare(right));
 }
 function normalizeRelation(value) {
-  const relation = value.replace(/^public\./i, 'public.');
+  // Unquoted PostgreSQL identifiers fold to lowercase; quoted identifiers already fail closed.
+  const relation = value.toLowerCase();
   const ignored = ['select', 'where', 'set', 'values', 'using', 'on'];
   if (ignored.includes(relation.toLowerCase())) return undefined;
   return relation.includes('.') ? relation : `public.${relation}`;
+}
+// PostgreSQL reserved and type/function-name keywords. Unquoted, they are either invalid as table
+// or role names or ambiguous enough that ACL classification fails closed instead of guessing.
+const POSTGRES_RESERVED_IDENTIFIER_WORDS = `
+  all analyse analyze and any array as asc asymmetric authorization binary both case cast check
+  collate collation column concurrently constraint create cross current_catalog current_date
+  current_role current_schema current_time current_timestamp current_user default deferrable
+  desc distinct do else end except false fetch for foreign freeze from full grant group having
+  ilike in initially inner intersect into is isnull join lateral leading left like limit
+  localtime localtimestamp natural not notnull null offset on only or order outer overlaps
+  placing primary references returning right select session_user similar some symmetric
+  system_user table tablesample then to trailing true union unique user using variadic verbose
+  when where window with
+`
+  .trim()
+  .split(/\s+/);
+function isSupportedTableAclStatement(statement) {
+  const unreserved = String.raw`(?!(?:${POSTGRES_RESERVED_IDENTIFIER_WORDS.join('|')})(?![a-zA-Z0-9_$]))`;
+  const name = String.raw`${unreserved}[a-zA-Z_][a-zA-Z0-9_$]*`;
+  const identifier = String.raw`${name}(?:\.${name})?`;
+  const role = String.raw`(?:public|current_user|current_role|session_user|${name})`;
+  const individualPrivileges = String.raw`(?:select|insert|update|delete|truncate|references|trigger)(?:\s*,\s*(?:select|insert|update|delete|truncate|references|trigger))*`;
+  const privileges = String.raw`(?:all(?:\s+privileges)?|${individualPrivileges})`;
+  const relations = String.raw`${identifier}(?:\s*,\s*${identifier})*`;
+  const grant = new RegExp(
+    String.raw`^grant\s+${privileges}\s+on\s+(?:table\s+)?${relations}\s+to\s+${role}(?:\s*,\s*${role})*(?:\s+with\s+grant\s+option)?$`,
+    'i'
+  );
+  const revoke = new RegExp(
+    String.raw`^revoke\s+${privileges}\s+on\s+(?:table\s+)?${relations}\s+from\s+${role}(?:\s*,\s*${role})*(?:\s+cascade|\s+restrict)?$`,
+    'i'
+  );
+  return grant.test(statement) || revoke.test(statement);
+}
+function isSupportedAclSequence(statements) {
+  const wrappedInTransaction = statements[0] === 'begin' && statements.at(-1) === 'commit';
+  const aclStatements = wrappedInTransaction ? statements.slice(1, -1) : statements;
+  return aclStatements.length > 0 && aclStatements.every(isSupportedTableAclStatement);
 }
 function classifyMigration(source) {
   const normalized = normalizeMigrationSql(source).toLowerCase();
@@ -772,6 +1112,7 @@ function classifyMigration(source) {
     .filter(Boolean);
   const unsupportedPatterns = [
     /\bdo\s*\$\$/,
+    /(?:^|[^a-z0-9_$\u0080-\uffff])\$(?:[a-z_\u0080-\uffff][a-z0-9_\u0080-\uffff]*)?\$/,
     /\bcreate\s+(?:or\s+replace\s+)?function\b/,
     /\bcreate\s+(?:or\s+replace\s+)?procedure\b/,
     /\bcreate\s+(?:or\s+replace\s+)?trigger\b/,
@@ -792,6 +1133,7 @@ function classifyMigration(source) {
     .map((pattern) => pattern.source);
   const hasQuotedIdentifier = /["`]/.test(normalized);
   const hasMalformedLiteral = normalized.includes("'");
+  const hasMalformedComment = normalized.includes('\u0002');
   const hasDynamicSql = /\b(?:execute|format)\b/.test(normalized);
   const supportedStatementPrefixes = [
     'alter table',
@@ -809,42 +1151,63 @@ function classifyMigration(source) {
     'truncate table',
     'update',
   ];
-  const hasUnclassifiedStatement = statementTexts.some(
-    (statement) => !supportedStatementPrefixes.some((prefix) => statement.startsWith(prefix))
+  const onlySupportedAcl = isSupportedAclSequence(statementTexts);
+  const hasUnclassifiedStatement = statementTexts.some((statement) =>
+    isUnsupportedMigrationStatement(statement, supportedStatementPrefixes, onlySupportedAcl)
   );
+  const nonAclStatements = statementTexts.filter(
+    (statement) => !/^(?:grant|revoke)\b/.test(statement)
+  );
+  const nonAclSql = nonAclStatements.join(';');
   const incomplete = [
     unsupported_constructs.length > 0,
     hasQuotedIdentifier,
     hasMalformedLiteral,
+    hasMalformedComment,
     hasDynamicSql,
     hasUnclassifiedStatement,
-    statementTexts.length > 1,
+    statementTexts.length > 1 && !onlySupportedAcl,
   ].some(Boolean);
-  const classification = getMigrationClassification(normalized, {
+  const classification = getMigrationClassification(normalized, nonAclSql, {
     unsupported_constructs,
     hasQuotedIdentifier,
     hasMalformedLiteral,
+    hasMalformedComment,
     hasDynamicSql,
     hasUnclassifiedStatement,
     statementCount: statementTexts.length,
   });
   return formatMigrationClassification(classification, incomplete);
 }
-function getMigrationClassification(normalized, details) {
+function isUnsupportedMigrationStatement(statement, supportedPrefixes, onlySupportedAcl) {
+  if (/^(?:grant|revoke)\b/.test(statement)) return !isSupportedTableAclStatement(statement);
+  const hasSupportedPrefix = supportedPrefixes.some((prefix) => statement.startsWith(prefix));
+  const isTransactionBoundary = /^(?:begin|commit)$/.test(statement);
+  return !hasSupportedPrefix && !(onlySupportedAcl && isTransactionBoundary);
+}
+function getMigrationClassification(normalized, nonAclSql, details) {
+  const statements = normalized
+    .split(';')
+    .map((statement) => statement.trim())
+    .filter(Boolean);
   return {
-    contains_ddl: /\b(alter|create|drop|truncate|rename)\b/.test(normalized),
-    contains_data_change: /\b(insert|update|delete|merge)\b/.test(normalized),
-    contains_index_build: /\bcreate\s+(?:unique\s+)?index\b/.test(normalized),
-    contains_concurrent_index: /\bcreate\s+(?:unique\s+)?index\s+concurrently\b/.test(normalized),
+    contains_ddl: /\b(alter|create|drop|truncate|rename)\b/.test(nonAclSql),
+    contains_data_change: statements.some(
+      (statement) =>
+        !/^(?:grant|revoke)\b/.test(statement) && /\b(insert|update|delete|merge)\b/.test(statement)
+    ),
+    contains_index_build: /\bcreate\s+(?:unique\s+)?index\b/.test(nonAclSql),
+    contains_concurrent_index: /\bcreate\s+(?:unique\s+)?index\s+concurrently\b/.test(nonAclSql),
     contains_table_rewrite_risk:
       /\balter\s+table\b[\s\S]*\b(add\s+column|alter\s+column|set\s+data|type|rewrite)\b/.test(
-        normalized
+        nonAclSql
       ),
-    contains_transaction_control: /\b(begin|commit|rollback)\b/.test(normalized),
-    contains_timeout: /\bstatement_timeout\b/.test(normalized),
+    contains_transaction_control: /\b(begin|commit|rollback)\b/.test(nonAclSql),
+    contains_timeout: /\bstatement_timeout\b/.test(nonAclSql),
     unsupported_constructs: details.unsupported_constructs,
     has_quoted_identifier: details.hasQuotedIdentifier,
     has_malformed_literal: details.hasMalformedLiteral,
+    has_malformed_comment: details.hasMalformedComment,
     has_dynamic_sql: details.hasDynamicSql,
     has_unclassified_statement: details.hasUnclassifiedStatement,
     statement_count: details.statementCount,

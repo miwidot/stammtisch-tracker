@@ -514,6 +514,9 @@
     "not_available_description": "Интерактивная карта для {mapName} пока недоступна. Мы ждём появления совместимой карты.",
     "placeholder": "этой локации",
     "floors": "Этажи",
+    "extract_names": {
+      "scav_underboat_hideout": "Hideout Under the Landing Stage"
+    },
     "factions": {
       "pmc": "ЧВК"
     },
@@ -568,7 +571,8 @@
       "go_to_in_task_list": "Перейти к цели в списке заданий",
       "complete": "Завершить цель",
       "uncomplete": "Отменить завершение цели",
-      "objective_unavailable": "Цель недоступна."
+      "objective_unavailable": "Цель недоступна.",
+      "stacked_objectives": "{count} objectives here"
     }
   },
   "page": {
@@ -992,7 +996,25 @@
         "map_complete_tasks_toggle_show": "Показать скрытые",
         "map_complete_tasks_toggle_hide": "Скрыть выполненные",
         "map_hidden_hint": "Карта скрыта — нажмите, чтобы показать",
-        "raid_time_tooltip": "Время рейда в игре"
+        "raid_time_tooltip": "Время рейда в игре",
+        "raid_plan": {
+          "title": "Задания на карте",
+          "summary_all": "Показаны все {total}",
+          "summary_hidden": "{hidden} из {total} скрыты",
+          "choose_quests": "Выберите задания",
+          "show_all": "Показать всё",
+          "popover_description": "Снимите отметку с заданий, которые вы не выполняете в рейде, чтобы удалить их с карты. «Только для вас» скрывает все остальное.",
+          "only": "Только",
+          "show_only_named": "Показать только {name} на карте",
+          "show_only_quest": "Показать только этот квест на карте",
+          "hide_quest": "Скрыть от карты",
+          "show_quest": "Показать на карте",
+          "all_hidden_hint": "Каждый квест на этой карте скрыт. Используйте Показать все, чтобы вернуть его.",
+          "hidden_section_title": "Скрыто с карты ({count})",
+          "hidden_section_description": "По-прежнему отслеживалось, просто не нарисовать на карте.",
+          "hidden_section_expand": "Показать скрытые квесты",
+          "hidden_section_collapse": "Свернуть скрытые квесты"
+        }
       },
       "pinned_tasks_section": "Закреплённые задания",
       "focused_task_section": "Выбранное задание",
@@ -1024,6 +1046,7 @@
         "of": "из",
         "mark_failed": "Отметить как проваленное",
         "available_button": "Отметить Доступным",
+        "clear_availability_confirmation": "Подтвердите очистку в игре",
         "uncomplete_button": "Отметить Незавершённым",
         "reset_item_counts": "Сбросить счётчики предметов",
         "collapse_task": "Свернуть задачу",
@@ -1109,6 +1132,11 @@
         "faction": "Доступно для {faction} символов.",
         "trader_unlock": "Разблокируйте {trader} , закончив {task}.",
         "prestige": "Requires Prestige {required} (current: {current}).",
+        "global_variable": "Значение прогресса сервера {comparison} {required} требуется (текущее значение: {current}).",
+        "global_variable_unknown": "Требуется прогресс сервера {comparison} {required}. Ваше текущее значение недоступно для трекера. Используйте отметку, только если это задание доступно в игре; никакие счетчики не будут помечены как завершенные.",
+        "task_counter": "Требуется {comparison} {required} завершенных задач из этого уровня лояльности трейдеров (завершено: {current}). Если эта задача уже доступна в игре, используйте метку.",
+        "dialogue": "Требуется внутриигровой разговор. Используйте отметку только после подтверждения этой задачи в игре.",
+        "story_objective": "Завершите цель истории \"{objective}\" ({chapter}).",
         "unknown": "Данные запроса недоступны или не поддерживаются. Доступность не может быть подтверждена.",
         "cycle": "Необходимая цепочка содержит цикл. Доступность не может быть подтверждена.",
         "complete": "Задача выполнена.",
@@ -1738,6 +1766,8 @@
     "analytics_preferences": "Настройки аналитики",
     "game_attribution": "Escape from Tarkov и связанный игровой контент и материалы являются товарными знаками и защищены авторским правом Battlestate Games Limited и ее лицензиаров. Все права защищены. TarkovTracker является неофициальным фанатским проектом и не связан с Battlestate Games и не одобрен ею.",
     "tagline": "Отслеживайте свои побеги от заданий Таркова, улучшений в укрытии и требований к предметам в одном месте.",
+    "version_release_link": "Просмотреть заметки о выпуске {version} на GitHub",
+    "build_commit_link": "Просмотреть сборку коммитов {commit} на GitHub",
     "sections": {
       "explore": "Исследовать",
       "project": "Проект",

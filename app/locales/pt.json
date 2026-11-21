@@ -514,6 +514,9 @@
     "not_available_description": "The interactive map for {mapName} is not yet available. We are waiting for a compatible map to be created.",
     "placeholder": "this location",
     "floors": "Floors",
+    "extract_names": {
+      "scav_underboat_hideout": "Hideout Under the Landing Stage"
+    },
     "factions": {
       "pmc": "PMC"
     },
@@ -568,7 +571,8 @@
       "go_to_in_task_list": "Go to objective in task list",
       "complete": "Complete objective",
       "uncomplete": "Uncomplete objective",
-      "objective_unavailable": "Objective unavailable."
+      "objective_unavailable": "Objective unavailable.",
+      "stacked_objectives": "{count} objetivos aqui"
     }
   },
   "page": {
@@ -992,7 +996,25 @@
         "map_complete_tasks_toggle_show": "Show hidden",
         "map_complete_tasks_toggle_hide": "Hide map-complete",
         "map_hidden_hint": "Mapa oculto - clique para mostrar",
-        "raid_time_tooltip": "Tempo atual de incursão no jogo"
+        "raid_time_tooltip": "Tempo atual de incursão no jogo",
+        "raid_plan": {
+          "title": "Missões no mapa",
+          "summary_all": "Mostrando todos {total}",
+          "summary_hidden": "{hidden} de {total} ocultos",
+          "choose_quests": "Escolher missões",
+          "show_all": "Mostrar todos",
+          "popover_description": "Não marque as missões que você não está executando esse Reide para removê-las do mapa. \"Apenas\" esconde todo o resto.",
+          "only": "Apenas",
+          "show_only_named": "Mostrar apenas {name} no mapa",
+          "show_only_quest": "Mostrar apenas essa missão no mapa",
+          "hide_quest": "Ocultar do mapa",
+          "show_quest": "Exibir no mapa",
+          "all_hidden_hint": "Cada missão nesse mapa está oculta. Use Mostrar tudo para trazê-los de volta.",
+          "hidden_section_title": "Oculto do mapa ({count})",
+          "hidden_section_description": "Ainda monitorado, simplesmente não desenhado no mapa.",
+          "hidden_section_expand": "Mostrar missões ocultas",
+          "hidden_section_collapse": "Recolher missões ocultas"
+        }
       },
       "pinned_tasks_section": "Pinned Tasks",
       "focused_task_section": "Focused Task",
@@ -1024,6 +1046,7 @@
         "of": "of",
         "mark_failed": "Mark Failed",
         "available_button": "Mark Available",
+        "clear_availability_confirmation": "Confirmação da disponibilidade no jogo",
         "uncomplete_button": "Mark Uncompleted",
         "reset_item_counts": "Reset item counts",
         "collapse_task": "Recolher tarefa",
@@ -1109,6 +1132,11 @@
         "faction": "Disponível a {faction} caracteres.",
         "trader_unlock": "Desbloqueie {trader} completando {task}.",
         "prestige": "Requer Prestígio {required} (atual: {current}).",
+        "global_variable": "Valor da progressão do servidor {comparison} {required} necessário (atual: {current}).",
+        "global_variable_unknown": "Requer progressão do servidor {comparison} {required}. Seu valor atual não está disponível para o rastreador. Usar Notas disponíveis apenas se esta tarefa estiver disponível no jogo; nenhuma tarefa contadora será marcada como completa.",
+        "task_counter": "Requer tarefas {comparison} {required} concluídas deste nível de fidelidade do trader (completado: {current}). Se esta tarefa já estiver disponível no jogo, use Marca disponível.",
+        "dialogue": "Requer uma conversa de negociante dentro do jogo. Use Marca disponível apenas após confirmar que esta tarefa está disponível no jogo.",
+        "story_objective": "Complete o objetivo da história \"{objective}\" ({chapter}).",
         "unknown": "Os dados do requisito não estão disponíveis ou não são suportados. Disponibilidade não pode ser confirmada.",
         "cycle": "A cadeia de pré-requisitos contém um ciclo. A disponibilidade não pode ser confirmada.",
         "complete": "Esta tarefa foi concluída.",
@@ -1738,6 +1766,8 @@
     "analytics_preferences": "Analytics Preferences",
     "game_attribution": "Escape from Tarkov and related game content and materials are trademarks and copyrighted works of Battlestate Games Limited and its licensors. All rights reserved. TarkovTracker is an unofficial fan project and is not affiliated with or endorsed by Battlestate Games.",
     "tagline": "Acompanhe sua fuga de missões Tarkov, esconda atualizações e requisitos de itens em um só lugar.",
+    "version_release_link": "Visualizar as notas de lançamento para a versão {version} no GitHub",
+    "build_commit_link": "Exibir o commit da compilação {commit} no GitHub",
     "sections": {
       "explore": "EXPLORAR",
       "project": "Projecto",

@@ -514,6 +514,9 @@
     "not_available_description": "Die interaktive Karte für {mapName} ist noch nicht verfügbar. Wir warten auf eine kompatible Karte.",
     "placeholder": "diesen Ort",
     "floors": "Stockwerke",
+    "extract_names": {
+      "scav_underboat_hideout": "Hideout Under the Landing Stage"
+    },
     "factions": {
       "pmc": "PMC"
     },
@@ -568,7 +571,8 @@
       "go_to_in_task_list": "Zum Ziel in der Aufgabenliste gehen",
       "complete": "Ziel abschließen",
       "uncomplete": "Ziel nicht abschließen",
-      "objective_unavailable": "Ziel nicht verfügbar."
+      "objective_unavailable": "Ziel nicht verfügbar.",
+      "stacked_objectives": "{count} Ziele hier"
     }
   },
   "page": {
@@ -992,7 +996,25 @@
         "map_complete_tasks_toggle_show": "Ausgeblendete anzeigen",
         "map_complete_tasks_toggle_hide": "Kartenziel-erledigte ausblenden",
         "map_hidden_hint": "Karte versteckt — klicke zum Anzeigen",
-        "raid_time_tooltip": "Aktuelle Schlachtzugszeit im Spiel"
+        "raid_time_tooltip": "Aktuelle Schlachtzugszeit im Spiel",
+        "raid_plan": {
+          "title": "Quests auf Karte",
+          "summary_all": "Zeige alle {total}",
+          "summary_hidden": "{hidden} von {total} versteckt",
+          "choose_quests": "Quests auswählen",
+          "show_all": "Alle anzeigen",
+          "popover_description": "Trenne Quests, die du diesen Schlachtzug nicht ausführst, um ihn von der Karte zu entfernen. \"Nur das\" versteckt alles andere.",
+          "only": "Nur",
+          "show_only_named": "Nur {name} auf der Karte anzeigen",
+          "show_only_quest": "Nur diese Quest auf der Karte anzeigen",
+          "hide_quest": "Auf Karte ausblenden",
+          "show_quest": "Auf Karte anzeigen",
+          "all_hidden_hint": "Jede Quest auf dieser Karte ist ausgeblendet. Benutze \"Alle anzeigen\" um sie wieder zu bringen.",
+          "hidden_section_title": "Versteckt auf der Karte ({count})",
+          "hidden_section_description": "Noch verfolgt, einfach nicht auf der Karte gezeichnet.",
+          "hidden_section_expand": "Versteckte Quests anzeigen",
+          "hidden_section_collapse": "Versteckte Quests einklappen"
+        }
       },
       "pinned_tasks_section": "Angeheftete Aufgaben",
       "focused_task_section": "Fokussierte Aufgabe",
@@ -1024,6 +1046,7 @@
         "of": "von",
         "mark_failed": "Als fehlgeschlagen markieren",
         "available_button": "Als verfügbar markieren",
+        "clear_availability_confirmation": "Lösche In-Game-Verfügbarkeitsbestätigung",
         "uncomplete_button": "Als unvollständig markieren",
         "reset_item_counts": "Gegenstandszähler zurücksetzen",
         "collapse_task": "Aufgabe einklappen",
@@ -1109,6 +1132,11 @@
         "faction": "Verfügbar für {faction} Zeichen.",
         "trader_unlock": "Schalte {trader} frei, indem du {task} abschließt.",
         "prestige": "Benötigt Prestige {required} (aktuell: {current}).",
+        "global_variable": "Serverfortschritt {comparison} {required} erforderlich (aktuell: {current}).",
+        "global_variable_unknown": "Benötigt Serverfortschritt {comparison} {required}. Ihr aktueller Wert ist nicht verfügbar für den Tracker. Nur verfügbare Markierung verwenden, wenn diese Aufgabe im Spiel verfügbar ist; keine Zähler Aufgaben werden als abgeschlossen markiert.",
+        "task_counter": "Benötigt {comparison} {required} erledigte Aufgaben von dieser Händlertreue (erledigt: {current}). Wenn diese Aufgabe bereits im Spiel verfügbar ist, verwenden Sie Mark verfügbar.",
+        "dialogue": "Benötigt eine In-Game-Trader-Unterhaltung. Benutze Markierung nur nach Bestätigung dieser Aufgabe im Spiel.",
+        "story_objective": "Schließe das Ziel \"{objective}\" ab ({chapter}).",
         "unknown": "Anforderungsdaten sind nicht verfügbar oder werden nicht unterstützt. Verfügbarkeit kann nicht bestätigt werden.",
         "cycle": "Die vorausgesetzte Kette enthält einen Zyklus. Die Verfügbarkeit kann nicht bestätigt werden.",
         "complete": "Diese Aufgabe ist abgeschlossen.",
@@ -1738,6 +1766,8 @@
     "analytics_preferences": "Analyse-Einstellungen",
     "game_attribution": "Escape from Tarkov und zugehörige Spielinhalte und Materialien sind Marken und urheberrechtlich geschützte Werke von Battlestate Games Limited und seinen Lizenzgebern. Alle Rechte vorbehalten. TarkovTracker ist ein inoffizielles Fan-Projekt und ist nicht mit Battlestate Games verbunden oder von diesem unterstützt.",
     "tagline": "Verfolge deine Flucht von Tarkov-Quests, verstecke Upgrades und Items Anforderungen an einem Ort.",
+    "version_release_link": "Die Versionshinweise für Version {version} auf GitHub ansehen",
+    "build_commit_link": "Build-Commit- {commit} auf GitHub ansehen",
     "sections": {
       "explore": "Erforschen",
       "project": "Projekt",

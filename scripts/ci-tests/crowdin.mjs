@@ -115,10 +115,10 @@ test('server-side head guard rejects a race after the last metadata read', (t) =
   passed(f.run('prepare'));
   rejected(f.run('merge', { ACTUAL_HEAD: 'b'.repeat(40) }), /Head changed at merge/);
 });
-test('merge rejects every non-CLEAN state and conflicting or malformed mergeability', (t) => {
+test('merge rejects conflicting or ineligible merge states', (t) => {
   const f = fixture(t);
   passed(f.run('prepare'));
-  for (const mergeStateStatus of ['DIRTY', 'BEHIND', 'UNSTABLE', 'DRAFT', 'HAS_HOOKS', null]) {
+  for (const mergeStateStatus of ['DIRTY', 'BEHIND', 'DRAFT', 'HAS_HOOKS', null]) {
     rejected(
       f.run('merge', { PR_STATES: JSON.stringify([{ ...f.pr, mergeStateStatus }]) }),
       /ineligible/
@@ -128,6 +128,37 @@ test('merge rejects every non-CLEAN state and conflicting or malformed mergeabil
     rejected(f.run('merge', { PR_STATES: JSON.stringify([{ ...f.pr, mergeable }]) }), /ineligible/);
   }
   assert.ok(!f.calls().some((args) => args[1] === 'merge'));
+});
+test('MERGEABLE/UNSTABLE revalidates exact required gates and still uses GitHub server enforcement', (t) => {
+  const f = fixture(t);
+  passed(f.run('prepare'));
+  const unstable = { ...f.pr, mergeStateStatus: 'UNSTABLE' };
+  passed(
+    f.run('merge', {
+      PR_STATES: JSON.stringify([unstable, unstable, unstable]),
+    })
+  );
+  const merge = f.calls().find((args) => args[0] === 'pr' && args[1] === 'merge');
+  assert.ok(merge.includes('--match-head-commit'));
+  assert.ok(merge.includes(f.head));
+  assert.ok(!merge.includes('--admin'));
+  assert.equal(f.events().filter((event) => event.type === 'ci-result').length, 2);
+  assert.equal(f.events().filter((event) => event.type === 'preview-result').length, 4);
+  const serverRejected = fixture(t);
+  passed(serverRejected.run('prepare'));
+  const unstableServerRejected = { ...serverRejected.pr, mergeStateStatus: 'UNSTABLE' };
+  rejected(
+    serverRejected.run('merge', {
+      PR_STATES: JSON.stringify([
+        unstableServerRejected,
+        unstableServerRejected,
+        unstableServerRejected,
+      ]),
+      MERGE_FAIL: 'true',
+    }),
+    /Server-side branch rules rejected merge/
+  );
+  assert.ok(serverRejected.calls().some((args) => args[0] === 'pr' && args[1] === 'merge'));
 });
 test('unknown or temporarily blocked mergeability retries until clean, then times out', (t) => {
   const f = fixture(t);
@@ -204,7 +235,11 @@ function assertWorkflowBoundaries(workflow) {
 test('workflow separates trusted gate, immutable setup, token-free checks and job-token merge', () => {
   assertWorkflowBoundaries(read('.github/workflows/crowdin.yml'));
   assert.match(read('.github/workflows/ci.yml'), /push:\n {4}branches: \[main\]/);
-  assert.match(read('.github/workflows/release.yml'), /workflow_run.event == 'push'/);
+  // Crowdin merges dispatch CI on main; the release gate must accept that dispatched evidence.
+  assert.match(
+    read('scripts/release-gate.mjs'),
+    /\['push', 'workflow_dispatch'\]\.includes\(run\?\.event\)/
+  );
 });
 test('unrelated steps and jobs cannot satisfy the real merge-step contract', () => {
   const workflow = read('.github/workflows/crowdin.yml');
@@ -284,9 +319,10 @@ test('Crowdin also waits for the authoritative Preview Result and rejects a fail
   const preview = events.findIndex((event) => event.type === 'preview-result');
   assert.ok(ci !== -1 && request > ci && preview > request);
   assert.deepEqual(events[request], { type: 'preview-dispatch', runId: 'run_id=1', ref: 'main' });
-  assert.equal(events[preview].sha, f.head);
+  // Preview Result is read on the validated head, never on the regenerable test merge.
+  assert.equal(events[preview].sha, f.env.HEAD_SHA);
 });
-test('main policy configuration enforces GitHub Actions CI and freshness without exceptions', () => {
+test('main policy configuration enforces GitHub Actions CI, preview and freshness without exceptions', () => {
   const policy = JSON.parse(read('.github/main-ci-ruleset.json'));
   assert.equal(policy.enforcement, 'active');
   assert.equal(policy.target, 'branch');
@@ -297,7 +333,10 @@ test('main policy configuration enforces GitHub Actions CI and freshness without
       type: 'required_status_checks',
       parameters: {
         strict_required_status_checks_policy: true,
-        required_status_checks: [{ context: 'CI Result', integration_id: 15368 }],
+        required_status_checks: [
+          { context: 'CI Result', integration_id: 15368 },
+          { context: 'Preview Result', integration_id: 15368 },
+        ],
       },
     },
   ]);
@@ -308,7 +347,7 @@ test('a candidate must contain main even when its full tree only differs in tran
   rejected(f.run('prepare'), /must include current main/);
   assert.equal(f.output(), '');
 });
-test('policy checks reject loose freshness, another provider and another required context', (t) => {
+test('policy checks reject loose freshness, missing preview and foreign providers', (t) => {
   const f = fixture(t);
   passed(f.run('prepare'));
   const policy = JSON.parse(read('.github/main-ci-ruleset.json'));
@@ -317,6 +356,17 @@ test('policy checks reject loose freshness, another provider and another require
     {
       strict_required_status_checks_policy: true,
       required_status_checks: [{ context: 'CI Result', integration_id: 999 }],
+    },
+    {
+      strict_required_status_checks_policy: true,
+      required_status_checks: [{ context: 'CI Result', integration_id: 15368 }],
+    },
+    {
+      strict_required_status_checks_policy: true,
+      required_status_checks: [
+        { context: 'CI Result', integration_id: 15368 },
+        { context: 'Preview Result', integration_id: 999 },
+      ],
     },
     {
       strict_required_status_checks_policy: true,

@@ -1,6 +1,6 @@
 # TarkovTracker — Code Review Policy
 
-Repo-specific review policy loaded by the `production-readiness-review` skill.
+Repo-specific review policy loaded by the `review-production` skill.
 Its validation commands and risk areas override the skill's defaults.
 
 ## Table of Contents
@@ -55,7 +55,9 @@ Hard rules the reviewer must verify for every diff:
 
 ### Cloudflare Workers / Durable Objects
 
-- **Where:** `workers/api-gateway/src/rateLimiter.ts` (rate limiter DO), `workers/tarkov-precompute/`
+- **Where:** `workers/api-gateway/` (`src/rateLimiter.ts` rate-limiter DO) — it is the only
+  Cloudflare Worker in this repo; precompute runs from the scheduled Actions workflow
+  (`scripts/precompute/`), not from a Worker.
 - **Check:** DO alarm lifecycle — no orphaned alarms, no double-fire without
   idempotency, no alarm leaks on cleanup. Verify that lazy expiration does not leave stale
   rate-limit state. DO storage transactions are single-writer; no
@@ -101,7 +103,7 @@ Hard rules the reviewer must verify for every diff:
 
 ### Environment Variables
 
-- **Where:** `nuxt.config.ts`, `docs/ARCHITECTURE.md` env var map
+- **Where:** `nuxt.config.ts`, `docs/architecture.md` env var map
 - **Check:** One canonical env var name per concept. `NUXT_PUBLIC_*` for
   browser-exposed, `NUXT_*` for server-only. Platform-native names for Supabase
   Edge Functions (`SUPABASE_*`, `STRIPE_*`, `DISCORD_*`). No legacy aliases or
@@ -135,8 +137,8 @@ Hard rules the reviewer must verify for every diff:
 
 ## Deployment And Rollback
 
-- **Platform:** Cloudflare Pages (frontend), Cloudflare Workers (api-gateway,
-  precompute), Supabase (database, auth, realtime, edge functions).
+- **Platform:** Cloudflare Pages (frontend), Cloudflare Workers (api-gateway),
+  Supabase (database, auth, realtime, edge functions).
 - **Frontend rollback:** Pages deployments can be rolled back via the Cloudflare
   dashboard (Pages project → Deployments → target production deployment →
   Rollback to this deployment). Wrangler does not provide a CLI rollback for
@@ -152,7 +154,7 @@ Hard rules the reviewer must verify for every diff:
   code reads new schema without error).
 - **Env vars:** New env vars must be set in Cloudflare/Supabase before the code
   that uses them deploys. Note any new env vars in the PR description and verify
-  they are documented in `docs/ARCHITECTURE.md`.
+  they are documented in `docs/architecture.md`.
 - **Precompute ordering:** If a precompute payload schema changes, the
   precompute workflow must run and populate KV before the handler change deploys.
   Otherwise handlers must tolerate both old and new payload shapes.
