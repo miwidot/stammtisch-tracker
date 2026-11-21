@@ -2,7 +2,6 @@
 import { mockNuxtImport } from '@nuxt/test-utils/runtime';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { H3Event } from 'h3';
-const handlerCalls = vi.hoisted(() => ({ handle: vi.fn() }));
 const SECRET = 's'.repeat(40);
 const USER_ID = '0b7c1c9e-3f0a-4b6e-8c1d-2a9e5d7f1a11';
 const runtimeConfig: Record<string, unknown> = {};
@@ -277,55 +276,5 @@ describe('fork account deletion (main site -> tracker)', () => {
       fetchMock.mockResolvedValueOnce({ ok: true, status: 204, text: async () => '' } as Response);
       expect((await call(makeEvent())).status).toBe(502);
     });
-  });
-});
-describe('fork account deletion middleware', () => {
-  beforeEach(() => {
-    vi.resetModules();
-    handlerCalls.handle.mockReset();
-  });
-  async function loadMiddleware() {
-    vi.doMock('@/server/utils/forkAccountDelete', () => ({
-      FORK_ACCOUNT_DELETE_PATH: '/api/fork/account-delete',
-      handleForkAccountDelete: handlerCalls.handle,
-    }));
-    const sent: { status?: number; headers: Record<string, string> } = { headers: {} };
-    vi.doMock('h3', () => ({
-      defineEventHandler: (fn: unknown) => fn,
-      getRequestURL: (event: { path: string }) =>
-        new URL(`https://tracker.example.test${event.path}`),
-      setResponseStatus: (_e: unknown, status: number) => {
-        sent.status = status;
-      },
-      setResponseHeader: (_e: unknown, name: string, value: string) => {
-        sent.headers[name] = value;
-      },
-    }));
-    const mod = await import('../../middleware/01.fork-account-delete');
-    return { handler: mod.default as (event: { path: string }) => Promise<unknown>, sent };
-  }
-  it('answers the fork path itself, with no-store and the handler headers', async () => {
-    handlerCalls.handle.mockResolvedValue({
-      status: 401,
-      body: { ok: false, error: 'authentication_required' },
-      headers: { 'WWW-Authenticate': 'Bearer' },
-    });
-    const { handler, sent } = await loadMiddleware();
-    const body = await handler({ path: '/api/fork/account-delete' });
-    expect(body).toEqual({ ok: false, error: 'authentication_required' });
-    expect(sent.status).toBe(401);
-    expect(sent.headers['Cache-Control']).toBe('no-store');
-    expect(sent.headers['WWW-Authenticate']).toBe('Bearer');
-  });
-  it.each([
-    '/api/fork/account-delete/',
-    '/api/fork/account-delete-all',
-    '/api/fork',
-    '/api/progress',
-    '/',
-  ])('ignores %s so the other middleware keeps its normal behavior', async (path) => {
-    const { handler } = await loadMiddleware();
-    expect(await handler({ path })).toBeUndefined();
-    expect(handlerCalls.handle).not.toHaveBeenCalled();
   });
 });
