@@ -16,6 +16,7 @@
  * footer.sections.project
  * footer.tagline
  * footer.version_release_link
+ * navigation_drawer.resources
  * page.login.continue_discord
  * page.login.continue_github
  * page.login.continue_google

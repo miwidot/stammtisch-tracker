@@ -4,6 +4,9 @@ import { ensureSupabaseReadyForRoute, handleSupabaseReadinessFailure } from '@/u
 // attribution and must be readable before signing in.
 const PUBLIC_ROUTE_PATHS = new Set(['/login', '/auth/callback', '/herkunft', '/credits', '/about']);
 export default defineNuxtRouteMiddleware(async (to) => {
+  // Public SEO routes are server-rendered at build time, where no Supabase client exists. The
+  // sign-in check belongs to the browser; Supabase row-level security guards the data itself.
+  if (import.meta.server) return;
   if (PUBLIC_ROUTE_PATHS.has(to.path)) return;
   const { $supabase } = useNuxtApp();
   // The guard answers 'ready' | 'callback_pending' | 'failed'. Every non-ready answer is a truthy

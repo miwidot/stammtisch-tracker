@@ -54,6 +54,12 @@ const PUBLIC_APP_URL = resolvePublicAppUrl(process.env);
 // Meta/SEO surfaces (og:url, JSON-LD, sitemap site.url) must never leak a localhost/dev URL;
 // fall back to the canonical production URL the same way the runtime canonical-link builder does.
 const CANONICAL_SITE_URL = resolveCanonicalSiteUrl(PUBLIC_APP_URL);
+// Fork: the supporter sales page does not exist here (no-supporter-sales.global.ts answers 404), so
+// it must not be prerendered, or the build fails on that 404, nor appear in the sitemap.
+const FORK_REMOVED_PUBLIC_ROUTES = new Set(['/supporter']);
+const FORK_PUBLIC_SEO_ROUTES = PUBLIC_SEO_ROUTES.filter(
+  (route) => !FORK_REMOVED_PUBLIC_ROUTES.has(route)
+);
 const IS_PRODUCTION_BUILD = process.env.NODE_ENV === 'production';
 const GOOGLE_ANALYTICS_MEASUREMENT_ID = process.env.GA_MEASUREMENT_ID || '';
 const MICROSOFT_CLARITY_PROJECT_ID = process.env.CLARITY_PROJECT_ID || '';
@@ -268,7 +274,7 @@ export default defineNuxtConfig({
       },
     },
     prerender: {
-      routes: [...PUBLIC_SEO_ROUTES, ...CLIENT_DOCUMENT_ROUTES, '/200.html', '/404.html'],
+      routes: [...FORK_PUBLIC_SEO_ROUTES, ...CLIENT_DOCUMENT_ROUTES, '/200.html', '/404.html'],
       crawlLinks: false,
       autoSubfolderIndex: false,
       failOnError: true,
@@ -285,7 +291,7 @@ export default defineNuxtConfig({
     // Most application routes stay client-rendered; public documents opt into SSR.
     '/**': { ...cspRouteRules['/**'], ssr: false },
     ...Object.fromEntries(
-      PUBLIC_SEO_ROUTES.map((route) => [route, { ssr: true, prerender: true }])
+      FORK_PUBLIC_SEO_ROUTES.map((route) => [route, { ssr: true, prerender: true }])
     ),
     ...Object.fromEntries(
       CLIENT_DOCUMENT_ROUTES.map((route) => [route, { ssr: false, prerender: true }])
@@ -459,7 +465,7 @@ export default defineNuxtConfig({
     excludeAppSources: true,
     autoLastmod: false,
     discoverImages: false,
-    urls: PUBLIC_SEO_ROUTES,
+    urls: FORK_PUBLIC_SEO_ROUTES,
   },
   i18n: {
     bundle: {
