@@ -219,6 +219,24 @@ describe('fork account deletion (main site -> tracker)', () => {
       const headers = init.headers as Record<string, string>;
       expect(headers.Authorization).toBe('Bearer service-key');
     });
+    it('accepts the loopback http Supabase URL used on the box (no not_configured)', async () => {
+      runtimeConfig.supabaseUrl = 'http://127.0.0.1:8200';
+      fetchMock.mockResolvedValueOnce(rpcOk({ deleted: true }));
+      const result = await call(makeEvent());
+      expect(result).toEqual({ status: 200, body: { ok: true, deleted: true } });
+      const [url] = fetchMock.mock.calls[0] as [string];
+      expect(url).toBe('http://127.0.0.1:8200/rest/v1/rpc/fork_delete_account');
+    });
+    it.each([
+      'http://127.0.0.1.evil.com:8200',
+      'http://localhost.evil.com',
+      'http://user:pw@127.0.0.1:8200',
+      'http://0.0.0.0:8200',
+    ])('still fails closed with 503 for %s and never sends the service key', async (url) => {
+      runtimeConfig.supabaseUrl = url;
+      expect((await call(makeEvent())).status).toBe(503);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
     it('is an idempotent no-op for an unknown or already deleted user', async () => {
       fetchMock.mockResolvedValue(rpcOk({ deleted: false, reason: 'not_found' }));
       for (let attempt = 0; attempt < 2; attempt += 1) {

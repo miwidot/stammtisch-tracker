@@ -10,17 +10,38 @@ function isHttpError(error: unknown): error is { statusCode: number } {
     typeof (error as { statusCode?: unknown }).statusCode === 'number'
   );
 }
+const LOOPBACK_IPV4 = /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+/**
+ * True only for real loopback hosts. Takes `URL.hostname`, which the WHATWG parser has already
+ * canonicalized: `2130706433`, `0x7f000001` and `127.1` arrive as `127.0.0.1` (genuinely loopback,
+ * and `fetch` connects to that same parsed value), while look-alikes such as `127.0.0.1.evil.com`,
+ * `localhost.evil.com`, `0.0.0.0` and IPv4-mapped IPv6 stay non-loopback and are rejected.
+ */
+export function isLoopbackHostname(hostname: string): boolean {
+  return hostname === 'localhost' || hostname === '[::1]' || LOOPBACK_IPV4.test(hostname);
+}
 /**
  * Normalize a configured Supabase base URL into a safe prefix for REST paths.
  * Drops any query string or fragment and the trailing slash so appending
  * `/rest/v1/...` cannot land after a `?` or `#`. Returns `''` when the value is
- * missing, is not a parseable absolute URL, or does not use HTTPS so callers fail closed.
+ * missing, is not a parseable absolute URL, carries credentials, or does not use HTTPS so callers
+ * fail closed.
+ *
+ * Fork deviation (see FORK.md): plain `http:` is accepted for loopback hosts only, because our
+ * server talks to Supabase on the same box and skips Cloudflare. This is the single place that
+ * validates the URL; every server-side caller goes through it.
  */
 export function normalizeSupabaseUrl(value: unknown): string {
   if (typeof value !== 'string') return '';
   try {
     const url = new URL(value.trim());
-    if (url.protocol !== 'https:') return '';
+    if (url.username || url.password) return '';
+    if (
+      url.protocol !== 'https:' &&
+      !(url.protocol === 'http:' && isLoopbackHostname(url.hostname))
+    ) {
+      return '';
+    }
     url.search = '';
     url.hash = '';
     return url.toString().replace(/\/$/, '');
