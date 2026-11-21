@@ -46,7 +46,7 @@ Deno.test(
       ...new Set(SUPPORTED_LOCALES.map((locale) => LOCALE_TO_API_MAPPING[locale] ?? locale)),
     ];
     assertEquals(datasets.length, 10);
-    assertEquals(catalogLanguages.length, 13);
+    assertEquals(catalogLanguages.length, 2);
     const expected = origins.flatMap((origin) => [
       ...datasets.flatMap((dataset) =>
         modes.map((mode) => `${origin}/__neutral-catalog-v1/${dataset}/${mode}`)
@@ -59,7 +59,7 @@ Deno.test(
       new URL(url).pathname.startsWith('/__neutral-catalog-v1/')
     );
     assertEquals(neutral.sort(), expected.sort());
-    assertEquals(neutral.length, 92);
+    assertEquals(neutral.length, 70);
     assertEquals(new Set(urls).size, urls.length);
   }
 );

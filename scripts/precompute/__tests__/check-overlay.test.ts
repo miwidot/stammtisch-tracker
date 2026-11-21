@@ -141,10 +141,10 @@ function stubRelease(fleet: ReturnType<typeof release>, unavailableImport = fals
   vi.stubGlobal('fetch', fetcher);
   return fetcher;
 }
-it('certifies exactly 30 mode catalogs, 3 counts views, and 13 language bundles, preserving import failure evidence', async () => {
+it('certifies exactly 30 mode catalogs, 3 counts views, and 2 language bundles, preserving import failure evidence', async () => {
   const fetcher = stubRelease(release(), true);
   await import('../check-overlay');
-  expect(report.value?.rows).toHaveLength(46);
+  expect(report.value?.rows).toHaveLength(35);
   expect(report.value?.rows.every((row) => row.status === 'current')).toBe(true);
   expect(report.value?.imports.filter((row) => row.status === 'current')).toHaveLength(2);
   expect(report.value?.imports.filter((row) => row.status === 'unverified')).toHaveLength(1);
@@ -165,9 +165,9 @@ it('requires the exact scope set, fresh timestamp, overlay SHA, and content-addr
     'Published overlay differs from requested SHA'
   );
   const missing = structuredClone(good);
-  delete missing.entries['strings/tr'];
+  delete missing.entries['strings/de'];
   const unexpected = structuredClone(good);
-  unexpected.entries['strings/unknown'] = good.entries['strings/tr']!;
+  unexpected.entries['strings/unknown'] = good.entries['strings/de']!;
   const scopeMismatch = structuredClone(good);
   scopeMismatch.entries['items/pve'] = good.entries['items/regular']!;
   for (const bad of [
@@ -289,10 +289,10 @@ it('fails a complete catalog check when any response is corrupt', async () => {
 });
 it('keeps import evidence and fails certification for an incomplete manifest', async () => {
   const fleet = release();
-  delete fleet.manifest.entries['strings/tr'];
+  delete fleet.manifest.entries['strings/de'];
   stubRelease(fleet);
   await import('../check-overlay');
-  expect(report.value?.rows.filter((row) => row.status === 'unverified')).toHaveLength(46);
+  expect(report.value?.rows.filter((row) => row.status === 'unverified')).toHaveLength(35);
   expect(report.value?.imports.every((row) => row.status === 'current')).toBe(true);
   expect(process.exitCode).toBe(1);
 });

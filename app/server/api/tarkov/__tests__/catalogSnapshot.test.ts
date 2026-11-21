@@ -302,6 +302,18 @@ describe('catalog snapshot routes', () => {
     expect(response.status).toBe(200);
     expect(await response.text()).toBe(body);
   });
+  it.each(['fr', 'FR', 'uk', '', 'xx', '../en', '__proto__'])(
+    'serves the English bundle for unsupported strings language %j',
+    async (lang) => {
+      const { get, request, key } = serve('strings', 'strings/en');
+      const response = await request(
+        new Request('https://example.test/?lang=' + encodeURIComponent(lang))
+      );
+      expect(response.status).toBe(200);
+      expect(await response.text()).toBe(body);
+      expect(get.mock.calls.map(([k]) => k)).toEqual([CATALOG_MANIFEST_KEY, key]);
+    }
+  );
   it('selects one German table across game modes', async () => {
     const { request } = serve('strings', 'strings/de');
     for (const mode of ['pve', 'pvp-season', 'regular']) {

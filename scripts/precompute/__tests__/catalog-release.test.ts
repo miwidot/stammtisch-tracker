@@ -60,7 +60,7 @@ describe('neutral catalog publication', () => {
         CATALOG_DATASETS.map((dataset) => [dataset, mode])
       )
     );
-    expect(build.buildCatalogStrings).toHaveBeenCalledWith('tr', new Set([ref]));
+    expect(build.buildCatalogStrings).toHaveBeenCalledWith('de', new Set([ref]));
     expect(put.mock.calls.at(-1)).toEqual([
       CATALOG_MANIFEST_KEY,
       JSON.stringify(manifest),

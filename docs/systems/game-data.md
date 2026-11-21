@@ -12,13 +12,13 @@ catalogs by mode and resolves display strings from its selected language bundle.
 
 The mode slugs are `regular`, `pve`, and `pvp-season`, corresponding to internal
 `pvp`, `pve`, and `seasonal`. Invalid mode values default to `regular`. The strings
-route defaults an unrecognized locale to `en`. The 14 UI locales map to 13 API
-languages, with Ukrainian using the English game-data bundle. Both lists derive
-from `SUPPORTED_LOCALES` and `LOCALE_TO_API_MAPPING`.
+route defaults an unrecognized locale to `en`. The fork offers 2 UI locales (`de`, `en`),
+which map to 2 API languages. Both lists derive from `SUPPORTED_LOCALES` and
+`LOCALE_TO_API_MAPPING`.
 
 ### Supported languages
 
-`cs`, `de`, `en`, `es`, `fr`, `it`, `ja`, `ko`, `pl`, `pt`, `ru`, `tr`, `uk`, and `zh`.
+`de` and `en`.
 
 ### Endpoints
 

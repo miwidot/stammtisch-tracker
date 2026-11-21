@@ -673,27 +673,15 @@ referenced-key bundle per selectable API language. Upstream mode and endpoint
 scope are preserved for keys whose values differ. See
 [the fetching pipeline](systems/game-data.md#upstream-fetching-and-translation).
 
-| Code | Language   |
-| ---- | ---------- |
-| `cs` | Czech      |
-| `de` | German     |
-| `en` | English    |
-| `es` | Spanish    |
-| `fr` | French     |
-| `it` | Italian    |
-| `ja` | Japanese   |
-| `ko` | Korean     |
-| `pl` | Polish     |
-| `pt` | Portuguese |
-| `ru` | Russian    |
-| `tr` | Turkish    |
-| `zh` | Chinese    |
+| Code | Language |
+| ---- | -------- |
+| `de` | German   |
+| `en` | English  |
 
-The enabled UI locales are `cs`, `de`, `en`, `es`, `fr`, `it`, `ja`, `ko`, `pl`,
-`pt`, `ru`, `tr`, `uk`, and `zh`. Ukrainian uses the English game-data bundle through
-`LOCALE_TO_API_MAPPING`, while its interface remains Ukrainian. Expanding the UI
-language list updates the producer's required language scopes and requires a full
-precompute release before consumer promotion.
+The enabled UI locales are `de` and `en` (fork decision; upstream offers 14). Other
+`lang` values on the strings route fall back to `en`. Changing the UI language list
+updates the producer's required language scopes and requires a full precompute
+release before consumer promotion.
 
 ---
 

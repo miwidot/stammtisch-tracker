@@ -1,20 +1,8 @@
-export const SUPPORTED_LOCALES = [
-  'cs',
-  'de',
-  'en',
-  'es',
-  'fr',
-  'it',
-  'ja',
-  'ko',
-  'pl',
-  'pt',
-  'ru',
-  'tr',
-  'uk',
-  'zh',
-] as const;
-// Fork: German is the default; the supported list stays upstream's (catalog language bundles derive from it).
+// Fork: only German and English are offered. The list also drives the catalog language bundles
+// (app/utils/catalogDatasets.ts), the i18n module locales (nuxt.config.ts), the switcher and the
+// llms.txt locale line, so changing it changes the produced bundles and needs a catalog release.
+export const SUPPORTED_LOCALES = ['de', 'en'] as const;
+// Fork: German is the default; an unsupported browser or saved language resolves to it.
 const DEFAULT_LOCALE = 'de' as const;
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
 const isSupportedLocale = (value: string): value is SupportedLocale =>

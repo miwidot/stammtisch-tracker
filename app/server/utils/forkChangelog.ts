@@ -20,10 +20,12 @@ export const FORK_CHANGELOG_ENTRIES: readonly ForkChangelogEntry[] = [
       de: [
         'Die automatische Level-Berechnung gibt es nicht mehr, ebenso den XP-Abgleich in den Einstellungen. Dein gespeichertes Level bleibt erhalten, wird aber nicht mehr aus deiner Erfahrung berechnet. Wenn du die Automatik genutzt hast: Prüfe dein Level und stelle es bei Bedarf selbst ein, per Klick auf die Level-Zahl in der linken Leiste oder unter Einstellungen > Fortschritt.',
         'Die Hideout-Optionen „Bereit zum Bauen zuerst sortieren“ und „Fertige Stationen einklappen“ wurden entfernt, es gibt dafür keinen Ersatz. Wenn du sie eingeschaltet hattest, sind sie jetzt aus.',
+        'Dein Quest- und Hideout-Fortschritt bleibt vollständig erhalten.',
       ],
       en: [
         'Automatic level calculation is gone, and so is the XP adjustment in the settings. Your saved level is kept, but it is no longer worked out from your experience. If you used the automatic mode, please check your level and set it yourself if needed, by clicking the level number in the left sidebar or under Settings > Progression.',
         'The hideout options "Sort ready to build first" and "Collapse completed stations" were removed and have no replacement. If you had them switched on, they are off now.',
+        'All your task, hideout and other progress stays fully intact.',
       ],
     },
   },

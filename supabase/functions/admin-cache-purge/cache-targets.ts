@@ -52,22 +52,8 @@ const NEUTRAL_CATALOG_DATASETS = [
   'editions',
   'map-spawns',
 ];
-// UI locales mapped to API languages, including uk -> en and excluding duplicate en.
-const NEUTRAL_CATALOG_LANGUAGES = [
-  'cs',
-  'de',
-  'en',
-  'es',
-  'fr',
-  'it',
-  'ja',
-  'ko',
-  'pl',
-  'pt',
-  'ru',
-  'tr',
-  'zh',
-];
+// Fork: UI locales mapped to API languages (SUPPORTED_LOCALES is de/en only).
+const NEUTRAL_CATALOG_LANGUAGES = ['de', 'en'];
 function buildNeutralCatalogUrls(origin: string): string[] {
   const base = `${origin}/__neutral-catalog-v1`;
   return [

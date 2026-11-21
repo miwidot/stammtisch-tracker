@@ -161,6 +161,14 @@ describe('shared locale switch', () => {
     expect(first.error.value).toBe(true);
     expect(first.pending.value).toBe(false);
   });
+  it('never sends a stale unsupported saved override to the API when rolling back', async () => {
+    locale.value = 'de';
+    preferences.getLocaleOverride = 'fr';
+    metadata.fetchAllData.mockRejectedValueOnce(new Error('failed'));
+    await controller().selectLocale('en');
+    expect(metadata.updateLanguageAndGameMode).toHaveBeenLastCalledWith('de');
+    expect(metadata.updateLanguageAndGameMode).not.toHaveBeenCalledWith('fr');
+  });
   it('reloads original-language metadata when a superseding return to baseline fails', async () => {
     const oldFetch = createDeferred<undefined>();
     let tasks = ['original'];

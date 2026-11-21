@@ -121,8 +121,27 @@ describe('i18n-ready plugin', () => {
     await runMountHooks();
     expect(setLocale).toHaveBeenCalledWith('de');
   });
+  it('ignores a saved override that is no longer offered and follows the browser', async () => {
+    localStorage.setItem(
+      STORAGE_KEYS.preferences,
+      serializeUserScopedStorage({ localeOverride: 'fr' }, null)
+    );
+    Object.defineProperty(window.navigator, 'language', { configurable: true, value: 'en-US' });
+    const setLocale = vi.fn();
+    const plugin = (await import('@/plugins/i18n.client')).default;
+    await plugin.setup?.({
+      hook,
+      $i18n: { global: { setLocale } },
+      $supabase: { user: { id: null } },
+    } as unknown as Parameters<NonNullable<typeof plugin.setup>>[0]);
+    await runMountHooks();
+    expect(setLocale).toHaveBeenCalledWith('en');
+  });
   it.each([
-    ['Japanese', 'ja-JP', 'ja'],
+    ['German', 'de-DE', 'de'],
+    ['English', 'en-GB', 'en'],
+    ['Japanese (no longer offered, fork default is German)', 'ja-JP', 'de'],
+    ['French (no longer offered, fork default is German)', 'fr-FR', 'de'],
     ['an unsupported language (fork default is German)', 'ar-SA', 'de'],
   ])('initializes %s browser locales correctly', async (_label, language, expected) => {
     Object.defineProperty(window.navigator, 'language', {

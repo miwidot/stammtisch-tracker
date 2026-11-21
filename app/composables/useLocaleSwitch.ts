@@ -1,6 +1,7 @@
 import { useIntervalFn } from '@vueuse/core';
 import { useMetadataStore } from '@/stores/useMetadata';
 import { usePreferencesStore } from '@/stores/usePreferences';
+import { resolveAppLocale } from '@/utils/locales';
 import { logger } from '@/utils/logger';
 import type { EffectScope } from 'vue';
 type LocaleState = {
@@ -113,7 +114,8 @@ export const useLocaleSwitch = () => {
     });
     if (controller.signal.aborted) return;
     preferences.setLocaleOverride(baseline.override);
-    metadata.updateLanguageAndGameMode(baseline.override ?? baseline.locale);
+    // A stale saved override (a language this fork no longer offers) must not reach the API.
+    metadata.updateLanguageAndGameMode(resolveAppLocale(baseline.override, baseline.locale));
     await metadata.fetchAllData(false, { signal: controller.signal }).catch((error) => {
       logger.error('[LocaleSwitch] Error restoring metadata:', error);
     });

@@ -47,6 +47,18 @@ describe('fork changelog data', () => {
     expect(en).toContain('Collapse completed stations');
     expect(en).toContain('Settings > Progression');
   });
+  it('tells players in the settings note that all progress stays intact, in both languages', () => {
+    const [de] = forkChangelogItems('de');
+    const [en] = forkChangelogItems('en');
+    expect(de!.label).toBe('Bitte Einstellungen prüfen');
+    expect(de!.bullets.map(String)).toContain(
+      'Dein Quest- und Hideout-Fortschritt bleibt vollständig erhalten.'
+    );
+    expect(en!.label).toBe('Please check your settings');
+    expect(en!.bullets.map(String)).toContain(
+      'All your task, hideout and other progress stays fully intact.'
+    );
+  });
   it('returns fresh arrays so callers cannot mutate the source entries', () => {
     const first = forkChangelogItems('de');
     first[0]!.bullets.push('mutated');
