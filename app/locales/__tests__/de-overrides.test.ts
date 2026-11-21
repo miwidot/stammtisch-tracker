@@ -49,7 +49,6 @@ describe('de.overrides.json', () => {
   // source string in and the override does nothing.
   const IDENTICAL_BY_DESIGN = new Set([
     'navigation_drawer.brand_name',
-    'page.tasks.questcard.trader_level_badge',
     // A trader's name. The override restores the English spelling on purpose —
     // see the Lightkeeper case below.
     'common.kappa_lightkeeper',
@@ -93,13 +92,6 @@ describe('reported translation defects', () => {
     expect(crowdin.get('common.reset_failed')).toBe('Zurücksetzen fehlgeschlagen');
     expect(overrides.get('common.reset_failed')).toBe('Fehlgeschlagen zurücksetzen');
   });
-  // Same button on the Kappa page, left in English rather than mistranslated.
-  it('translates the Kappa row action that states the same thing', () => {
-    expect(source.get('page.kappa.row.action_reset_failed')).toBe('Reset failed');
-    expect(overrides.get('page.kappa.row.action_reset_failed')).toBe(
-      overrides.get('common.reset_failed')
-    );
-  });
   // The task card's action buttons are commands. The Crowdin export renders
   // two of them as something else: a noun ("Fehler" = an error) and a stray
   // adverb reading ("Vollständig markieren" = mark completely).
@@ -118,49 +110,12 @@ describe('reported translation defects', () => {
     expect(crowdin.get('common.kappa_lightkeeper')).toBe('Kappa & Lichthalter');
     expect(overrides.get('common.kappa_lightkeeper')).toBe('Kappa & Lightkeeper');
   });
-  // The sibling strings that were never renamed — these are what the override
-  // above realigns with.
-  it('matches the Lightkeeper spelling the rest of the German UI uses', () => {
-    expect(crowdin.get('page.tasks.settings.filters.lightkeeper_required')).toContain(
-      'Lightkeeper'
-    );
-    expect(crowdin.get('page.tasks.questcard.lightkeeper_tooltip')).toContain('Lightkeeper');
-  });
-  // The Kappa page header shipped as raw English in the German bundle — both
-  // the title and a full English sentence underneath it. The translation keeps
-  // Kappa and Lightkeeper as proper nouns and follows the storyline page, which
-  // renders the same "Track your progress…" opening as "Verfolge deinen
-  // Fortschritt…" with the proper noun carried into the compound.
-  it('translates the Kappa page header instead of shipping English', () => {
-    expect(crowdin.get('page.kappa.title')).toBe(source.get('page.kappa.title'));
-    expect(crowdin.get('page.kappa.subtitle')).toBe(source.get('page.kappa.subtitle'));
-    expect(overrides.get('page.kappa.title')).toBe('Kappa- & Lightkeeper-Tracker');
-    expect(overrides.get('page.kappa.subtitle')).toBe(
-      'Verfolge deinen Fortschritt beim Kappa-Container und den Lightkeeper-Aufgaben.'
-    );
-  });
-  // The phrasing the translation above follows.
-  it('opens the way the storyline page already does', () => {
-    expect(crowdin.get('page.storyline.subtitle')).toBe(
-      'Verfolge deinen Fortschritt durch die Tarkov-Story-Kapitel.'
-    );
-  });
-  // The compact-cards settings panel disagreed with itself: one row said
-  // "Quests standardmäßig einklappen", the row above it "Reduzieren Sie Ziele"
-  // — a different verb for the same action, in the formal register the sibling
-  // does not use. "Verstecke Belohnungen" was an imperative where every other
-  // hide label in this bundle reads "X ausblenden" (13 of them).
-  it('uses one verb per action across the card display settings', () => {
-    expect(crowdin.get('page.tasks.settings.appearance.collapse_completed_objectives')).toBe(
-      'Reduzieren Sie Ziele für abgeschlossene Aufgaben'
-    );
-    expect(overrides.get('page.tasks.settings.appearance.collapse_completed_objectives')).toBe(
-      'Ziele abgeschlossener Aufgaben einklappen'
-    );
-    expect(overrides.get('page.tasks.settings.appearance.hide_rewards')).toBe(
-      'Belohnungen ausblenden'
-    );
-    expect(overrides.get('settings.interface.tasks.hide_rewards')).toBe('Belohnungen ausblenden');
+  // The compact-cards setting is still English in the Crowdin export; the override
+  // gives it the same "einklappen" verb the card collapse label uses.
+  it('translates the collapse-finished-objectives card setting', () => {
+    const path = 'page.tasks.settings.cards.collapse_completed_objectives';
+    expect(crowdin.get(path)).toBe(source.get(path));
+    expect(overrides.get(path)).toBe('Ziele abgeschlossener Aufgaben einklappen');
   });
   // Collapse and expand are one pair; "erweitern" means extend, not unfold.
   it('pairs the card collapse and expand labels', () => {
@@ -179,13 +134,12 @@ describe('reported translation defects', () => {
     expect(crowdin.get('page.tasks.questcard.available_button')).toBe('Als verfügbar markieren');
     expect(crowdin.get('page.tasks.questcard.mark_failed')).toBe('Als fehlgeschlagen markieren');
   });
-  it('translates the accepted-items popover', () => {
+  // Upstream translated the accepted-items popover itself, so the fork no longer overrides it.
+  it('leaves the accepted-items popover to the Crowdin translation', () => {
     for (const key of ['any_of_items', 'any_of_items_short', 'view_accepted_items']) {
       const path = `needed_items.${key}`;
-      expect(crowdin.get(path), `${path} is expected to be untranslated upstream`).toBe(
-        source.get(path)
-      );
-      expect(overrides.get(path)).toBeDefined();
+      expect(crowdin.get(path)).not.toBe(source.get(path));
+      expect(overrides.has(path)).toBe(false);
     }
   });
 });

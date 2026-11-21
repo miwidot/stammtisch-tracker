@@ -122,9 +122,9 @@ describe('i18n-ready plugin', () => {
     expect(setLocale).toHaveBeenCalledWith('de');
   });
   it.each([
-    ['Japanese (not offered by the fork)', 'ja-JP'],
-    ['an unsupported language', 'ar-SA'],
-  ])('falls back to the app default German for %s browser locales', async (_label, language) => {
+    ['Japanese', 'ja-JP', 'ja'],
+    ['an unsupported language (fork default is German)', 'ar-SA', 'de'],
+  ])('initializes %s browser locales correctly', async (_label, language, expected) => {
     Object.defineProperty(window.navigator, 'language', {
       configurable: true,
       value: language,
@@ -146,33 +146,6 @@ describe('i18n-ready plugin', () => {
     } as unknown as Parameters<NonNullable<typeof plugin.setup>>[0]);
     expect(setLocale).not.toHaveBeenCalled();
     await runMountHooks();
-    expect(setLocale).toHaveBeenCalledWith('de');
-  });
-  it('falls back to the app default when a stored override is no longer supported and the browser locale is also unsupported', async () => {
-    localStorage.setItem(
-      STORAGE_KEYS.preferences,
-      serializeUserScopedStorage({ localeOverride: 'fr' }, null)
-    );
-    Object.defineProperty(window.navigator, 'language', {
-      configurable: true,
-      value: 'ja-JP',
-    });
-    const setLocale = vi.fn();
-    const plugin = (await import('@/plugins/i18n.client')).default;
-    await plugin.setup?.({
-      hook,
-      $i18n: {
-        global: {
-          setLocale,
-        },
-      },
-      $supabase: {
-        user: {
-          id: null,
-        },
-      },
-    } as unknown as Parameters<NonNullable<typeof plugin.setup>>[0]);
-    await runMountHooks();
-    expect(setLocale).toHaveBeenCalledWith('de');
+    expect(setLocale).toHaveBeenCalledWith(expected);
   });
 });

@@ -1,7 +1,7 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime';
 import { describe, expect, it } from 'vitest';
 import { defineComponent, h, nextTick } from 'vue';
-import { useRouter } from '#imports';
+import { useNuxtApp, useRouter } from '#imports';
 import { useRouteSeo } from '@/composables/useRouteSeo';
 import { RESOURCES } from '@/features/resources/resourceData';
 describe('route metadata navigation', () => {
@@ -14,6 +14,10 @@ describe('route metadata navigation', () => {
       height: 630,
       altKey: 'seo.routes.tarkovmonitor.title',
     };
+    // Fork: require-auth.global.ts sends signed-out visitors to /login, so the guide route is
+    // only reachable for a signed-in user.
+    const supabaseUser = useNuxtApp().$supabase.user as { loggedIn: boolean };
+    supabaseUser.loggedIn = true;
     let router: ReturnType<typeof useRouter>;
     const wrapper = await mountSuspended(
       defineComponent({
@@ -62,6 +66,7 @@ describe('route metadata navigation', () => {
         'https://tarkovtracker.org/tasks'
       );
     } finally {
+      supabaseUser.loggedIn = false;
       delete resource.guide.shareImage;
       wrapper.unmount();
     }

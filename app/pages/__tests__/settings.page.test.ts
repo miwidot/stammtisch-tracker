@@ -104,7 +104,7 @@ vi.mock('vue-i18n', async (importOriginal) => ({
 }));
 const defaultGlobalStubs = {
   AppPreferencesCard: { template: '<div data-testid="app-preferences-card" />' },
-  AccountDeletionCard: { template: '<div data-testid="account-deletion-card" />' },
+  StammtischAccountDeletionNotice: { template: '<div data-testid="account-deletion-notice" />' },
   DataManagementCard: {
     props: ['session', 'view'],
     template:
@@ -435,7 +435,8 @@ describe('settings page', () => {
       });
       await vi.dynamicImportSettled();
       expect(wrapper.find('[data-testid="profile-sharing-card"]').exists()).toBe(true);
-      expect(wrapper.find('[data-testid="account-deletion-card"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="account-deletion-notice"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="account-deletion-card"]').exists()).toBe(false);
       expect(wrapper.find('#progression').exists()).toBe(false);
     });
     it('shows the admin link on the account route for admins', async () => {

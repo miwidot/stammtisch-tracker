@@ -141,6 +141,8 @@ export default defineNuxtConfig({
     // Server-only (private) runtime config
     supabaseUrl: PRIVATE_SUPABASE_URL,
     supabaseServiceKey: process.env.NUXT_SUPABASE_SERVICE_KEY || '',
+    // Fork: shared secret for the main site's account deletion call (>= 32 chars, see FORK.md)
+    forkAccountDeleteSecret: process.env.NUXT_FORK_ACCOUNT_DELETE_SECRET || '',
     supabaseAnonKey: PRIVATE_SUPABASE_ANON_KEY,
     githubToken: process.env.NUXT_GITHUB_TOKEN?.trim() || '',
     githubContributorsExclude:
@@ -236,6 +238,10 @@ export default defineNuxtConfig({
       githubOwner: process.env.GITHUB_OWNER || 'tarkovtracker-org',
       githubRepo: process.env.GITHUB_REPO || 'TarkovTracker',
       trackerHandoffUrl: resolveTrackerHandoffUrl(process.env),
+      // Fork: where users delete their account (main site; the tracker account goes with it)
+      accountDeletionUrl:
+        process.env.NUXT_PUBLIC_ACCOUNT_DELETION_URL?.trim() ||
+        'https://tarkov-stammtisch.de/profile/settings',
       promotedTwitch: {
         channel: process.env.NUXT_PUBLIC_PROMOTED_TWITCH_CHANNEL || 'honeyxxo',
         displayName: process.env.NUXT_PUBLIC_PROMOTED_TWITCH_DISPLAY_NAME || 'honeyxxo',
@@ -383,7 +389,8 @@ export default defineNuxtConfig({
             'tarkov quest-tracker, escape from tarkov aufgaben, eft hideout tracker, eft benötigte gegenstände, tarkov stammtisch',
         },
         { name: 'theme-color', content: '#c8a882' },
-        // OpenGraph tags
+        // OpenGraph tags. og:image/twitter:image are deliberately not set here: upstream's
+        // per-route SEO (useRouteSeo) owns images, and a static one would shadow guide share images.
         { property: 'og:site_name', content: 'Tarkov Stammtisch' },
         { property: 'og:type', content: 'website' },
         { property: 'og:title', content: 'Quest-Tracker | Tarkov Stammtisch' },
@@ -392,13 +399,6 @@ export default defineNuxtConfig({
           content:
             'Der deutsche Quest-Tracker der Tarkov-Stammtisch-Community - verfolge deinen Fortschritt bei Aufgaben, Hideout-Ausbau und benötigten Gegenständen.',
         },
-        {
-          property: 'og:image',
-          content: `${CANONICAL_SITE_URL}/og-default.png`,
-        },
-        { property: 'og:image:width', content: '800' },
-        { property: 'og:image:height', content: '800' },
-        { property: 'og:image:alt', content: 'Tarkov Stammtisch Logo' },
         { property: 'og:url', content: CANONICAL_SITE_URL },
         { property: 'og:locale', content: 'de_DE' },
         // Twitter Card tags
@@ -408,10 +408,6 @@ export default defineNuxtConfig({
           name: 'twitter:description',
           content:
             'Der deutsche Quest-Tracker der Tarkov-Stammtisch-Community - verfolge deinen Fortschritt bei Aufgaben, Hideout-Ausbau und benötigten Gegenständen.',
-        },
-        {
-          name: 'twitter:image',
-          content: `${CANONICAL_SITE_URL}/og-default.png`,
         },
         { name: 'apple-mobile-web-app-title', content: 'Tarkov Stammtisch' },
       ],

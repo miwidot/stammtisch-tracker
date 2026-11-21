@@ -110,7 +110,7 @@ const oklchBlock = /@supports \(color: oklch\(0 0 0\)\)\s*\{\s*:root\s*\{([^}]+)
   withoutComments
 )?.[1];
 const hslToken = (name: string) => {
-  const match = new RegExp(`--color-${name}:\\s*hsl\\((\\d+) (\\d+)% (\\d+)%\\)`).exec(
+  const match = new RegExp(`--color-${name}:\\s*hsl\\(([\\d.]+) ([\\d.]+)% ([\\d.]+)%\\)`).exec(
     withoutComments
   );
   return match ? match.slice(1, 4).map(Number) : undefined;
@@ -144,7 +144,9 @@ describe('locked status color', () => {
     expect(contrast(hslToRgb(hslToken('locked-600')!), [1, 1, 1])).toBeGreaterThanOrEqual(4.5);
   });
   it('keeps selected locked tab text at AA on the light shell', () => {
-    const lightShell = /--color-surface-900:\s*hsl\((\d+) (\d+)% (\d+)%\)/.exec(lightBlock);
+    const lightShell = /--color-surface-900:\s*hsl\(([\d.]+) ([\d.]+)% ([\d.]+)%\)/.exec(
+      lightBlock
+    );
     expect(lightShell).not.toBeNull();
     const shellRgb = hslToRgb(lightShell!.slice(1, 4).map(Number));
     expect(contrast(hslToRgb(hslToken('locked-700')!), shellRgb)).toBeGreaterThanOrEqual(4.5);

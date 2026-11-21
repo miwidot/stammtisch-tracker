@@ -25,25 +25,36 @@ describe('useSafeLocale', () => {
   it('keeps anonymous scoped locale during bootstrap', async () => {
     localStorage.setItem(
       STORAGE_KEYS.preferences,
-      serializeUserScopedStorage({ localeOverride: 'de' }, null)
-    );
-    localStorage.setItem('sb-test-auth-token', 'token');
-    const { resetI18nReady, useSafeLocale } = await import('@/composables/i18nHelpers');
-    resetI18nReady();
-    expect(useSafeLocale().value).toBe('de');
-  });
-  it('falls back to browser locale when a stored override is no longer supported', async () => {
-    localStorage.setItem(
-      STORAGE_KEYS.preferences,
       serializeUserScopedStorage({ localeOverride: 'fr' }, null)
     );
     localStorage.setItem('sb-test-auth-token', 'token');
     const { resetI18nReady, useSafeLocale } = await import('@/composables/i18nHelpers');
     resetI18nReady();
-    expect(useSafeLocale().value).toBe('en');
+    expect(useSafeLocale().value).toBe('fr');
   });
-  it('falls back to the app default when browser locale is not supported by the UI', async () => {
+  it('selects Japanese for a Japanese browser locale', async () => {
     vi.stubGlobal('navigator', { ...window.navigator, language: 'ja-JP' });
+    const { resetI18nReady, useSafeLocale } = await import('@/composables/i18nHelpers');
+    resetI18nReady();
+    expect(useSafeLocale().value).toBe('ja');
+  });
+  it('selects Turkish for a Turkish browser locale', async () => {
+    vi.stubGlobal('navigator', { ...window.navigator, language: 'tr-TR' });
+    const { resetI18nReady, useSafeLocale } = await import('@/composables/i18nHelpers');
+    resetI18nReady();
+    expect(useSafeLocale().value).toBe('tr');
+  });
+  it('restores a saved Turkish locale during anonymous bootstrap', async () => {
+    localStorage.setItem(
+      STORAGE_KEYS.preferences,
+      serializeUserScopedStorage({ localeOverride: 'tr' }, null)
+    );
+    const { resetI18nReady, useSafeLocale } = await import('@/composables/i18nHelpers');
+    resetI18nReady();
+    expect(useSafeLocale().value).toBe('tr');
+  });
+  it('falls back to the fork default German when browser locale is not supported by the UI', async () => {
+    vi.stubGlobal('navigator', { ...window.navigator, language: 'ar-SA' });
     const { resetI18nReady, useSafeLocale } = await import('@/composables/i18nHelpers');
     resetI18nReady();
     expect(useSafeLocale().value).toBe('de');

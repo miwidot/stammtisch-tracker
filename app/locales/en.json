@@ -2907,6 +2907,12 @@
       "retry_removal": "Try removing again",
       "revocation_unavailable": "The server could not be reached, so you are still signed in. You can sign out on this device only and remove the data; the server will not be told, so the session there stays active until it expires or you sign out from another device.",
       "confirm_device_only_button": "Sign out on this device only and remove data"
+    },
+    "fork_account_deletion": {
+      "title": "Delete account",
+      "description": "Your quest tracker account is part of your Tarkov Stammtisch account. To delete it, delete your Stammtisch account on the main site. The tracker account and its progress are removed together with it.",
+      "device_hint": "To clear data stored in this browser only, use the device data section above.",
+      "link": "Delete account on Tarkov Stammtisch"
     }
   },
   "hideout": {

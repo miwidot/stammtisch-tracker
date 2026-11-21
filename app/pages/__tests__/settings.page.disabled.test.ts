@@ -1,6 +1,7 @@
 // @vitest-environment nuxt
 // Fork decision (LIGHT_THEME_ENABLED = false in app/utils/forkConfig.ts): the theme selector is
-// unreachable, so AppearanceCard is never rendered on the preferences tab. This file mocks the
+// unreachable; the gate sits in AppPreferencesCard, this page-level test only guards that the
+// preferences tab renders no theme radio of its own. This file mocks the
 // real (disabled) flag value, overriding the global setup default (tests/fork-test-setup.ts,
 // LIGHT_THEME_ENABLED=true) that lets app/pages/__tests__/settings.page.test.ts keep exercising
 // upstream's original enabled-AppearanceCard behavior unmodified.
@@ -94,10 +95,9 @@ vi.mock('vue-i18n', async (importOriginal) => ({
   }),
 }));
 const defaultGlobalStubs = {
-  AccountDeletionCard: { template: '<div data-testid="account-deletion-card" />' },
-  // Deliberately NOT stubbed: AppearanceCard. If the v-if gate ever regresses and the real
-  // component renders, a missing dependency (e.g. useTheme's Nuxt state) would surface as a
-  // mount error rather than silently passing a `data-testid` stub check.
+  StammtischAccountDeletionNotice: { template: '<div data-testid="account-deletion-notice" />' },
+  // The theme gate lives inside AppPreferencesCard (see AppPreferencesCard.disabled.test.ts).
+  AppPreferencesCard: { template: '<div data-testid="app-preferences-card" />' },
   DataManagementCard: {
     props: ['session', 'view'],
     template:
@@ -113,7 +113,6 @@ const defaultGlobalStubs = {
   },
   'i18n-t': { template: '<span><slot /><slot name="word" /></span>' },
   ExperienceCard: { template: '<div data-testid="experience-card" />' },
-  GeneralPreferencesCard: { template: '<div data-testid="general-preferences-card" />' },
   KeybindsCard: { template: '<div data-testid="keybinds-card" />' },
   MapSettingsCard: { template: '<div data-testid="map-settings-card" />' },
   PrestigeCard: { template: '<div data-testid="prestige-card" />' },
@@ -181,7 +180,7 @@ describe('settings page theme card disabled (fork: light theme unreachable)', ()
       global: globalConfig,
     });
     await vi.dynamicImportSettled();
-    expect(wrapper.find('[data-testid="general-preferences-card"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="app-preferences-card"]').exists()).toBe(true);
     expect(wrapper.find('input[type="radio"][name="theme-mode-selection"]').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('settings.appearance.theme_light');
   });

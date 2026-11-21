@@ -18,11 +18,6 @@
   "navigation_drawer": {
     "brand_name": "Tarkov Stammtisch"
   },
-  "needed_items": {
-    "any_of_items": "Einer dieser {count} Gegenstände genügt",
-    "any_of_items_short": "1 von {count}",
-    "view_accepted_items": "Alle {count} akzeptierten Gegenstände anzeigen"
-  },
   "page": {
     "herkunft": {
       "title": "Herkunft",
@@ -58,48 +53,32 @@
         "our_fork": "Unser Fork"
       }
     },
-    "kappa": {
-      "row": {
-        "action_reset_failed": "Fehlgeschlagen zurücksetzen"
-      },
-      "subtitle": "Verfolge deinen Fortschritt beim Kappa-Container und den Lightkeeper-Aufgaben.",
-      "title": "Kappa- & Lightkeeper-Tracker"
-    },
     "tasks": {
       "questcard": {
-        "alternatives_badge": "{count} Alt.",
-        "alternatives_tooltip": "Diese Quest hat {count} alternative Wege — du musst nur einen davon abschließen",
         "blocked_because": "Blockiert durch",
         "blocked_because_status_tooltip": "Dauerhaft blockiert — „{name}\" war {status}",
         "blocked_because_unknown": "Durch Voraussetzungen blockiert",
         "expand_task": "Aufgabe ausklappen",
         "failed_because_status_tooltip": "Automatisch fehlgeschlagen, als „{name}\" {status} war",
-        "level_badge": "Stufe {count}",
         "requirement_status_active": "angenommen",
         "requirement_status_available": "verfügbar",
         "requirement_status_not_started": "nicht begonnen",
         "requires_currently": "aktuell {status}",
-        "requires_must_be": "muss {status} sein",
-        "requires_progress": "{completed} von {total} Voraussetzungen erfüllt",
-        "requires_progress_tooltip": "Als Nächstes: {tasks}",
-        "requires_progress_tooltip_overflow": "Als Nächstes: {tasks} und {count} weitere",
-        "requires_tooltip_action": "{action} „{name}\", um diese Aufgabe freizuschalten",
-        "requires_tooltip_conflict": "„{name}\" ist {current}, benötigt wird aber {expected} — diese Aufgabe ist möglicherweise dauerhaft gesperrt",
-        "trader_level_badge": "{trader} LL{level}"
+        "requires_tooltip_conflict": "„{name}\" ist {current}, benötigt wird aber {expected} — diese Aufgabe ist möglicherweise dauerhaft gesperrt"
       },
       "settings": {
-        "appearance": {
-          "collapse_completed_objectives": "Ziele abgeschlossener Aufgaben einklappen",
-          "hide_rewards": "Belohnungen ausblenden"
+        "cards": {
+          "collapse_completed_objectives": "Ziele abgeschlossener Aufgaben einklappen"
         }
       }
     }
   },
   "settings": {
-    "interface": {
-      "tasks": {
-        "hide_rewards": "Belohnungen ausblenden"
-      }
+    "fork_account_deletion": {
+      "title": "Konto löschen",
+      "description": "Dein Quest-Tracker-Konto gehört zu deinem Tarkov-Stammtisch-Konto. Um es zu löschen, lösche dein Stammtisch-Konto auf der Hauptseite. Das Tracker-Konto und dein Fortschritt werden dabei mit entfernt.",
+      "device_hint": "Nur die in diesem Browser gespeicherten Daten löschst du im Bereich Gerätedaten weiter oben.",
+      "link": "Konto beim Tarkov Stammtisch löschen"
     }
   }
 }

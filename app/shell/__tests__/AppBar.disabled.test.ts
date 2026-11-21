@@ -29,31 +29,23 @@ const mockToast = {
 const mockSkillCalculation = {
   migrateLegacySkillOffsets: vi.fn(),
 };
-const supporterTierRef = ref<string | null>(null);
-const mockUseSupporter = vi.fn(() => ({
-  activeTier: supporterTierRef,
-}));
-const mockMetadataStore = reactive({
-  loading: false,
-  hideoutLoading: false,
-  updateLanguageAndGameMode: vi.fn(),
-  fetchAllData: vi.fn(async () => {}),
-});
+const createMetadataStore = () =>
+  reactive({
+    loading: false,
+    hideoutLoading: false,
+    updateLanguageAndGameMode: vi.fn(),
+    fetchAllData: vi.fn(async () => {}),
+    hasCriticalLocaleCache: vi.fn(async () => true),
+  });
+const mockMetadataStore = createMetadataStore();
 const mockPreferencesStore = {
   getStreamerMode: false,
   getLocaleOverride: 'en' as string | null,
   setLocaleOverride: vi.fn(),
 };
-const routeState = reactive({
-  name: 'tasks',
-  params: {} as Record<string, unknown>,
-});
 const mockTarkovStore = {
   getCurrentGameMode: vi.fn(() => 'pvp'),
   getDisplayName: vi.fn(() => ''),
-  getModeDisplayName: vi.fn((): string | null => null),
-  getPvEProgressData: vi.fn((): { displayName: string | null } => ({ displayName: null })),
-  getPvPProgressData: vi.fn((): { displayName: string | null } => ({ displayName: null })),
 };
 vi.mock('vue-i18n', async (importOriginal) => ({
   ...(await importOriginal<typeof import('vue-i18n')>()),
@@ -66,8 +58,16 @@ vi.mock('vue-i18n', async (importOriginal) => ({
   }),
 }));
 const windowWidthRef = ref(1280);
+const appBarWidthRef = ref(1700);
+const drawerRailRef = ref(false);
+beforeEach(() => {
+  appBarWidthRef.value = 1700;
+  drawerRailRef.value = false;
+  windowWidthRef.value = 1280;
+});
 vi.mock('@vueuse/core', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@vueuse/core')>()),
+  useElementSize: () => ({ width: appBarWidthRef }),
   useWindowSize: () => ({
     width: windowWidthRef,
   }),
@@ -75,11 +75,21 @@ vi.mock('@vueuse/core', async (importOriginal) => ({
 vi.mock('@/composables/useKeybinds', () => ({
   useKeybinds: vi.fn(),
 }));
+// AppBar loads these through `defineAsyncComponent`. A VTU `stub` replaces what renders but does
+// not stop the async loader, so the real ActivityLogPanel still pulls `@nuxt/ui` Badge and the
+// generated `virtual:nuxt:...ui/badge.ts` theme module. Under parallel workers that import can
+// resolve after this file's environment is torn down, failing the run with
+// `EnvironmentTeardownError`. Mocking the modules keeps the loader short of `@nuxt/ui` entirely.
 vi.mock('@/shell/ActivityLogPanel.vue', () => ({
   default: { name: 'ActivityLogPanel', template: '<div />' },
 }));
-vi.mock('@/features/omnibar/Omnibar.vue', () => ({
-  default: { name: 'Omnibar', template: '<div />' },
+vi.mock('@/features/omnibar/AppSearch.vue', () => ({
+  default: {
+    name: 'AppSearch',
+    props: ['shortcutParts', 'keyShortcuts'],
+    template:
+      '<div data-testid="app-search" :data-shortcut="shortcutParts.join(\'+\')" :data-aria="keyShortcuts" />',
+  },
 }));
 const mockThemeModeRef = ref<'dark' | 'light'>('dark');
 const mockIsLightThemeRef = ref(false);
@@ -91,9 +101,6 @@ vi.mock('@/composables/useTheme', () => ({
     setThemeMode: vi.fn(),
     toggleThemeMode: mockToggleThemeMode,
   }),
-}));
-vi.mock('@/composables/useSupporter', () => ({
-  useSupporter: () => mockUseSupporter(),
 }));
 vi.mock('@/stores/useActivityLogStore', () => ({
   useActivityLogStore: () => ({
@@ -107,7 +114,9 @@ vi.mock('@/stores/useActivityLogStore', () => ({
 vi.mock('@/stores/useApp', () => ({
   useAppStore: () => ({
     mobileDrawerExpanded: false,
-    drawerRail: false,
+    get drawerRail() {
+      return drawerRailRef.value;
+    },
     toggleMobileDrawerExpanded: vi.fn(),
     toggleDrawerRail: vi.fn(),
     setMobileDrawerExpanded: vi.fn(),
@@ -132,9 +141,6 @@ vi.mock('@/utils/logger', () => ({
 mockNuxtImport('useNuxtApp', () => () => ({
   $supabase: mockSupabase,
 }));
-mockNuxtImport('useRoute', () => () => ({
-  ...routeState,
-}));
 mockNuxtImport('useSkillCalculation', () => () => mockSkillCalculation);
 mockNuxtImport('useToast', () => () => mockToast);
 mockNuxtImport('useRuntimeConfig', () => () => ({
@@ -142,12 +148,6 @@ mockNuxtImport('useRuntimeConfig', () => () => ({
     trackerHandoffUrl: 'https://dev.tarkov-stammtisch.de/api/tracker/handoff',
   },
 }));
-const SelectMenuFixedStub = {
-  props: ['items', 'modelValue'],
-  emits: ['update:modelValue'],
-  template:
-    '<label data-testid="select-menu-fixed"><slot name="leading" /><select v-bind="$attrs" :value="modelValue" @change="$emit(\'update:modelValue\', $event.target.value)"><option v-for="item in (items || [])" :key="item.value" :value="item.value">{{ item.label }}</option></select></label>',
-};
 const mountAppBar = async () => {
   const { default: AppBar } = await import('@/shell/AppBar.vue');
   return mount(AppBar, {
@@ -157,24 +157,37 @@ const mountAppBar = async () => {
         AppTooltip: {
           template: '<span><slot /></span>',
         },
-        DiscordIcon: true,
         GlobalHelpLauncher: {
-          template: '<div data-testid="global-help-launcher" />',
+          props: ['open', 'showTrigger', 'reference'],
+          template:
+            '<div data-testid="global-help-launcher" :data-open="String(open)" :data-direct="String(showTrigger)" :data-anchored="String(Boolean(reference))" />',
         },
         NuxtLink: {
           template: '<a><slot /></a>',
         },
-        Omnibar: true,
-        SelectMenuFixed: SelectMenuFixedStub,
+        ProgressSaveStatusIndicator: true,
+        SignOutConfirmModal: true,
         UButton: {
-          props: ['icon'],
+          props: ['icon', 'disabled', 'loading'],
           emits: ['click'],
-          template: '<button :data-icon="icon" @click="$emit(\'click\')"><slot /></button>',
+          template:
+            '<button :data-icon="icon" :disabled="disabled || undefined" @click="$emit(\'click\')"><slot /></button>',
         },
         UDropdownMenu: {
-          props: ['items'],
-          template:
-            '<div><slot /><template v-for="(group, groupIndex) in (items || [])" :key="groupIndex"><button v-for="item in group" :key="item.label" type="button" :data-menu-item="item.label" @click="item.onSelect?.()">{{ item.label }}</button></template></div>',
+          props: { items: Array, content: Object, modal: { type: Boolean, default: true } },
+          data: () => ({ expandedSubmenu: '', preventedCloseFocus: false }),
+          methods: {
+            selectItem(
+              item: { onSelect?: () => void },
+              content?: { onCloseAutoFocus?: (event: Event) => void }
+            ) {
+              item.onSelect?.();
+              const event = new Event('close-auto-focus', { cancelable: true });
+              content?.onCloseAutoFocus?.(event);
+              return event.defaultPrevented;
+            },
+          },
+          template: `<div data-dropdown-menu :data-modal="String(modal)" :data-prevented-close-focus="String(preventedCloseFocus)"><slot /><template v-for="(group, groupIndex) in (items || [])" :key="groupIndex"><template v-for="item in group" :key="item.label"><button type="button" :disabled="item.disabled" :data-menu-item="item.label" :data-to="item.to" :data-target="item.target" :data-rel="item.rel" :data-checked="item.type === 'checkbox' ? String(Boolean(item.checked)) : undefined" :data-locale-item="item.type === 'checkbox' ? '' : undefined" @click="item.children ? expandedSubmenu = item.label : preventedCloseFocus = selectItem(item, content)">{{ item.label }}</button><div v-if="item.children && expandedSubmenu === item.label" data-submenu><template v-for="(children, childGroupIndex) in item.children" :key="childGroupIndex"><button v-for="child in children" :key="child.label" type="button" :disabled="child.disabled" :data-menu-item="child.label" :data-checked="String(Boolean(child.checked))" @click="child.onSelect?.()">{{ child.label }}</button></template></div></template></template></div>`,
         },
         UIcon: {
           props: ['name'],
@@ -182,7 +195,9 @@ const mountAppBar = async () => {
         },
         UKbd: true,
         UPopover: {
-          template: '<div><slot /><slot name="content" /></div>',
+          props: ['open', 'reference'],
+          template:
+            '<div data-testid="activity-popover" :data-open="String(open)" :data-anchored="String(Boolean(reference))"><slot /><slot name="content" /></div>',
         },
       },
     },
@@ -191,24 +206,34 @@ const mountAppBar = async () => {
 describe('AppBar theme toggle disabled (fork: light theme unreachable)', () => {
   beforeEach(() => {
     windowWidthRef.value = 1280;
-    routeState.name = 'tasks';
-    routeState.params = {};
+    appBarWidthRef.value = 1600;
     mockThemeModeRef.value = 'dark';
     mockIsLightThemeRef.value = false;
     mockToggleThemeMode.mockClear();
   });
   it('does not render the header theme toggle button', async () => {
     const wrapper = await mountAppBar();
-    expect(wrapper.find('button[data-icon="i-heroicons-sun"]').exists()).toBe(false);
-    expect(wrapper.find('button[data-icon="i-heroicons-moon"]').exists()).toBe(false);
+    expect(wrapper.find('button[data-icon="i-lucide-sun"]').exists()).toBe(false);
+    expect(wrapper.find('button[data-icon="i-lucide-moon"]').exists()).toBe(false);
     wrapper.unmount();
   });
-  it('does not include a theme item in the mobile More dropdown', async () => {
+  it.each([1600, 1200, 311])(
+    'does not include a theme item in the More dropdown at app bar width %i',
+    async (width) => {
+      appBarWidthRef.value = width;
+      const wrapper = await mountAppBar();
+      const labels = wrapper
+        .findAll('[data-menu-item]')
+        .map((el) => el.attributes('data-menu-item'));
+      expect(labels).not.toContain('app_bar.switch_to_light_theme');
+      expect(labels).not.toContain('app_bar.switch_to_dark_theme');
+      wrapper.unmount();
+    }
+  );
+  it('still offers help in More when the bar is too narrow for it', async () => {
+    appBarWidthRef.value = 311;
     const wrapper = await mountAppBar();
-    const moreMenuItems = wrapper.findAll('[data-menu-item]');
-    const labels = moreMenuItems.map((el) => el.attributes('data-menu-item'));
-    expect(labels).not.toContain('app_bar.switch_to_light_theme');
-    expect(labels).not.toContain('app_bar.switch_to_dark_theme');
+    expect(wrapper.find('[data-menu-item="app_bar.help_community_aria"]').exists()).toBe(true);
     wrapper.unmount();
   });
   it('never calls toggleThemeMode since no control can trigger it', async () => {

@@ -2,7 +2,9 @@
 import { mockNuxtImport } from '@nuxt/test-utils/runtime';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import requireAuthMiddleware from '@/middleware/require-auth.global';
-const { loggerMock, navigateToMock, readyMock, state } = vi.hoisted(() => ({
+import { SupabaseCallbackPendingError } from '@/utils/supabaseReadiness';
+const { abortNavigationMock, loggerMock, navigateToMock, readyMock, state } = vi.hoisted(() => ({
+  abortNavigationMock: vi.fn(() => 'aborted'),
   loggerMock: {
     error: vi.fn(),
   },
@@ -23,6 +25,7 @@ mockNuxtImport('useNuxtApp', () => () => ({
   },
 }));
 mockNuxtImport('navigateTo', () => navigateToMock);
+mockNuxtImport('abortNavigation', () => abortNavigationMock);
 mockNuxtImport(
   'defineNuxtRouteMiddleware',
   () => (handler: (...args: unknown[]) => unknown) => handler
@@ -117,5 +120,52 @@ describe('require-auth global middleware', () => {
     expect(navigateToMock).toHaveBeenCalledWith('/login');
     expect(result).toBe('/login');
     expect(state.user.loggedIn).toBe(false);
+  });
+  describe('readiness outcomes (ensureSupabaseReadyForRoute returns a string, not a boolean)', () => {
+    it('aborts navigation instead of redirecting while an OAuth callback is still pending', async () => {
+      state.user.loggedIn = false;
+      readyMock.mockRejectedValueOnce(new SupabaseCallbackPendingError());
+      const result = await runMiddleware('/');
+      expect(abortNavigationMock).toHaveBeenCalledOnce();
+      expect(navigateToMock).not.toHaveBeenCalled();
+      expect(result).toBe('aborted');
+    });
+    it('does not let a logged-in-looking user through while the callback is pending', async () => {
+      state.user.loggedIn = true;
+      readyMock.mockRejectedValueOnce(new SupabaseCallbackPendingError());
+      const result = await runMiddleware('/tasks');
+      expect(result).toBe('aborted');
+      expect(state.user.loggedIn).toBe(true);
+    });
+    it('sends a failed bootstrap to /login and logs it, never falling through to the logged-in check', async () => {
+      state.user.loggedIn = true;
+      state.user.id = 'user-1';
+      readyMock.mockRejectedValueOnce(new Error('network down'));
+      const result = await runMiddleware('/tasks');
+      expect(result).toBe('/login');
+      expect(abortNavigationMock).not.toHaveBeenCalled();
+      expect(loggerMock.error).toHaveBeenCalledOnce();
+      expect(state.user.loggedIn).toBe(false);
+      expect(state.user.id).toBeNull();
+    });
+    it.each(['/login', '/auth/callback', '/herkunft'])(
+      'never consults readiness on the public route %s even if bootstrap would fail',
+      async (path) => {
+        readyMock.mockRejectedValue(new SupabaseCallbackPendingError());
+        const result = await runMiddleware(path);
+        expect(result).toBeUndefined();
+        expect(readyMock).not.toHaveBeenCalled();
+        expect(abortNavigationMock).not.toHaveBeenCalled();
+      }
+    );
+    it('lets a user redeemed through the handoff in while the session is ready', async () => {
+      readyMock.mockImplementationOnce(async () => {
+        state.user.loggedIn = true;
+        state.user.id = 'handoff-user';
+      });
+      const result = await runMiddleware('/tasks');
+      expect(result).toBeUndefined();
+      expect(navigateToMock).not.toHaveBeenCalled();
+    });
   });
 });

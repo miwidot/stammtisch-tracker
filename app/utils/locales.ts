@@ -1,5 +1,20 @@
-// Fork: only German and English are offered. German is the default.
-export const SUPPORTED_LOCALES = ['de', 'en'] as const;
+export const SUPPORTED_LOCALES = [
+  'cs',
+  'de',
+  'en',
+  'es',
+  'fr',
+  'it',
+  'ja',
+  'ko',
+  'pl',
+  'pt',
+  'ru',
+  'tr',
+  'uk',
+  'zh',
+] as const;
+// Fork: German is the default; the supported list stays upstream's (catalog language bundles derive from it).
 const DEFAULT_LOCALE = 'de' as const;
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
 const isSupportedLocale = (value: string): value is SupportedLocale =>

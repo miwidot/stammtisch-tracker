@@ -107,7 +107,8 @@
             >
               <ProfileSharingCard />
               <DeviceDataCard />
-              <AccountDeletionCard />
+              <!-- FORK: deletion happens on the Stammtisch main site, see FORK.md -->
+              <StammtischAccountDeletionNotice />
               <div v-if="isAdmin" class="flex justify-center pt-4">
                 <NuxtLink
                   to="/admin"
@@ -146,7 +147,6 @@
 </template>
 <script setup lang="ts">
   import PageHeader from '@/components/ui/PageHeader.vue';
-  import AccountDeletionCard from '@/features/settings/AccountDeletionCard.vue';
   import AppPreferencesCard from '@/features/settings/AppPreferencesCard.vue';
   import DataManagementCard from '@/features/settings/DataManagementCard.vue';
   import DeviceDataCard from '@/features/settings/DeviceDataCard.vue';
@@ -157,6 +157,7 @@
   import ProfileSharingCard from '@/features/settings/ProfileSharingCard.vue';
   import ResetProgressCard from '@/features/settings/ResetProgressCard.vue';
   import SkillsCard from '@/features/settings/SkillsCard.vue';
+  import StammtischAccountDeletionNotice from '@/features/settings/StammtischAccountDeletionNotice.vue';
   import TaskDisplayCard from '@/features/settings/TaskDisplayCard.vue';
   import { useDataManagementSession } from '@/features/settings/useDataManagementSession';
   import { useSystemStore, useSystemStoreWithSupabase } from '@/stores/useSystemStore';
