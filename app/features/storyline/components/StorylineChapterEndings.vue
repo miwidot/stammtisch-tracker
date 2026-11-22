@@ -17,7 +17,7 @@
       >
         <div class="flex flex-wrap items-center gap-1.5">
           <span class="light:text-surface-50 text-sm font-semibold text-white">
-            {{ ending.label }}
+            {{ endingName(ending) }}
           </span>
           <UBadge
             v-if="ending.routeChoiceIndex !== null"
@@ -32,7 +32,7 @@
           </UBadge>
         </div>
         <div
-          v-if="ending.objectiveLabel && ending.objectiveLabel !== ending.label"
+          v-if="ending.objectiveLabel && ending.objectiveLabel !== endingName(ending)"
           :class="META_CLASS"
         >
           {{ ending.objectiveLabel }}
@@ -68,7 +68,10 @@
     StorylineObjectiveProgress,
   } from '@/composables/useStorylineChapters';
   defineProps<{ endings: StorylineEndingView[] }>();
-  const { t } = useI18n({ useScope: 'global' });
+  const { t, te } = useI18n({ useScope: 'global' });
+  // The id-keyed name wins over the English fallback the composable carries.
+  const endingName = (ending: StorylineEndingView): string =>
+    ending.labelKey && te(ending.labelKey) ? t(ending.labelKey) : ending.label;
   const META_CLASS = 'text-surface-400 mt-1 text-xs leading-snug';
   const ENDING_STATES: Record<
     StorylineObjectiveProgress['routeState'],

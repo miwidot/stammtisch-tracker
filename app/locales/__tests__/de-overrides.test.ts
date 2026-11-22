@@ -134,6 +134,33 @@ describe('reported translation defects', () => {
     expect(crowdin.get('page.tasks.questcard.available_button')).toBe('Als verfügbar markieren');
     expect(crowdin.get('page.tasks.questcard.mark_failed')).toBe('Als fehlgeschlagen markieren');
   });
+  // The Crowdin export still carries these storyline strings in English. Each one is overridden so
+  // the German storyline page and dashboard card read as German throughout.
+  it('translates the storyline strings Crowdin leaves in English', () => {
+    const paths = [
+      'page.dashboard.up_next.storyline.unlocks',
+      'page.dashboard.up_next.storyline.objective_hint',
+      'page.dashboard.up_next.storyline.choice',
+      'page.dashboard.up_next.storyline.choice_hint',
+      'page.dashboard.up_next.storyline.review',
+      'page.dashboard.up_next.storyline.review_hint',
+      'page.dashboard.traders.unlock_via_storyline',
+      'page.storyline.chapter_nav_label',
+      'page.storyline.chapter_eyebrow',
+      'page.storyline.completed_during_tutorial',
+      'page.storyline.timeline_unlocks',
+      'page.tasks.blockers.trader_story_unlock',
+      'page.tasks.requirements.story_alternative',
+      'page.tasks.requirements.story_objective',
+    ];
+    for (const path of paths) {
+      expect(crowdin.get(path), `${path} is no longer English in de.json; drop the override`).toBe(
+        source.get(path)
+      );
+      expect(overrides.get(path), `${path} has no German override`).toEqual(expect.any(String));
+      expect(overrides.get(path)).not.toBe(source.get(path));
+    }
+  });
   // Upstream translated the accepted-items popover itself, so the fork no longer overrides it.
   it('leaves the accepted-items popover to the Crowdin translation', () => {
     for (const key of ['any_of_items', 'any_of_items_short', 'view_accepted_items']) {

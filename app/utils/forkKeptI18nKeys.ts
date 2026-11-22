@@ -29,5 +29,6 @@
  * page.login.popup_blocked_title
  * page.login.success_description
  * page.resources.suggest_cta
+ * page.tasks.auto_tracking_guide
  */
 export {};

@@ -2,6 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StoryChapter, StoryChapterEnding } from '@/types/tarkov';
 const objectiveCompletionState = new Set<string>();
 const chapterCompletionState = new Set<string>();
+// Real client/ending_list ids: the only ones the app recognises as endings.
+const HUMANITY_ENDING_ID = '68a6e8f1a7455e5e23099ad8';
+const SURVIVED_ENDING_ID = '68a6e8c834a37e244710d516';
+const FALLEN_ENDING_ID = '68a6e8e4a8d0bee0b5324d96';
 const STORY_CHAPTERS: StoryChapter[] = [
   {
     id: 'chapter-1',
@@ -26,6 +30,7 @@ const STORY_CHAPTERS: StoryChapter[] = [
         type: 'main',
         description: 'Route A Objective',
         notes: 'Savior ending - cooperate fully with Kerman',
+        endingId: HUMANITY_ENDING_ID,
         mutuallyExclusiveWith: ['obj-b'],
       },
       'obj-b': {
@@ -34,6 +39,7 @@ const STORY_CHAPTERS: StoryChapter[] = [
         type: 'main',
         description: 'Route B Objective',
         notes: 'Fallen ending - keep the evidence',
+        endingId: FALLEN_ENDING_ID,
         mutuallyExclusiveWith: ['obj-a'],
       },
       'obj-c': {
@@ -221,7 +227,8 @@ describe('useStorylineChapters', () => {
     expect(chapter.endings).toEqual([
       {
         id: 'obj-a-ending',
-        label: 'Savior Ending',
+        label: 'Escaped From Tarkov For Humanity',
+        labelKey: 'page.storyline.ending_names.escaped_for_humanity',
         objectiveId: 'obj-a',
         objectiveLabel: 'Route A Objective',
         routeBlockingAlternatives: [{ id: 'obj-b', label: 'Route B Objective', complete: true }],
@@ -230,7 +237,8 @@ describe('useStorylineChapters', () => {
       },
       {
         id: 'obj-b-ending',
-        label: 'Fallen Ending',
+        label: 'Escaped From Tarkov To Fall In The Darkness',
+        labelKey: 'page.storyline.ending_names.escaped_to_fall_in_the_darkness',
         objectiveId: 'obj-b',
         objectiveLabel: 'Route B Objective',
         routeBlockingAlternatives: [],
@@ -373,7 +381,7 @@ describe('useStorylineChapters', () => {
     expect(objectiveD.routeState).toBe('open');
     expect(chapter.endings.map((ending) => ending.objectiveId)).toEqual(['obj-a', 'obj-b']);
   });
-  it('does not classify lead-to route notes as endings', async () => {
+  it('does not derive endings from note or objective wording', async () => {
     const chapters = JSON.parse(JSON.stringify(STORY_CHAPTERS)) as StoryChapter[];
     const chapter = chapters[0];
     if (!chapter) {
@@ -381,10 +389,10 @@ describe('useStorylineChapters', () => {
     }
     chapter.objectives = chapter.objectives ?? {};
     chapter.objectives['obj-e'] = {
-      description: 'Kerman Route',
+      description: 'Savior ending',
       id: 'obj-e',
       mutuallyExclusiveWith: ['obj-f'],
-      notes: 'Kerman Route — leads to Savior or Fallen ending',
+      notes: 'Kerman Route - Fallen ending',
       order: 5,
       type: 'optional',
     };
@@ -400,10 +408,149 @@ describe('useStorylineChapters', () => {
       'Expected first normalized chapter'
     );
     expect(normalizedChapter.optionalRouteChoices).toHaveLength(1);
+    // Only the two tagged objectives are endings; obj-e reads like one but carries no endingId.
     expect(normalizedChapter.endings.map((ending) => ending.objectiveId)).toEqual([
       'obj-a',
       'obj-b',
     ]);
+  });
+  describe('ending detection with translated objective text', () => {
+    // The overlay serves German objective text, so wording like "ending" never appears. Endings
+    // must come from the endingId tag, which is the same in every language.
+    const routeChapter = (text: {
+      a: { description: string; notes: string };
+      b: { description: string; notes: string };
+    }): StoryChapter => ({
+      id: 'the-ticket-routes',
+      name: 'The Ticket',
+      normalizedName: 'the-ticket-routes',
+      wikiLink: '',
+      order: 2,
+      objectives: {
+        'route-a': {
+          id: 'route-a',
+          order: 1,
+          type: 'main',
+          ...text.a,
+          endingId: HUMANITY_ENDING_ID,
+          mutuallyExclusiveWith: ['route-b'],
+        },
+        'route-b': {
+          id: 'route-b',
+          order: 2,
+          type: 'main',
+          ...text.b,
+          endingId: SURVIVED_ENDING_ID,
+          mutuallyExclusiveWith: ['route-a'],
+        },
+      },
+    });
+    const GERMAN_TEXT = {
+      a: {
+        description: 'Behalte den Armored case für dich',
+        notes: 'Ende der Menschheit – arbeite mit Mr. Kerman zusammen',
+      },
+      b: {
+        description: 'Übergib den Armored case an Prapor',
+        notes: 'Ende des Überlebenden – zahle Prapor',
+      },
+    };
+    const ENGLISH_TEXT = {
+      a: {
+        description: 'Keep the armored case for yourself',
+        notes: 'Savior ending - cooperate with Mr. Kerman',
+      },
+      b: {
+        description: 'Hand over the armored case to Prapor',
+        notes: 'Survivor ending - pay Prapor',
+      },
+    };
+    const endingsOf = async (chapter: StoryChapter) => {
+      const { normalizedChapters } = await loadComposable([chapter]);
+      return requireDefined(normalizedChapters.value[0], 'Expected route chapter').endings;
+    };
+    it('finds the endings when the objective text is German', async () => {
+      const endings = await endingsOf(routeChapter(GERMAN_TEXT));
+      expect(endings.map((ending) => ending.objectiveId)).toEqual(['route-a', 'route-b']);
+      expect(endings.map((ending) => ending.labelKey)).toEqual([
+        'page.storyline.ending_names.escaped_for_humanity',
+        'page.storyline.ending_names.escaped_and_survived',
+      ]);
+      expect(endings[0]?.objectiveLabel).toBe('Behalte den Armored case für dich');
+    });
+    it('detects the same endings whatever language the text is in', async () => {
+      const shape = (endings: Awaited<ReturnType<typeof endingsOf>>) =>
+        endings.map(({ id, label, labelKey, objectiveId, routeChoiceIndex, routeState }) => ({
+          id,
+          label,
+          labelKey,
+          objectiveId,
+          routeChoiceIndex,
+          routeState,
+        }));
+      const german = shape(await endingsOf(routeChapter(GERMAN_TEXT)));
+      const english = shape(await endingsOf(routeChapter(ENGLISH_TEXT)));
+      expect(german).toHaveLength(2);
+      expect(german).toEqual(english);
+    });
+    it('reports one ending when several objectives carry the same ending id', async () => {
+      const chapter = routeChapter(GERMAN_TEXT);
+      chapter.objectives!['route-c'] = {
+        description: 'Übergib den Armored case an Prapor',
+        endingId: HUMANITY_ENDING_ID,
+        id: 'route-c',
+        mutuallyExclusiveWith: ['route-b'],
+        order: 3,
+        type: 'main',
+      };
+      const endings = await endingsOf(chapter);
+      expect(endings.map((ending) => ending.labelKey)).toEqual([
+        'page.storyline.ending_names.escaped_for_humanity',
+        'page.storyline.ending_names.escaped_and_survived',
+      ]);
+    });
+    it.each([
+      ['an unknown hex id', 'ffffffffffffffffffffffff'],
+      ['a prototype key', '__proto__'],
+      ['an inherited property name', 'constructor'],
+      ['an empty string', ''],
+      ['a non-string value', 42],
+      ['a wrong-cased known id', HUMANITY_ENDING_ID.toUpperCase()],
+    ])('ignores %s as an ending id', async (_label, endingId) => {
+      const chapter = routeChapter(GERMAN_TEXT);
+      for (const objective of Object.values(chapter.objectives!)) {
+        objective.endingId = endingId as unknown as string;
+      }
+      expect(await endingsOf(chapter)).toEqual([]);
+    });
+    it('names a declared ending by its id, whatever the systemName says', async () => {
+      const chapter = structuredClone(DECLARED_ENDING_CHAPTER);
+      chapter.endings = [
+        {
+          id: FALLEN_ENDING_ID,
+          systemName: 'EscapedFromTarkovToFallInTheDarkness',
+          gateQuestId: 'quest-fallen',
+          objectiveCount: 0,
+          resolvedInReference: false,
+        },
+        {
+          id: 'ending-unknown',
+          systemName: 'SomethingNew',
+          gateQuestId: 'quest-new',
+          objectiveCount: 0,
+          resolvedInReference: false,
+        },
+      ];
+      const endings = await endingsOf(chapter);
+      expect(endings.map((ending) => ending.labelKey)).toEqual([
+        'page.storyline.ending_names.escaped_to_fall_in_the_darkness',
+        null,
+      ]);
+      expect(endings.map((ending) => ending.label)).toEqual([
+        'Escaped From Tarkov To Fall In The Darkness',
+        'Something New',
+      ]);
+    });
   });
   it('reads endings, quest routes, and coverage from overlay-declared chapter data', async () => {
     objectiveCompletionState.add('the-ticket:obj-gate-1');
@@ -416,6 +563,7 @@ describe('useStorylineChapters', () => {
         evidencePending: false,
         id: 'ending-resolved',
         label: 'Escaped From Tarkov For Humanity',
+        labelKey: null,
         objectiveCompleted: 1,
         objectiveId: '',
         objectiveLabel: '',
@@ -429,6 +577,7 @@ describe('useStorylineChapters', () => {
         evidencePending: true,
         id: 'ending-pending',
         label: 'You Didnt Escape From Yourself',
+        labelKey: null,
         objectiveCompleted: 0,
         objectiveId: '',
         objectiveLabel: '',

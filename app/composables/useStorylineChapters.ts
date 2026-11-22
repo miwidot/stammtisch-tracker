@@ -6,6 +6,11 @@ import {
   storyCatalogForMode,
 } from '@/utils/storylineCompletion';
 import {
+  isStoryEndingId,
+  storyEndingFallbackLabel,
+  storyEndingLabelKey,
+} from '@/utils/storylineEndings';
+import {
   normalizeStoryObjectives,
   orderedStoryObjectives,
   storyExclusiveQuestPairs,
@@ -81,7 +86,10 @@ export interface StorylineObjectiveProgress extends Omit<StoryObjective, 'unlock
 }
 export interface StorylineEndingView {
   id: string;
+  /** English fallback; the UI prefers the translation behind `labelKey` when there is one. */
   label: string;
+  /** i18n key of the ending's name, set only for the four endings the client ships. */
+  labelKey: string | null;
   objectiveId: string;
   objectiveLabel: string;
   routeBlockingAlternatives: StorylineObjectiveRouteView[];
@@ -318,34 +326,6 @@ const buildRouteChoiceGroups = (
     routeChoiceGroups,
   };
 };
-const extractEndingName = (value?: string | null): string | null => {
-  if (typeof value !== 'string') {
-    return null;
-  }
-  const normalized = value.replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
-  if (!normalized) {
-    return null;
-  }
-  const explicitMatch = normalized.match(/^([^:;-]+?)\s+ending\b(?:\s*[:;-].*)?$/i);
-  const endingName = explicitMatch?.[1]?.trim();
-  if (!endingName) {
-    return null;
-  }
-  if (/\bleads?\s+to\b/i.test(endingName)) {
-    return null;
-  }
-  return endingName;
-};
-const formatEndingLabel = (name: string): string => {
-  const trimmed = name.trim();
-  if (!trimmed) {
-    return 'Ending';
-  }
-  if (/\bending\b/i.test(trimmed)) {
-    return trimmed;
-  }
-  return `${trimmed} Ending`;
-};
 const buildStoryEndings = (
   objectives: StorylineObjectiveProgress[],
   routeChoices: StorylineRouteChoiceGroup[]
@@ -359,10 +339,12 @@ const buildStoryEndings = (
       routeChoiceIndexByObjectiveId.set(objective.id, routeChoiceIndex + 1);
     });
   });
-  const endings = objectives.flatMap((objective) => {
-    const endingName =
-      extractEndingName(objective.notes) ?? extractEndingName(objective.description);
-    if (!endingName) {
+  // Detection reads the overlay's `endingId` tag, never the objective text: that text is
+  // translated, so a wording match would only ever work for the language it was written in.
+  const seenEndingIds = new Set<string>();
+  return objectives.flatMap((objective) => {
+    const endingId = objective.endingId;
+    if (!isStoryEndingId(endingId) || seenEndingIds.has(endingId)) {
       return [];
     }
     if (!routeChoiceIndexByObjectiveId.has(objective.id)) {
@@ -371,10 +353,12 @@ const buildStoryEndings = (
     if (objective.routeAlternatives.length === 0) {
       return [];
     }
+    seenEndingIds.add(endingId);
     return [
       {
         id: `${objective.id}-ending`,
-        label: formatEndingLabel(endingName),
+        label: storyEndingFallbackLabel(endingId),
+        labelKey: storyEndingLabelKey(endingId),
         objectiveId: objective.id,
         objectiveLabel: objective.description,
         routeBlockingAlternatives: objective.routeBlockingAlternatives,
@@ -383,7 +367,6 @@ const buildStoryEndings = (
       },
     ];
   });
-  return endings;
 };
 /**
  * Declared endings as the overlay published them, or `null` when the field is absent. Members are
@@ -403,8 +386,6 @@ const declaredChapterEndings = (endings: unknown): StoryChapterEnding[] | null =
     );
   });
 };
-const humanizeEndingName = (systemName: string): string =>
-  systemName.replace(/([a-z\d])([A-Z])/g, '$1 $2').trim() || systemName;
 const declaredEndingState = (
   ending: StoryChapterEnding,
   objectiveTotal: number,
@@ -437,7 +418,8 @@ const buildDeclaredEndings = (
     return {
       evidencePending: !ending.resolvedInReference || objectiveTotal === 0,
       id: ending.id,
-      label: humanizeEndingName(ending.systemName),
+      label: storyEndingFallbackLabel(ending.id, ending.systemName),
+      labelKey: storyEndingLabelKey(ending.id),
       objectiveCompleted,
       objectiveId: '',
       objectiveLabel: '',

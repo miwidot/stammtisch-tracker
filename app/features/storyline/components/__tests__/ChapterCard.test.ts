@@ -7,9 +7,14 @@ import type { StorylineNormalizedChapterView } from '@/composables/useStorylineC
 vi.mock('@/composables/useWikiLink', () => ({
   useWikiLink: () => ({ toWikiUrl: (link: string) => link }),
 }));
+const GERMAN_ENDING_NAMES: Record<string, string> = {
+  'page.storyline.ending_names.escaped_for_humanity': 'Für die Menschheit aus Tarkov entkommen',
+};
 mockNuxtImport('useI18n', () => () => ({
   t: (key: string, values?: Record<string, unknown> | string) =>
-    typeof values === 'object' && values !== null ? `${key}:${JSON.stringify(values)}` : key,
+    GERMAN_ENDING_NAMES[key] ??
+    (typeof values === 'object' && values !== null ? `${key}:${JSON.stringify(values)}` : key),
+  te: (key: string) => Object.hasOwn(GERMAN_ENDING_NAMES, key),
 }));
 const objective = (
   id: string,
@@ -136,6 +141,7 @@ describe('ChapterCard story contract rendering', () => {
             evidencePending: false,
             id: 'ending-resolved',
             label: 'Escaped From Tarkov For Humanity',
+            labelKey: 'page.storyline.ending_names.escaped_for_humanity',
             objectiveCompleted: 1,
             objectiveId: '',
             objectiveLabel: '',
@@ -149,6 +155,7 @@ describe('ChapterCard story contract rendering', () => {
             evidencePending: true,
             id: 'ending-pending',
             label: 'You Didnt Escape From Yourself',
+            labelKey: 'page.storyline.ending_names.not_escaped_from_yourself',
             objectiveCompleted: 0,
             objectiveId: '',
             objectiveLabel: '',
@@ -162,6 +169,7 @@ describe('ChapterCard story contract rendering', () => {
             evidencePending: true,
             id: 'ending-unmapped',
             label: 'Unmapped Ending',
+            labelKey: null,
             objectiveCompleted: 0,
             objectiveId: '',
             objectiveLabel: '',
@@ -175,7 +183,11 @@ describe('ChapterCard story contract rendering', () => {
       })
     );
     const text = wrapper.text();
-    expect(text).toContain('Escaped From Tarkov For Humanity');
+    // A translated name wins over the English fallback; a key with no message falls back to it.
+    expect(text).toContain('Für die Menschheit aus Tarkov entkommen');
+    expect(text).not.toContain('Escaped From Tarkov For Humanity');
+    expect(text).toContain('You Didnt Escape From Yourself');
+    expect(text).toContain('Unmapped Ending');
     expect(text).toContain('page.storyline.ending_progress:{"completed":1,"total":2}');
     expect(text).toContain('page.storyline.ending_evidence_pending');
     expect(text).toContain('page.storyline.ending_progress:{"completed":0,"total":3}');
@@ -588,6 +600,7 @@ describe('ChapterCard story contract rendering', () => {
   it('renders requirements and ending route states beside header unlocks', () => {
     const ending = {
       evidencePending: false,
+      labelKey: null,
       objectiveCompleted: 0,
       objectiveId: 'obj-end',
       objectiveTotal: 0,

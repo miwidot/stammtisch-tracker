@@ -992,6 +992,12 @@
       "endings": "Endings",
       "ending_progress": "{completed}/{total} known objectives",
       "ending_evidence_pending": "No objectives mapped to this ending yet.",
+      "ending_names": {
+        "escaped_for_humanity": "Escaped From Tarkov For Humanity",
+        "escaped_and_survived": "Escaped From Tarkov And Survived",
+        "escaped_to_fall_in_the_darkness": "Escaped From Tarkov To Fall In The Darkness",
+        "not_escaped_from_yourself": "You Didn't Escape From Yourself"
+      },
       "partial_data": "Partial data",
       "partial_data_hint": "Upstream story data for this chapter is incomplete, so more objectives may exist than are listed.",
       "quest_route_exclusive": "Finishing one of these routes rules the other out.",

@@ -70,6 +70,13 @@
         "cards": {
           "collapse_completed_objectives": "Ziele abgeschlossener Aufgaben einklappen"
         }
+      },
+      "blockers": {
+        "trader_story_unlock": "Schalte {trader} frei: {objective} ({chapter})"
+      },
+      "requirements": {
+        "story_alternative": "Oder komm in einem Story-Kapitel weiter: {chapters}",
+        "story_objective": "Story-Ziel: {objective} ({chapter})"
       }
     },
     "resources": {
@@ -87,6 +94,33 @@
       "contributors": {
         "upstream_note": "Dieser Tracker basiert auf TarkovTracker. Die Menschen, die daran arbeiten, führt das Upstream-Projekt auf.",
         "upstream_link": "Upstream-Mitwirkende auf GitHub ansehen"
+      }
+    },
+    "dashboard": {
+      "up_next": {
+        "storyline": {
+          "unlocks": "Schaltet {unlock} frei",
+          "objective_hint": "Nächster verfolgter Schritt · Voraussetzungen in der Storyline prüfen",
+          "choice": "Prüfe deine Routenwahl",
+          "choice_hint": "Öffne das Kapitel und vergleiche die Alternativen, bevor du weitermachst.",
+          "review": "Prüfe deinen Kapitelfortschritt",
+          "review_hint": "Es ist kein nächster Hauptschritt erfasst. Sieh dir das Kapitel an, bevor du es als abgeschlossen markierst."
+        }
+      },
+      "traders": {
+        "unlock_via_storyline": "Wird in der Storyline freigeschaltet: {chapter}"
+      }
+    },
+    "storyline": {
+      "chapter_nav_label": "Story-Kapitel",
+      "chapter_eyebrow": "Kapitel",
+      "completed_during_tutorial": "Im Tutorial abgeschlossen",
+      "timeline_unlocks": "Schaltet frei",
+      "ending_names": {
+        "escaped_for_humanity": "Für die Menschheit aus Tarkov entkommen",
+        "escaped_and_survived": "Aus Tarkov entkommen und überlebt",
+        "escaped_to_fall_in_the_darkness": "Aus Tarkov entkommen, um in der Dunkelheit zu fallen",
+        "not_escaped_from_yourself": "Du bist dir selbst nicht entkommen"
       }
     }
   },
