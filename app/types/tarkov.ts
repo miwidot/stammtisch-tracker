@@ -552,6 +552,11 @@ export interface StoryReferenceCoverage {
 export interface StoryRewards {
   description: string;
 }
+/** Where and how a chapter starts. The summary is localized; location details are not. */
+export interface StoryChapterActivation {
+  summary: string;
+  locations?: Array<{ map: string; detail: string }>;
+}
 export interface StoryChapter {
   id: string;
   name: string;
@@ -560,6 +565,7 @@ export interface StoryChapter {
   order: number;
   autoStart?: boolean;
   chapterRequirements?: Array<{ id: string; name: string }>;
+  activation?: StoryChapterActivation | null;
   mapUnlocks?: Array<{ id: string; name: string }>;
   traderUnlocks?: Array<{ id: string; name: string }>;
   questUnlocks?: Array<{ id: string; name: string }>;

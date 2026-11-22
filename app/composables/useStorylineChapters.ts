@@ -19,6 +19,7 @@ import {
 import type { ComputedRef } from '#imports';
 import type {
   StoryChapter,
+  StoryChapterActivation,
   StoryChapterEnding,
   StoryObjective,
   StoryObjectiveUnlock,
@@ -38,6 +39,7 @@ export interface StorylineChapterView {
   wikiLink: string;
   description?: string | null;
   notes?: string | null;
+  activation?: StoryChapterActivation | null;
   rewards?: StoryRewards | null;
   requirements: StorylineLinkEntry[];
   mapUnlocks: StorylineLinkEntry[];
@@ -155,8 +157,19 @@ interface UseStorylineChaptersOptions {
    */
   completedObjectiveIds?: (chapterId: string) => readonly string[];
 }
+/**
+ * Resolves the label of a linked entity. Traders, maps and chapters already carry localized names
+ * elsewhere (tarkov.dev bundles, chapter locale patches), so the overlay's English `name` is only
+ * the fallback for an id the metadata does not know.
+ */
+type LocalizedName = (
+  kind: 'chapter' | 'map' | 'trader',
+  id: string | undefined,
+  name: string
+) => string;
 const normalizeChapterRequirements = (
-  chapter: StorylineChapterView
+  chapter: StorylineChapterView,
+  localizedName: LocalizedName
 ): StorylineRequirementView[] => {
   const rawRequirements = chapter.requirements as Array<
     string | { description?: string; id?: string; name?: string }
@@ -173,7 +186,10 @@ const normalizeChapterRequirements = (
           label,
         };
       }
-      const label = rawRequirement.name?.trim() || rawRequirement.description?.trim();
+      const label =
+        (rawRequirement.name?.trim()
+          ? localizedName('chapter', rawRequirement.id?.trim(), rawRequirement.name.trim())
+          : undefined) || rawRequirement.description?.trim();
       if (!label) {
         return null;
       }
@@ -224,24 +240,33 @@ const objectiveUnlockView = (
   chapter: StorylineChapterView,
   objectiveId: string,
   unlock: StoryObjectiveUnlock,
-  index: number
+  index: number,
+  localizedName: LocalizedName
 ): StorylineObjectiveUnlockView => ({
   estimated: false,
   id: objectiveUnlockId(chapter, objectiveId, unlock, index),
-  label: unlock.name,
+  label:
+    unlock.type === 'map' || unlock.type === 'trader'
+      ? localizedName(unlock.type, unlock.id ?? chapterUnlockId(chapter, unlock), unlock.name)
+      : unlock.name,
   note: unlock.note,
   type: unlock.type === 'map' || unlock.type === 'trader' ? unlock.type : 'reward',
 });
 const remainingChapterUnlocks = (
   chapter: StorylineChapterView,
-  objectives: StorylineObjectiveProgress[]
+  objectives: StorylineObjectiveProgress[],
+  localizedName: LocalizedName
 ): StorylineObjectiveUnlockView[] => {
   const placedKeys = new Set(objectives.flatMap((objective) => objective.unlocks.map(unlockKey)));
   const chapterUnlocks: Array<Omit<StorylineObjectiveUnlockView, 'estimated'>> = [
-    ...chapter.mapUnlocks.map((map) => ({ id: map.id, label: map.name, type: 'map' as const })),
+    ...chapter.mapUnlocks.map((map) => ({
+      id: map.id,
+      label: localizedName('map', map.id, map.name),
+      type: 'map' as const,
+    })),
     ...chapter.traderUnlocks.map((trader) => ({
       id: trader.id,
-      label: trader.name,
+      label: localizedName('trader', trader.id, trader.name),
       type: 'trader' as const,
     })),
     ...parseChapterRewards(chapter),
@@ -507,15 +532,24 @@ export function useStorylineChapters(options: UseStorylineChaptersOptions = {}):
   const isChapterComplete = options.isChapterComplete ?? tarkovStore.isStoryChapterComplete;
   const isObjectiveComplete = options.isObjectiveComplete ?? tarkovStore.isStoryObjectiveComplete;
   const completedObjectiveIds = options.completedObjectiveIds ?? (() => []);
-  const chapters = computed<StorylineChapterView[]>(() => {
-    const catalog =
+  const catalogChapters = computed(
+    () =>
       options.chapters?.() ??
       storyCatalogForMode(
         metadataStore.storyChapters ?? [],
         metadataStore.storyChaptersGameMode,
         tarkovStore.getCurrentGameMode?.() ?? GAME_MODES.PVP
-      );
-    return catalog.map((chapter) => {
+      )
+  );
+  const localizedNames = computed(() => ({
+    chapter: new Map(catalogChapters.value.map((chapter) => [chapter.id, chapter.name])),
+    map: new Map((metadataStore.maps ?? []).map((map) => [map.id, map.name])),
+    trader: new Map((metadataStore.traders ?? []).map((trader) => [trader.id, trader.name])),
+  }));
+  const localizedName: LocalizedName = (kind, id, name) =>
+    (id ? localizedNames.value[kind].get(id)?.trim() : undefined) || name;
+  const chapters = computed<StorylineChapterView[]>(() => {
+    return catalogChapters.value.map((chapter) => {
       const objectiveMap = normalizeStoryObjectives(chapter.objectives);
       return {
         id: chapter.id,
@@ -527,6 +561,7 @@ export function useStorylineChapters(options: UseStorylineChaptersOptions = {}):
         wikiLink: chapter.wikiLink,
         description: chapter.description,
         notes: chapter.notes,
+        activation: chapter.activation,
         rewards: chapter.rewards,
         requirements: chapter.chapterRequirements ?? [],
         mapUnlocks: chapter.mapUnlocks ?? [],
@@ -587,7 +622,7 @@ export function useStorylineChapters(options: UseStorylineChaptersOptions = {}):
           ...objective,
           hasEstimatedUnlocks: false,
           unlocks: (objective.unlocks ?? []).map((unlock, index) =>
-            objectiveUnlockView(chapter, objective.id, unlock, index)
+            objectiveUnlockView(chapter, objective.id, unlock, index, localizedName)
           ),
           routeAlternatives,
           routeBlockingAlternatives,
@@ -595,7 +630,7 @@ export function useStorylineChapters(options: UseStorylineChaptersOptions = {}):
         };
       });
       const objectives = baseObjectives;
-      const chapterUnlocks = remainingChapterUnlocks(chapter, objectives);
+      const chapterUnlocks = remainingChapterUnlocks(chapter, objectives, localizedName);
       const mainObjectives = objectives.filter((objective) => objective.type === 'main');
       const optionalObjectives = objectives.filter((objective) => objective.type === 'optional');
       const { linearObjectives: mainLinearObjectives, routeChoiceGroups: mainRouteChoices } =
@@ -621,7 +656,7 @@ export function useStorylineChapters(options: UseStorylineChaptersOptions = {}):
         optionalObjectives,
         optionalRouteChoices,
         questRouteChoices: buildQuestRouteChoices(chapter, objectives),
-        requirements: normalizeChapterRequirements(chapter),
+        requirements: normalizeChapterRequirements(chapter, localizedName),
       };
     });
   });

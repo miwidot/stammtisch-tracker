@@ -125,13 +125,15 @@ const loadComposable = async (
   storyChapters: StoryChapter[] = STORY_CHAPTERS,
   options: Parameters<
     typeof import('@/composables/useStorylineChapters').useStorylineChapters
-  >[0] = {}
+  >[0] = {},
+  metadata: { maps?: unknown; traders?: unknown } = {}
 ) => {
   vi.resetModules();
   vi.doMock('@/stores/useMetadata', () => ({
     useMetadataStore: () => ({
       storyChapters,
       storyChaptersGameMode: 'pvp',
+      ...metadata,
     }),
   }));
   vi.doMock('@/stores/useTarkov', () => ({
@@ -746,5 +748,156 @@ describe('useStorylineChapters', () => {
     const { normalizedChapters } = await loadComposable([DECLARED_ENDING_CHAPTER]);
     const chapter = requireDefined(normalizedChapters.value[0], 'Expected the-ticket chapter');
     expect(chapter.staleObjectiveIds).toEqual([]);
+  });
+});
+// The server already serves chapter text in the active language (neutral overlay locale
+// patches). These tests drive that localized data through the real view model.
+describe('useStorylineChapters localized story text', () => {
+  const TRADER_ID = '54cb57776803fa99248b456e';
+  const MAP_ID = '59fc81d786f774390775787e';
+  const LOCALIZED_CHAPTER: StoryChapter = {
+    id: 'falling-skies',
+    name: 'Fallender Himmel',
+    normalizedName: 'falling-skies',
+    wikiLink: 'https://example.com/falling-skies',
+    order: 2,
+    chapterRequirements: [
+      { id: 'tour', name: 'Tour' },
+      { id: 'unknown-chapter', name: 'Unknown chapter' },
+    ],
+    activation: { summary: 'Frage Mechanic im Verlauf von Tour nach dem abgestürzten Flugzeug.' },
+    notes: 'Wenn du den Armored case behältst, verlierst du 0,3 Ansehen bei Prapor.',
+    rewards: { description: 'Schaltet den Erfolg „Pathfinder“ frei' },
+    mapUnlocks: [{ id: MAP_ID, name: 'Factory (night)' }],
+    traderUnlocks: [{ id: TRADER_ID, name: 'Therapist' }],
+    objectives: {
+      'obj-1': {
+        id: 'obj-1',
+        order: 1,
+        type: 'main',
+        description: 'Sprich mit Therapist',
+        notes: 'Schrittnotiz auf Deutsch',
+        unlocks: [
+          {
+            type: 'map',
+            id: MAP_ID,
+            name: 'Factory (night)',
+            note: 'Wird nach Abschluss des Customs-Abschnitts freigeschaltet.',
+          },
+          { type: 'trader', id: TRADER_ID, name: 'Therapist' },
+          { type: 'trader', id: 'unknown-trader', name: 'Mystery trader' },
+          { type: 'achievement', id: 'ach-1', name: 'Pathfinder' },
+        ],
+      },
+    },
+  };
+  const TOUR: StoryChapter = {
+    id: 'tour',
+    name: 'Tour',
+    normalizedName: 'tour',
+    wikiLink: '',
+    order: 1,
+    objectives: {},
+  };
+  const METADATA = {
+    maps: [{ id: MAP_ID, name: 'Factory bei Nacht' }],
+    traders: [{ id: TRADER_ID, name: 'Therapeutin' }],
+  };
+  const chapterOf = async (metadata: { maps?: unknown; traders?: unknown }) => {
+    const { normalizedChapters } = await loadComposable([TOUR, LOCALIZED_CHAPTER], {}, metadata);
+    return requireDefined(
+      normalizedChapters.value.find((chapter) => chapter.id === 'falling-skies'),
+      'Expected falling-skies chapter'
+    );
+  };
+  it('passes the localized notes, activation summary and rewards text through unchanged', async () => {
+    const chapter = await chapterOf(METADATA);
+    expect(chapter.notes).toBe(
+      'Wenn du den Armored case behältst, verlierst du 0,3 Ansehen bei Prapor.'
+    );
+    expect(chapter.activation?.summary).toBe(
+      'Frage Mechanic im Verlauf von Tour nach dem abgestürzten Flugzeug.'
+    );
+    expect(chapter.rewards?.description).toBe('Schaltet den Erfolg „Pathfinder“ frei');
+    expect(chapter.objectives[0]?.notes).toBe('Schrittnotiz auf Deutsch');
+    expect(chapter.objectives[0]?.unlocks[0]?.note).toBe(
+      'Wird nach Abschluss des Customs-Abschnitts freigeschaltet.'
+    );
+  });
+  it('renders trader and map unlock names from the localized metadata by id', async () => {
+    const chapter = await chapterOf(METADATA);
+    expect(chapter.objectives[0]?.unlocks.map((unlock) => unlock.label)).toEqual([
+      'Factory bei Nacht',
+      'Therapeutin',
+      'Mystery trader',
+      'Pathfinder',
+    ]);
+  });
+  it('localizes the chapter-level unlocks the objectives do not place', async () => {
+    const { normalizedChapters } = await loadComposable(
+      [{ ...LOCALIZED_CHAPTER, objectives: {} }],
+      {},
+      METADATA
+    );
+    expect(normalizedChapters.value[0]?.chapterUnlocks.map((unlock) => unlock.label)).toEqual([
+      'Factory bei Nacht',
+      'Therapeutin',
+      'Schaltet den Erfolg „Pathfinder“ frei',
+    ]);
+  });
+  it('names a required chapter after its localized chapter name, not the overlay name', async () => {
+    const localizedTour = { ...TOUR, name: 'Tour (de)' };
+    const { normalizedChapters } = await loadComposable([localizedTour, LOCALIZED_CHAPTER]);
+    const chapter = requireDefined(normalizedChapters.value[1], 'Expected second chapter');
+    expect(chapter.requirements.map((requirement) => requirement.label)).toEqual([
+      'Tour (de)',
+      'Unknown chapter',
+    ]);
+  });
+  it.each([
+    ['no metadata loaded yet', {}],
+    ['empty metadata arrays', { maps: [], traders: [] }],
+    [
+      'a blank localized name',
+      { maps: [{ id: MAP_ID, name: '  ' }], traders: [{ id: TRADER_ID }] },
+    ],
+    [
+      'unrelated ids only',
+      { maps: [{ id: 'other', name: 'X' }], traders: [{ id: 'other', name: 'Y' }] },
+    ],
+  ])('falls back to the overlay name with %s', async (_label, metadata) => {
+    const chapter = await chapterOf(metadata);
+    expect(chapter.objectives[0]?.unlocks.map((unlock) => unlock.label)).toEqual([
+      'Factory (night)',
+      'Therapist',
+      'Mystery trader',
+      'Pathfinder',
+    ]);
+  });
+  it('never takes the label of an achievement unlock from a trader or map with the same id', async () => {
+    const chapter = await chapterOf({
+      maps: [{ id: 'ach-1', name: 'Wrong map' }],
+      traders: [{ id: 'ach-1', name: 'Wrong trader' }],
+    });
+    expect(chapter.objectives[0]?.unlocks[3]?.label).toBe('Pathfinder');
+  });
+  it('localizes an id-less unlock through the chapter unlock list that names it', async () => {
+    const idless: StoryChapter = {
+      ...LOCALIZED_CHAPTER,
+      objectives: {
+        'obj-1': {
+          id: 'obj-1',
+          order: 1,
+          type: 'main',
+          description: 'x',
+          unlocks: [{ type: 'trader', name: 'Therapist' }],
+        },
+      },
+    };
+    const { normalizedChapters } = await loadComposable([idless], {}, METADATA);
+    expect(normalizedChapters.value[0]?.objectives[0]?.unlocks[0]).toMatchObject({
+      id: TRADER_ID,
+      label: 'Therapeutin',
+    });
   });
 });

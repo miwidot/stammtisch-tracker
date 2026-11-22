@@ -35,7 +35,7 @@ const LOCALE_FIELDS = new Map<string, ReadonlySet<string>>([
   ['items', new Set(['description', 'name', 'shortName', 'wikiLink'])],
   ['maps', new Set(['description', 'name'])],
   ['prestige', new Set(['name'])],
-  ['storyChapters', new Set(['description', 'name'])],
+  ['storyChapters', new Set(['description', 'name', 'notes'])],
   ['tasks', new Set(['name', 'wikiLink'])],
   ['traders', new Set(['description', 'name'])],
 ]);
@@ -50,11 +50,28 @@ const objectiveLocaleTarget = (path: string[]): boolean =>
   ['tasks', 'storyChapters'].includes(path[0]!) &&
   path[2] === 'objectives' &&
   path[4] === 'description';
+// Story chapters carry more text than other entities; each shape mirrors the producer's schema.
+const STORY_NESTED_FIELDS: ReadonlyArray<readonly [string, string]> = [
+  ['activation', 'summary'],
+  ['rewards', 'description'],
+];
+const storyNestedTarget = (path: string[]): boolean =>
+  path[0] === 'storyChapters' &&
+  path.length === 4 &&
+  STORY_NESTED_FIELDS.some(([group, field]) => path[2] === group && path[3] === field);
+const storyObjectiveTarget = (path: string[]): boolean =>
+  path[0] === 'storyChapters' &&
+  path[2] === 'objectives' &&
+  ((path.length === 5 && path[4] === 'notes') ||
+    (path.length === 7 && path[4] === 'unlocks' && path[6] === 'note'));
 const targetKey = (path: string[]): string =>
   `@tt:overlay:/${path.map((part) => part.replaceAll('~', '~0').replaceAll('/', '~1')).join('/')}`;
 const validTarget = (key: string, path: unknown): boolean =>
   safeTargetPath(path) &&
-  (flatLocaleTarget(path) || objectiveLocaleTarget(path)) &&
+  (flatLocaleTarget(path) ||
+    objectiveLocaleTarget(path) ||
+    storyNestedTarget(path) ||
+    storyObjectiveTarget(path)) &&
   key === targetKey(path);
 const validTargets = (value: unknown): value is NeutralOverlaySnapshot['localeTargets'] =>
   isPlainObject(value) && Object.entries(value).every(([key, path]) => validTarget(key, path));
