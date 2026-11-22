@@ -206,34 +206,44 @@ const mountAppBar = async () => {
     },
   });
 };
+const WIDTHS = [1700, 1440, 1366, 1024, 768, 560, 375, 320];
 describe('AppBar overflow menu hidden (fork)', () => {
   beforeEach(() => {
     windowWidthRef.value = 1280;
     mockIsLightThemeRef.value = false;
+    mockSupabase.user.loggedIn = true;
   });
-  it.each([1700, 1400, 1000, 560, 311])(
-    'does not render the "..." button or its menu at app bar width %i',
+  it.each(WIDTHS)(
+    'never renders the "..." button or its menu at app bar width %i',
     async (width) => {
       appBarWidthRef.value = width;
       const wrapper = await mountAppBar();
       expect(wrapper.find('button[data-icon="i-lucide-ellipsis"]').exists()).toBe(false);
       expect(wrapper.find('button[aria-label="common.more"]').exists()).toBe(false);
-      // Overflow entries (help, activity, locale submenu) must not be offered as menu items.
       expect(wrapper.find('[data-menu-item="app_bar.help_community_aria"]').exists()).toBe(false);
       expect(wrapper.find('[data-menu-item="common.activity_log"]').exists()).toBe(false);
       expect(wrapper.find('[data-menu-item="settings.locale"]').exists()).toBe(false);
       wrapper.unmount();
     }
   );
-  it('still renders the activity bell, help launcher, locale menu and account button', async () => {
-    appBarWidthRef.value = 1700;
-    mockSupabase.user.loggedIn = true;
+  it.each(WIDTHS)(
+    'shows language, help and account directly in the bar at width %i',
+    async (width) => {
+      appBarWidthRef.value = width;
+      const wrapper = await mountAppBar();
+      expect(wrapper.find('[data-testid="app-locale-menu"]').exists()).toBe(true);
+      const help = wrapper.get('[data-testid="global-help-launcher"]');
+      expect(help.attributes('data-direct')).toBe('true');
+      expect(wrapper.find('button[aria-label="navigation_drawer.account_menu"]').exists()).toBe(
+        true
+      );
+      wrapper.unmount();
+    }
+  );
+  it.each(WIDTHS)('shows the activity bell only above 560 px (width %i)', async (width) => {
+    appBarWidthRef.value = width;
     const wrapper = await mountAppBar();
-    expect(wrapper.find('button[data-icon="i-lucide-bell"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="global-help-launcher"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="app-locale-menu"]').exists()).toBe(true);
-    expect(wrapper.find('button[aria-label="navigation_drawer.account_menu"]').exists()).toBe(true);
-    mockSupabase.user.loggedIn = false;
+    expect(wrapper.find('button[data-icon="i-lucide-bell"]').exists()).toBe(width > 560);
     wrapper.unmount();
   });
 });

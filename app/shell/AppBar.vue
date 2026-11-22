@@ -6,7 +6,7 @@
     :style="{ '--app-bar-gutter': gutterCap }"
   >
     <div
-      class="grid h-full grid-cols-[minmax(0,1fr)_min(36%,47.5rem)_minmax(0,1fr)] items-center gap-2 pe-[clamp(18px,calc(20cqw-230px),var(--app-bar-gutter))] @max-[760px]:pe-3 @max-[560px]:grid-cols-[minmax(max-content,1fr)_auto_minmax(max-content,1fr)] @max-[560px]:gap-1 @max-[560px]:pe-2"
+      class="grid h-full grid-cols-[minmax(max-content,1fr)_minmax(0,min(36%,47.5rem))_minmax(max-content,1fr)] items-center gap-2 pe-[clamp(18px,calc(20cqw-230px),var(--app-bar-gutter))] @max-[760px]:pe-3 @max-[560px]:grid-cols-[minmax(max-content,1fr)_auto_minmax(max-content,1fr)] @max-[560px]:gap-1 @max-[560px]:pe-2"
     >
       <div class="flex items-center gap-0.5 ps-2 @min-[761px]:ps-4">
         <AppTooltip :text="t('navigation_drawer.toggle')">
@@ -72,7 +72,7 @@
         </span>
         <GlobalHelpLauncher
           v-model:open="helpOpen"
-          :show-trigger="showThemeAndHelp"
+          :show-trigger="showHelpTrigger"
           :reference="overflowAnchor ?? undefined"
         />
         <AppTooltip v-if="showLocale" :text="localeTooltip">
@@ -206,7 +206,9 @@
   const { width: barWidth } = useElementSize(useTemplateRef<HTMLElement>('appBar'));
   const showActivity = computed(() => barWidth.value > 560);
   const showThemeAndHelp = computed(() => barWidth.value >= 1280);
-  const showLocale = computed(() => barWidth.value >= 1620);
+  // Fork: the "..." menu is hidden, so language and help are always shown in the bar.
+  const showLocale = computed(() => !OVERFLOW_MENU_ENABLED || barWidth.value >= 1620);
+  const showHelpTrigger = computed(() => !OVERFLOW_MENU_ENABLED || showThemeAndHelp.value);
   const activityOpen = ref(false);
   const activityPopoverContent = computed(() => ({
     align: 'end' as const,
