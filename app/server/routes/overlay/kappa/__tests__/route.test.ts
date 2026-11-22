@@ -1,7 +1,9 @@
 // @vitest-environment happy-dom
+import { readFileSync } from 'node:fs';
 import { mockNuxtImport } from '@nuxt/test-utils/runtime';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BASE_SITE_CONTEXT, createRouterStub } from '@/server/utils/__tests__/eventStubs';
+import { SITE_NAME } from '@/utils/siteBrand';
 import type { H3Event } from 'h3';
 const { mockGetQuery, mockGetRouterParam, mockSetHeader, mockSetResponseHeader } = vi.hoisted(
   () => ({
@@ -151,4 +153,23 @@ describe('Overlay Kappa Route', () => {
       await expect(fs.access(absolutePath)).resolves.toBeUndefined();
     }
   });
+  // Fork: the credit line names this instance. The overlay page is server-rendered English-only
+  // markup (no locale switch), so the de/en part pins the locale brand keys to the same constant.
+  it('credits our instance name instead of TarkovTracker.org', async () => {
+    const { default: handler } = await import('@/server/routes/overlay/kappa/[userId]/[mode].get');
+    const html = String(await handler(mockEvent as H3Event));
+    expect(html).toContain(`Powered by <span class="tagline-brand">${SITE_NAME}</span>`);
+    expect(html).toContain(`brand.textContent = ${JSON.stringify(SITE_NAME)};`);
+    expect(html).not.toContain('TarkovTracker.org');
+    expect(html).not.toMatch(/tarkovtracker\.org/i);
+  });
+  it.each(['en.json', 'de.json'])(
+    'keeps seo.site_name in %s on the overlay credit name',
+    (file) => {
+      const locale = JSON.parse(readFileSync(`app/locales/${file}`, 'utf-8')) as {
+        seo: { site_name: string };
+      };
+      expect(locale.seo.site_name).toBe(SITE_NAME);
+    }
+  );
 });

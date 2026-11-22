@@ -8,6 +8,8 @@ import {
 } from 'h3';
 import { isGameMode, type GameMode } from '@/utils/constants';
 import { buildOverlayContentSecurityPolicy } from '@/utils/csp';
+// Fork: the credit line names this instance, not upstream (FORK.md 3.16).
+import { SITE_NAME } from '@/utils/siteBrand';
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type OverlayMetric = 'items' | 'summary' | 'tasks';
 type OverlayAccent = 'custom' | 'info' | 'kappa' | 'success' | 'warning';
@@ -902,7 +904,7 @@ export default defineEventHandler((event) => {
           </div>
           <p class="error" id="error-text" hidden>Waiting for profile data</p>
           <div id="metric-root"></div>
-          <p class="tagline" id="tagline">Powered by <span class="tagline-brand">TarkovTracker.org</span></p>
+          <p class="tagline" id="tagline">Powered by <span class="tagline-brand">${SITE_NAME}</span></p>
         </div>
       </section>
     </main>
@@ -1178,7 +1180,7 @@ export default defineEventHandler((event) => {
 
         const brand = document.createElement('span');
         brand.className = 'tagline-brand';
-        brand.textContent = 'TarkovTracker.org';
+        brand.textContent = ${JSON.stringify(SITE_NAME)};
         metaLeft.appendChild(brand);
 
         const metaRight = document.createElement('span');
