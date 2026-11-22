@@ -8,7 +8,11 @@ import { mockNuxtImport } from '@nuxt/test-utils/runtime';
 import { mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { reactive, ref } from 'vue';
-vi.mock('@/utils/forkConfig', () => ({ LIGHT_THEME_ENABLED: false }));
+// The More menu stays enabled here: these tests inspect its contents (see AppBar.overflow.test.ts).
+vi.mock('@/utils/forkConfig', () => ({
+  LIGHT_THEME_ENABLED: false,
+  OVERFLOW_MENU_ENABLED: true,
+}));
 const localeRef = ref('en');
 const setLocale = vi.fn(async (value: string) => {
   localeRef.value = value;

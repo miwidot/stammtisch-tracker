@@ -14,3 +14,10 @@
  * the toggle controls in AppBar/AppearanceCard all key off this flag).
  */
 export const LIGHT_THEME_ENABLED = false;
+/**
+ * Fork decision: the top-bar "..." overflow button is hidden on every breakpoint. Upstream uses
+ * it to collect theme toggle (n/a here), help, activity log and language switcher when the bar
+ * is too narrow for them, so below the wide-bar thresholds those entries are not reachable from
+ * the bar. Flip back to `true` to restore upstream's behavior.
+ */
+export const OVERFLOW_MENU_ENABLED = false;

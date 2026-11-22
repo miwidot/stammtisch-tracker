@@ -93,7 +93,8 @@
             />
           </UDropdownMenu>
         </AppTooltip>
-        <span ref="overflowAnchor" class="inline-flex">
+        <!-- Fork: "..." overflow menu hidden (OVERFLOW_MENU_ENABLED=false in forkConfig.ts) -->
+        <span v-if="OVERFLOW_MENU_ENABLED" ref="overflowAnchor" class="inline-flex">
           <AppTooltip :text="t('common.more')">
             <UDropdownMenu
               :modal="false"
@@ -183,7 +184,7 @@
   import { usePreferencesStore } from '@/stores/usePreferences';
   import { useTarkovStore } from '@/stores/useTarkov';
   import { GAME_MODES } from '@/utils/constants';
-  import { LIGHT_THEME_ENABLED } from '@/utils/forkConfig';
+  import { LIGHT_THEME_ENABLED, OVERFLOW_MENU_ENABLED } from '@/utils/forkConfig';
   import { DEFAULT_KEYBINDS } from '@/utils/keybinds';
   import { getLocaleNativeName } from '@/utils/locales';
   import {

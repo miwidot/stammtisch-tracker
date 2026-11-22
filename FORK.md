@@ -224,6 +224,10 @@ Grundsatz: Der Fork redet nur mit Hosts, die er braucht. **Der einzige externe H
 
 `app/features/tasks/TaskPageHeader.vue`: der Link "Automatic quest tracking with TarkovMonitor" hinter der Seitenbeschreibung (Slot `description-link`) wird nicht gerendert. Der i18n-Schlüssel `page.tasks.auto_tracking_guide` und die Ressourcenseite `/resources/tarkovmonitor` bleiben unberührt. Test: `app/features/tasks/__tests__/TaskPageHeader.test.ts`.
 
+### 3.13 "..."-Menü in der oberen Leiste
+
+`app/shell/AppBar.vue`: der "..."-Knopf (Überlaufmenü, Label `common.more`) neben Glocke, Hilfe und Sprache wird auf allen Breiten nicht gerendert (`OVERFLOW_MENU_ENABLED=false` in `app/utils/forkConfig.ts`). Das Menü enthielt keine festen Links, sondern nur die Einträge, die in schmalen Leisten nicht mehr direkt Platz haben: Hilfe/Community (unter 1280 px), Aktivitätslog (unter 561 px) und Sprachwahl (unter 1620 px). In schmalen Leisten sind diese Einträge dadurch nicht mehr über die Leiste erreichbar. Test: `app/shell/__tests__/AppBar.overflow.test.ts`; `AppBar.disabled.test.ts` setzt das Flag auf `true`, weil es den Menüinhalt prüft.
+
 ---
 
 ## 4. Overlay-Quelle (`OVERLAY_URL`)

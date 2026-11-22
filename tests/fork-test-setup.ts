@@ -6,4 +6,7 @@ import { vi } from 'vitest';
 // the same module specifier -- the last registration for a given module wins within that test
 // file's isolated module registry (see app/utils/__tests__/forkConfig.test.ts, which asserts this
 // override mechanism directly rather than assuming it).
-vi.mock('@/utils/forkConfig', () => ({ LIGHT_THEME_ENABLED: true }));
+vi.mock('@/utils/forkConfig', () => ({
+  LIGHT_THEME_ENABLED: true,
+  OVERFLOW_MENU_ENABLED: true,
+}));
