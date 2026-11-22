@@ -2,7 +2,7 @@
 
 **Zweck:** Dieses Dokument beschreibt den kompletten Aufbau so, dass jemand ohne Vorwissen ihn nachvollziehen, reparieren oder neu errichten kann. Es ersetzt bewusst das Gedächtnis einer Arbeitssitzung.
 
-Stand: **2026-08-26** · App-Version 1.73.2 · Analyse + Entscheidungen: [Epic #1293](https://github.com/miwidot/tarkov-stammtisch/issues/1293) · Abweichungen: [FORK.md](./FORK.md) · Daten-Overlay: eigenes Repo mit eigenem FORK.md (siehe §2)
+Stand: **2026-11-22** (Betrieb: §7c; Abschnitte 3 bis 5 sind der Aufbau von 2026-08) · App: Upstream nach v1.90.0 · Analyse + Entscheidungen: [Epic #1293](https://github.com/miwidot/tarkov-stammtisch/issues/1293) · Abweichungen: [FORK.md](./FORK.md) · Daten-Overlay: eigenes Repo mit eigenem FORK.md (siehe §2)
 
 ---
 
@@ -26,6 +26,7 @@ Der eigene Quest-Tracker von Tarkov Stammtisch ist durch den BSG-Umbau des Quest
 | `miwidot/stammtisch-tracker-overlay`    | **Spieldaten-Overlay** — deutsche Quest-Korrekturen | privat       |
 | `miwidot/tarkov-stammtisch`             | unser Hauptsystem (Login, SSO-Brücke)               | privat       |
 | `MiwiDots/TarkovTrackerNuxt`            | nur für PRs zurück an TarkovTracker                 | öffentlich   |
+| `MiwiDots/tarkov-data-overlay`          | nur für PRs zurück an das Overlay (Remote `mirror`) | öffentlich   |
 | `tarkovtracker-org/TarkovTracker`       | Upstream der App (GPL-3)                            | öffentlich   |
 | `tarkovtracker-org/tarkov-data-overlay` | Upstream des Overlays (**MIT**)                     | öffentlich   |
 
@@ -86,15 +87,15 @@ Internet -> Cloudflare -> nginx (stammdev)
 
 ### Verzeichnisse auf stammdev
 
-| Pfad                                   | Inhalt                                                             |
-| -------------------------------------- | ------------------------------------------------------------------ |
-| `~/tracker-build-proto/TarkovTracker`  | Clone dieses Forks (origin = unser Repo)                           |
-| `~/tracker-build-proto/proto.env`      | Build-/Laufzeit-Envs                                               |
-| `~/tracker-build-proto/start-proto.sh` | Startskript (sourced `proto.env`)                                  |
-| `~/tracker-build-proto/app.log`        | Laufzeit-Log                                                       |
-| `~/supabase-proto/supabase-src/docker` | Supabase-Stack (Compose-Projekt `supaproto`)                       |
-| `~/supabase-proto/*.mjs`               | Testskripte (`e2e2.mjs` = Login-E2E, `rt4/rt5/rt6.mjs` = Realtime) |
-| `*.orig` neben Compose/Envoy-Dateien   | Originale vor unseren Kürzungen                                    |
+| Pfad                                                | Inhalt                                                                                                     |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `~/tracker-build-proto/TarkovTracker-sync-20261121` | aktueller Clone dieses Forks (origin = unser Repo); der alte `TarkovTracker` liegt unbenutzt daneben (§7c) |
+| `~/tracker-build-proto/proto.env`                   | Build-/Laufzeit-Envs                                                                                       |
+| `~/tracker-build-proto/start-proto.sh`              | Startskript (sourced `proto.env`)                                                                          |
+| `~/tracker-build-proto/app.log`                     | Laufzeit-Log                                                                                               |
+| `~/supabase-proto/supabase-src/docker`              | Supabase-Stack (Compose-Projekt `supaproto`)                                                               |
+| `~/supabase-proto/*.mjs`                            | Testskripte (`e2e2.mjs` = Login-E2E, `rt4/rt5/rt6.mjs` = Realtime)                                         |
+| `*.orig` neben Compose/Envoy-Dateien                | Originale vor unseren Kürzungen                                                                            |
 
 ### App steuern
 
@@ -103,7 +104,7 @@ Internet -> Cloudflare -> nginx (stammdev)
 ssh stammdev "ss -tlnp | grep 3101; tail -5 ~/tracker-build-proto/app.log"
 
 # Neu bauen (nach git pull)
-ssh stammdev "cd ~/tracker-build-proto/TarkovTracker && source ~/tracker-build-proto/proto.env && npx nuxt build"
+ssh stammdev "cd ~/tracker-build-proto/TarkovTracker-sync-20261121 && source ~/tracker-build-proto/proto.env && CI=true pnpm run build"
 
 # Neu starten — WICHTIG: PID über den Port ermitteln, nicht per Pfad-Muster
 ssh stammdev "ss -tlnp | grep 3101"          # PID ablesen
@@ -129,8 +130,7 @@ ssh stammdev "cd ~/supabase-proto/supabase-src/docker && docker compose -p supap
 ssh stammdev "cd ~/supabase-proto/supabase-src/docker && docker compose -p supaproto logs -f auth"
 ssh stammdev "cd ~/supabase-proto/supabase-src/docker && docker compose -p supaproto up -d"
 
-# vollstaendig entfernen (inkl. Daten!)
-ssh stammdev "cd ~/supabase-proto/supabase-src/docker && docker compose -p supaproto down -v"
+# NIE ausfuehren: `down -v` loescht den Stack samt Daten. Container und Volumes werden nicht geloescht (§7c); Anhalten per `stop`.
 ```
 
 ### Deploy-Key
@@ -201,15 +201,15 @@ Nötig sind 6: `team-create`, `team-join`, `team-leave`, `team-kick`, `account-d
 
 ## 5. Konfiguration — die Fallstricke, die still zuschlagen
 
-| Env                             | Ohne sie passiert                                                                                    |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `NODE_ENV=production`           | Client fällt in den **Offline-Stub**, Supabase im Frontend komplett tot                              |
-| `APP_URL` + `API_ALLOWED_HOSTS` | **403 auf allen `/api/*`** — Default fällt auf `tarkovtracker.org` zurück                            |
-| `SUPABASE_URL` (Build-Zeit!)    | CSP wird beim Bauen erzeugt → Browser blockt REST **und** WebSocket                                  |
-| `API_TRUST_PROXY=true`          | jede Client-IP ist die von nginx → IP-Rate-Limits wertlos                                            |
-| `CI=true`                       | Production-Build wirft wegen fehlender Stripe-Keys                                                   |
-| `SUPABASE_ALLOWED_ORIGINS`      | wird vom Standard-Compose **nicht** an `functions` durchgereicht; CORS hängt sonst allein am Gateway |
-| `OVERLAY_URL`                   | **muss HTTPS sein** (seit 1.73.2), sonst **stiller** Fallback auf Upstream                           |
+| Env                             | Ohne sie passiert                                                                                                         |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV=production`           | Client fällt in den **Offline-Stub**, Supabase im Frontend komplett tot                                                   |
+| `APP_URL` + `API_ALLOWED_HOSTS` | **403 auf allen `/api/*`** — Default fällt auf `tarkovtracker.org` zurück                                                 |
+| `SUPABASE_URL` (Build-Zeit!)    | CSP wird beim Bauen erzeugt → Browser blockt REST **und** WebSocket                                                       |
+| `API_TRUST_PROXY=true`          | jede Client-IP ist die von nginx → IP-Rate-Limits wertlos                                                                 |
+| `CI=true`                       | Production-Build wirft wegen fehlender Stripe-Keys                                                                        |
+| `SUPABASE_ALLOWED_ORIGINS`      | wird vom Standard-Compose **nicht** an `functions` durchgereicht; CORS hängt sonst allein am Gateway                      |
+| `OVERLAY_URL`                   | **https, http nur Loopback oder `file:` unter `OVERLAY_FILE_ROOT`** (FORK.md §4), sonst **stiller** Fallback auf Upstream |
 
 **Merksatz:** Diese App ist eine SPA mit `ssr: false`. Sehr viel wird **beim Bauen** eingebacken, nicht zur Laufzeit gelesen. Adressänderung = Neubau, nicht Neustart.
 
@@ -223,7 +223,7 @@ Gesperrt (404): `/auth/v1/admin`, `/storage/v1/`, `/pg/`, `/graphql/v1`, `/mcp`,
 
 ⚠️ **`/auth/v1/admin` ist öffentlich gesperrt.** Unser Login-Weg nutzt die Admin-API — der läuft serverseitig direkt gegen `127.0.0.1:8200`, an nginx vorbei. Das ist Absicht und das Muster für die spätere Anbindung.
 
-**Noch offen:** `proxy_cache` für `/api/tarkov/*` ist **Pflicht**, nicht Optimierung. Ohne Cloudflare-Edge-Cache geht sonst jeder Request bis `json.tarkov.dev` durch (es gibt keine DB-Kopie), Worst-Case-Budget ~55 s pro Route.
+**`proxy_cache` für `/api/tarkov/*`:** früher Pflicht (Daten kamen zur Laufzeit von `json.tarkov.dev`), heute optional: die Spieldaten liegen im lokalen Verzeichnis `TARKOV_DATA_DIR` (§7c, FORK.md §2.3).
 
 ---
 
@@ -258,7 +258,7 @@ Testskript: `~/supabase-proto/e2e2.mjs`
 Deutsche Quest-Texte laufen bereits durch deren Pipeline (`tasks_de` mit `tasks_en` als Fallback, per JSONPath gemerged). Unsere Overrides setzen auf der **Overlay-Ebene** direkt danach an:
 
 ```
-OVERLAY_URL -> unsere Overlay-JSON (HTTPS!)
+OVERLAY_URL -> unsere Overlay-JSON (https oder file:, siehe §7c)
 ```
 
 Struktur:
@@ -271,7 +271,7 @@ Struktur:
 ```
 
 ⚠️ **`$meta.version` ist Pflicht.** Fehlt sie, wird das komplette Overlay **still verworfen** — keine Fehlermeldung, die Übersetzungen sind einfach weg.
-⚠️ **Nur HTTPS**, max. 3 Weiterleitungen, Ziele ebenfalls HTTPS (seit 1.73.2).
+⚠️ **https, http nur auf Loopback oder `file:` unter `OVERLAY_FILE_ROOT`** (FORK.md §4); bei https max. 3 Weiterleitungen, Ziele ebenfalls https.
 
 **UI-Strings** (nicht Quest-Inhalte) gehen **nicht** in `app/locales/de.json` — die ist Crowdin-verwaltet und überschreibt uns bei jedem Merge. Stattdessen eine eigene Datei über die Locale-Registrierung in `nuxt.config.ts`:
 
@@ -363,111 +363,163 @@ Praktisch unkritisch: es sind ein paar Bytes pro entfallener Quest. Falls es je 
   Der Schema-Rückbau ist ein **eigener, bewusster Schritt** mit eigener Freigabe.
 - `TarkovQuest` wird weiterhin per Cron befüllt (`lib/tarkov-tracker/sync-quests.ts`, aufgerufen aus `src/discordbot/services/cronManager.ts`) — die Zahlen auf der Quest-Info-Seite hängen daran.
 
-**Noch nie produktiv gelaufen:** Der Tracker läuft ausschliesslich als Prototyp auf stammdev.
+**Stand damals:** nur Prototyp auf stammdev. Seit 2026-10-23 läuft auf stammlive ein Live-Tracker (alter Codestand); der Produktivgang des neuen Stands steht in §7c.
 
 ---
 
-## 7c. ÜBERGABE — Stand 2026-08-26
+## 7c. ÜBERGABE — Stand 2026-11-22
 
-> Wer hier neu einsteigt: **dieser Abschnitt zuerst.**
+> Wer hier neu einsteigt: **dieser Abschnitt zuerst.** Er beschreibt, wie der Tracker heute betrieben wird. Was vom Upstream abweicht und warum, steht in [FORK.md](./FORK.md) (am 2026-11-21 gegen den Code neu geschrieben, Commit `e6b06487`); das wird hier nicht wiederholt. Die Abschnitte 3 bis 5 sind der Aufbau von 2026-08 und werden dort, wo sie sich mit diesem Abschnitt widersprechen, hier übersteuert.
 
-### Die Lage hat sich grundlegend geändert
+### Überblick
 
-**Unser Deutsch wird nicht mehr von uns gepflegt.** PR #280 und #281 sind upstream gemerged. `de.json5` enthält 21 Quest-Namen und 119 Ziele — und liegt bei `tarkovtracker-org/tarkov-data-overlay`, nicht mehr nur bei uns. Alle deutschsprachigen Nutzer von tarkovtracker.org bekommen es mit.
+| Repo                                                                      | Zweck                                                                  |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `miwidot/stammtisch-tracker` (privat, dieses Repo, `FORK.md`)             | die Tracker-App, Branch `sync/full-2026-11-21` (Upstream nach v1.90.0) |
+| `miwidot/stammtisch-tracker-overlay` (privat, eigenes `FORK.md`)          | das **Daten-Overlay** plus der Katalog-Erzeuger (Produzent)            |
+| `MiwiDots/TarkovTrackerNuxt`, `MiwiDots/tarkov-data-overlay` (öffentlich) | nur Spiegel für Pull Requests an Upstream, nie als Betriebsquelle      |
 
-Damit ist die Abweichung unseres Overlay-Forks von **sieben Dateien auf drei** geschrumpft:
+**„Overlay" heißt hier das Daten-Overlay**: JSON mit Korrekturen an den Quest-/Item-Daten von tarkov.dev. Nicht das Theme des Trackers und nicht die OBS-Overlays der Hauptseite (siehe §2).
 
-| Datei                      | warum sie bleibt                             |
-| -------------------------- | -------------------------------------------- |
-| `.github/workflows/ci.yml` | unser `if: false` beim `Commit dist`-Schritt |
-| `FORK.md`                  | unser Dokument                               |
-| `dist/overlay.json`        | Build-Artefakt, steht auf upstreams Stand    |
+Der Tracker läuft in **zwei getrennten Umgebungen**:
 
-Mit upstream gegangen sind: `de.json5`, `scripts/status-locale.ts`, `src/lib/json5-keys.ts`, drei Testdateien, `tests/file-loader.test.ts`, `src/overrides/tasks.json5`, `src/suppressions/tasks.json5` — und `package.json`, womit unsere einzige Kategorie-C-Abweichung verschwunden ist.
+|             | trackerdev (stammdev)                                                                | live (stammlive)                                                                           |
+| ----------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| Host        | `trackerdev.tarkov-stammtisch.de`                                                    | `tracker.tarkov-stammtisch.de`                                                             |
+| App-Prozess | `setsid nohup ~/tracker-build-proto/start-proto.sh`, **nicht pm2**, `127.0.0.1:3101` | pm2 `quest-tracker`, Skript `~/tracker/start-tracker.sh`, Env `live.env`, `127.0.0.1:3101` |
+| Checkout    | `~/tracker-build-proto/TarkovTracker-sync-20261121`                                  | `~/tracker/TarkovTracker` (`main`, Stand 2026-09-24, **noch alter Code**)                  |
+| Env-Datei   | `~/tracker-build-proto/proto.env`                                                    | `~/tracker/live.env`                                                                       |
+| Supabase    | Docker-Compose-Projekt `supaproto`, Gateway `127.0.0.1:8200`                         | eigener Stack `supalive`, Gateway `127.0.0.1:8200`                                         |
 
-### Werkzeuge, die es jetzt gibt (alle upstream)
+Auf stammdev liegt der alte Checkout `~/tracker-build-proto/TarkovTracker` (Stand `fd5e854`) weiter daneben, läuft aber nicht. **Docker-Container und -Volumes werden nie gelöscht** (kein `down -v`, kein `rm`, kein `prune`); Rückbau geht über `stop`/`start`. Im Compose-Verzeichnis liegt ein `reset.sh` von Upstream, das den Stack wischt: nie ausführen.
+
+### trackerdev: Laufzeit
 
 ```bash
-npm run status:locale de   # offen je Haendler, Drift, wirkungslose Overrides
-npm run check-overrides    # was hat upstream inzwischen selbst gefixt
-npm run wiki:compare -- --all --cache   # tarkov.dev gegen das Wiki
-npx vitest run             # u.a. Dubletten-Waechter und die Korrektur-Kopplung
+# Status
+ssh stammdev "ss -tlnp | grep 3101; tail -5 ~/tracker-build-proto/app.log"
+# Neustart: PID über den Port ermitteln (§3), killen, dann
+ssh stammdev "cd ~/tracker-build-proto && setsid nohup ./start-proto.sh > app.log 2>&1 < /dev/null &"
 ```
 
-`status:locale` beantwortet drei Fragen, die sonst jedes Mal neu von Hand hergeleitet werden: was ist offen je Händler **abzüglich unserer Abdeckung**, welche Einträge stützen sich auf ein Englisch, das sich seither geändert hat, und welche Overrides trifft das Bundle inzwischen wortgleich.
+Build im neuen Checkout: `source ../proto.env && CI=true NODE_ENV=production NITRO_PRESET=node-server pnpm run build` (pnpm 11.14.0 über corepack, Node `>=24.22.3`). Adressänderungen brauchen einen Neubau, keinen Neustart (§5). Nach dem Klonen einmal `git config merge.ours.driver true` (FORK.md §7).
 
-### Übersetzungsstand
+Env-**Namen** in `proto.env` (Werte nie ins Dokument): `NODE_ENV`, `NITRO_PRESET`, `CI`, `NODE_OPTIONS`, `APP_URL`, `API_ALLOWED_HOSTS`, `NUXT_API_PROTECTION_ALLOWED_HOSTS`, `API_TRUST_PROXY`, `API_REQUIRE_AUTH`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `NUXT_SUPABASE_URL`, `NUXT_SUPABASE_SERVICE_KEY`, `NUXT_PUBLIC_TRACKER_HANDOFF_URL`, `NUXT_PUBLIC_ACCOUNT_DELETION_URL`, `NUXT_FORK_ACCOUNT_DELETE_SECRET`, `TARKOV_DATA_DIR`, `OVERLAY_URL`, `NEUTRAL_OVERLAY_URL`, `OVERLAY_FILE_ROOT`, `SUPA_ENV`. Bedeutung jeder Variable: FORK.md §2.2. Live nutzt dieselben Namen plus `OVERLAY_CACHE_BUSTER`.
 
-Rund **357 Quest-Texte offen**, 140 abgedeckt. Grösste Brocken: Mechanic 61 (davon 36 Namen), Peacekeeper 58, Therapist 57, Skier 57. **Skier ist der günstigste Schnitt** — nur 8 Namen gegen 49 Ziele, und Ziele sind die eingespielte Fliessarbeit.
+### Overlay
 
-Ragman ist fertig, Punisher ist fertig.
+- Der App-Server liest das Overlay per **`file://`** (kein HTTP, kein Umweg über Cloudflare): `OVERLAY_URL`, `NEUTRAL_OVERLAY_URL`, `OVERLAY_FILE_ROOT` (Regeln: FORK.md §4). Der App-Prozess muss die Dateien lesen dürfen.
+- Checkout `~/overlay-fork` (Remote über den Deploy-Key-Alias `github-overlay`), Dateien in `dist/`: `overlay.json` und `overlay-neutral.json`.
+- **Nicht öffentlich ausgeliefert:** nginx antwortet auf `/overlay.json`, `/overlay-neutral.json` und `/overlay-fork/` mit 404.
+- **Vorsicht:** Der Produzent baut neu und überschreibt die in Git geführten `dist/overlay*.json`. Der Checkout ist deshalb im Normalfall schmutzig. Vor einem `git pull` zuerst `git status` prüfen und `git checkout -- dist/` (Overlay-FORK.md: „`dist/` fassen wir nicht an"), sonst bricht der Pull ab oder der Merge verhakt sich.
+- **Version:** `git tag --merged HEAD --list 'v*'` (höchste Zahl). Fehlen die Upstream-Tags, wird eine viel zu niedrige Version gebaut. Die Tags `fork-2026-08/*` sind Sicherungen unserer alten August-Tags und zählen nicht.
+- Die App cached das Overlay 1 h im Prozess (`OVERLAY_CACHE_BUSTER` erzwingt sofort), der Browser zusätzlich 12 h in IndexedDB (§10, „Zwei Caches").
 
-### Die Falle, die zweimal zugeschlagen hat
+### Produzent (Spieldaten)
 
-**Eine Übersetzung folgt dem korrigierten Englisch, nicht dem der API.** `overrides/tasks.json5` ersetzt falsches Englisch: One-Way Ticket verlangt 15 Kopfschuss-Kills, die API sagt „any target". Die deutsche Fassung sagte korrekt „15 Ziele".
+Die App liest Quests, Items, Hideout und Strings aus `TARKOV_DATA_DIR` (zeigt auf `current`), nicht aus Cloudflare KV. Den Inhalt erzeugt der Produzent aus dem Overlay und `json.tarkov.dev` (Ablauf: Overlay-FORK.md „Katalog-Erzeuger").
 
-Meine Drift-Prüfung verglich gegen das **rohe** Bundle, meldete den Eintrag als veraltet — und ich habe der Meldung geglaubt und die Übersetzung kaputtgemacht.
+- Cron-Wrapper `~/tracker-build-proto/run-producer.sh` ruft `scripts/producer/cron-run.sh` des Overlay-Repos:
+  - `run` alle 12 h um :17, `check-age` stündlich um :47 (Alarm bei Release älter als 30 h).
+  - Schreibt `~/tracker-data/releases/<id>` und hängt den Symlink `current` atomar um; behält 4 Releases.
+  - Vor jedem Lauf `git fetch --tags origin`.
+  - **Versions-Wächter:** Liegt die gebaute Version unter der des aktiven Releases, Exit-Code 3, `current` bleibt unberührt. Bewusster Rückschritt nur mit `PRODUCER_ALLOW_VERSION_REGRESSION=1`.
+  - `PRODUCER_APP_URL` (öffentlicher https-Ursprung) bestimmt den User-Agent gegenüber `json.tarkov.dev`; auf stammdev die trackerdev-Adresse.
+  - Das Verzeichnis `current` wird ohne App-Neustart gelesen.
+- Den Tracker-Code für den Lauf holt der Produzent am Pin `scripts/producer/tracker.lock.json`; auf stammdev mit `TRACKER_REPO=git@github-tracker:miwidot/stammtisch-tracker.git` (der Standard-Key gehört zu einem anderen Repo). Alte Tracker-Checkouts (rund 1 GB je Pin) räumt nichts automatisch weg.
+- **Nie über Sonntag 03:45 hinweg einen Batch laufen lassen** (siehe Migrationen: der Inaktivitäts-Cron würde dort laufen, bevor er ausgeplant ist). Ebenso nicht um 04:30 (täglicher `account-deletion-retry`).
+- Fehlschlag oder veraltetes `producer-manifest.json`: Discord-Alarm. Sonst liefert die App still alte Daten.
 
-Behoben: die Prüfung wendet die Datenkorrekturen vorher an, und `tests/locale-follows-corrections.test.ts` schlägt rot an, wenn ein `// Was:` einer Korrektur widerspricht. Der Test deckt heute **1 von 140 Einträgen** ab, weil nur eine Überschneidung existiert — er wächst mit, ist aber kein Rundumschutz.
+### nginx (beide Umgebungen)
 
-### Was `wiki:compare` kann und was nicht
+Soll-Zustand (FORK.md §2.3 ist die Quelle; hier die Betriebsregeln):
 
-Ein Lauf über 505 Quests meldet **3867 Abweichungen**. Das sind **keine 3867 Fehler**:
+- `real_ip` aus den Cloudflare-Adressbereichen; in **jedem** Proxy-Block `X-Forwarded-For` und `CF-Connecting-IP` mit `$remote_addr` überschreiben. Sonst lassen sich IP-Rate-Limits per direktem Aufruf des Origins fälschen (`API_TRUST_PROXY=true`). Der Origin ist an Cloudflare vorbei erreichbar.
+- `/api/fork` öffentlich sperren (404).
+- Overlay-Blöcke: `/overlay.json`, `/overlay-neutral.json`, `/overlay-fork/` liefern 404.
+- Einspielen (die sudo-Schritte macht der User): Sicherungskopie der Konfiguration anlegen, dann `install -o root -g root -m 644 <neue Datei> /etc/nginx/sites-enabled/<vhost>.conf`, dann `nginx -t && systemctl reload nginx`. Rückbau genauso mit der Sicherungskopie. Die Sicherung liegt **außerhalb** von `sites-enabled`, sonst lädt nginx sie mit.
+- **Nach dem Reload prüfen, dass die Worker neu gestartet sind** (Prozessstartzeit der `nginx: worker`-Prozesse). Ein vergessener Reload ist schon einmal passiert: die Datei war neu, der Dienst lief mit der alten Konfiguration.
 
-- 17 % sind gescheiterte Zuordnungen (`not found` auf einer Seite)
-- `trustsWiki` steht bei **allen** auf `true` — das Feld unterscheidet nichts
-- 196 von 505 Quests weichen beim Level ab, 235 bei der XP. Bei solchen Anteilen ist die Ursache systematisch, nicht einzeln — vermutlich haben die Wiki-Abschnitte „Requirements" den 1.0-Umbau nicht mitgemacht
+### Kontolöschung
 
-**Es ist ein Kandidatenfinder, kein Fehlerbericht.** Bei Escort hat es funktioniert, weil wir von Hand nachgeprüft haben. Gezielte Fragen lohnen: „Ziele mit abweichender Anzahl" sind 48 Fälle statt 3867.
+Nur über die Hauptseite (Hintergrund und Antworten: FORK.md §5).
 
-### Escort — der Fall, an dem man das Verfahren lernt
+- Die Hauptseite ruft `http://127.0.0.1:3101/api/fork/account-delete` über `TRACKER_INTERNAL_URL` mit `TRACKER_ACCOUNT_DELETE_SECRET`; Gegenstück im Tracker ist `NUXT_FORK_ACCOUNT_DELETE_SECRET`. Beide Werte müssen gleich sein, mindestens 32 Zeichen, nie im Repo oder Log.
+- **Loopback-Gate:** von außen oder mit irgendeinem Proxy-Header 404, ohne Secret 401. `TRACKER_INTERNAL_URL` darf nicht die öffentliche Adresse sein.
+- `NUXT_PUBLIC_ACCOUNT_DELETION_URL` verweist Nutzer auf die Profil-Einstellungen der Hauptseite (auf dev die dev-Hauptseite, nicht die Live-Adresse).
+- Der Inaktivitäts-Cron `inactive-account-cleanup` ist deaktiviert (Fork-Migration `20261121150000`).
+- **Offen:** Die Hauptseite ruft den Endpunkt im Code noch nicht auf (#1294, Plan: `app/api/user/delete-account` und `app/api/admin/users/[id]`).
 
-Der Tracker zeigte neun Ziele, das Spiel hat acht. Die Kette:
+### Migrationen
 
-| Ebene                             | Zustand                                                                                                                |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Wiki                              | 8 Ziele, Ground Zero einmal, je 2 PMCs                                                                                 |
-| `the-hideout/tarkov-data-manager` | fügt in `data/changed_quests.json` per Hand ein 9. Ziel hinzu (`objectivesAdded`, count 4) — **hier sitzt der Fehler** |
-| `json.tarkov.dev`                 | liefert es aus, ohne Übersetzung ausser Englisch                                                                       |
-| `tarkov-data-overlay`             | erkennt es als Duplikat, schaltet es aber nur im Wiki-Bericht stumm                                                    |
-| unser Overlay                     | markiert es `optional: true` → Fortschritt 8 statt 9                                                                   |
+Es gibt keine Tracking-Tabelle: welche Migration angewendet ist, lässt sich nur aus dem Schema ablesen, und beide Stacks stehen unterschiedlich.
 
-**Suppressions sind kein Auslieferungsmechanismus** — sie stehen nicht im gebauten `overlay.json` und erreichen keinen Konsumenten. Und das Schema kennt `disabled` nur auf Task-, nicht auf Ziel-Ebene; entfernen lässt sich das Phantom über das Overlay also nicht.
+1. **Backup zuerst**, mit Zeitstempel in `~/backups/`: `pg_dumpall` als SQL (Cluster samt Rollen), `pg_dump -Fc` der Datenbank `postgres`, und ein `tgz` von `volumes/functions`. Größe, Kopf-/Fußzeile und `pg_restore -l` prüfen; eine Kopie von stammlive zusätzlich auf den Mac holen.
+2. **Zuerst feststellen, was schon fehlt**, nicht nur die neuen Dateien zählen. Beispiel: `20260912085531` war auf stammdev nie angewendet und brach `fork_delete_account`; auf stammlive fehlte dieselbe Datei samt `20260912085904`.
+3. Der Reihe nach anwenden, bei **erstem Fehler abbrechen** (`ON_ERROR_STOP=1`, kein Weiterlaufen). Neues Verzeichnis im Container (nicht das alte mitlaufen lassen), als Benutzer `postgres`. Besonderheit: `-- supabase:disable-transaction`-Dateien ohne `--single-transaction` (§4).
+4. Danach pgTAP der Fork-Dateien (`supabase/tests/database/fork_*.test.sql`) und Rauchprüfungen: `cron.job` ohne `inactive-account-cleanup`, `fork_delete_account(<zufällige uuid>)` liefert `not_found`.
+5. **Nie** Optionen verwenden, die Daten verwerfen. Rückbau: zuerst vorwärts reparieren; echte Rücknahme nur aus dem Dump, und dann zusammen mit der alten App (die RPCs wandern in `private`, die alte App läuft auf dem neuen Schema nicht).
 
-**PR the-hideout/tarkov-data-manager#859**: von `Razzmatazzz` **approved**, aber blockiert — ihre Automatisierung verweigert Deploys aus Forks. Inhaltlich durch, technisch hängend. Solange es hängt, bleibt unser `optional: true` nötig. Sobald es durchläuft, meldet `check-overrides` den Override als überflüssig — dann fliegt er raus, nicht vorher.
+Der Edge-Functions-Satz ist getrennt zu pflegen: `_shared`, `team-create`, `team-join`, `team-leave`, `team-disband`, `team-kick`, `token-create` nach `volumes/functions/` kopieren (überschreiben, nichts löschen), `shared/team-create-error` in die zentrale `deno.jsonc` eintragen, dann Container `functions` neu starten.
 
-Im selben handgepflegten Eintrag steht auch `experience: 155000`, wo das Wiki 65.000 sagt — dieselbe veraltete Quelle. Bewusst nicht mitgeändert, weil der zugrundeliegende API-Wert unbekannt ist; als Beobachtung im PR vermerkt.
+Bekannter Lärm: `account-deletion-retry` schlägt täglich fehl (`storage.objects` gibt es auf unserem Stack nicht; auf stammdev seit 2026-10-14). Harmlos, solange es keine Löschjobs gibt; offen ist, ob wir das abstellen.
 
-### „Glory to CPSU" steht zweimal da
+### Prüfung nach jedem Deploy
 
-Der zweite Fall, an dem man das Verfahren lernt — und der erklärt, warum ein englischer Name in der deutschen Oberfläche **nicht** immer eine fehlende Übersetzung ist.
+- [ ] `/` liefert 200; der Einstiegs-Chunk aus `/` (§3, Schnelltest) auch (200, nicht 520)
+- [ ] `/api/fork/*` von außen: 404
+- [ ] `/overlay.json`, `/overlay-neutral.json`, `/overlay-fork/` von außen: 404
+- [ ] `/api/tarkov/extract-requirements` zeigt `dataOverlay.version` (erwartete Version) und `sourceUrl` mit `file://`
+- [ ] `/api/tarkov/strings?lang=de` liefert Deutsch; `bootstrap` und `tasks-core?lang=de` 200 (nicht 503)
+- [ ] Ausgehende Verbindungen des App-Prozesses (`ss -tnp`) nur Loopback plus `assets.tarkov.dev`/`tarkov.dev`; im Browser kein `static.cloudflareinsights.com` (der Cloudflare-Edge setzt es ein, im Dashboard „Web Analytics" für den Host abschalten)
+- [ ] Danach FORK.md §8 (Rauchtest) durchgehen
 
-Es gibt wirklich zwei Tasks, beide von Prapor auf Streets:
+### Produktivgang (stammlive)
 
-|                  | `639135b0…47d7`        | `64f5aac4…14c2`   |
-| ---------------- | ---------------------- | ----------------- |
-| `normalizedName` | `glory-to-cpsu-part-1` | `glory-to-cpsu`   |
-| Mindestlevel     | 17                     | 6                 |
-| Ziele            | 2                      | 4 (eins optional) |
-| Vorbedingung     | ein Vorgänger-Task     | keine             |
-| EXP              | 7.300                  | 10.000            |
+Stand der Untersuchung (nur lesend): live läuft der **alte** Tracker (80 Nutzer), das Schema ist hinter dem Code. Reihenfolge:
 
-Der erste ist **aus dem Spiel raus**: die Wiki-Seite `Glory_to_CPSU_-_Part_1` trägt `{{Historical content}}` und schreibt „_was_ a Quest". Der `wikiLink` in den Rohdaten zeigt genau dorthin.
+1. **Backup anlegen.** Auf stammlive existiert noch **kein** Supabase-Backup (das tägliche Skript sichert nur MySQL). Ohne verifiziertes, auf den Mac kopiertes Backup nichts weiter.
+2. **Hauptseite zuerst:** PR dev→main mit dem State-Nonce-Login muss live sein, bevor der Tracker umgestellt wird, sonst wird jeder Login abgelehnt (FORK.md §3.1). Merge nur nach ausdrücklicher Freigabe, danach Deploy.
+3. **Trockenlauf** der Migrationen auf einem Dump des Live-Stands (lokal beim User). **42 Migrationen** stehen aus (2 nie angewendete aus dem 2026-09-24-Stand, 38 Upstream, 2 Fork); der trackerdev-Lauf mit 14 beweist dafür nichts. Zielstand einfrieren (feste Commit-SHA, gepusht), dieselbe SHA vorher auf trackerdev geprüft.
+4. Node auf `>=24.22.3` (stammlive läuft mit 24.22.1; derselbe Node versorgt die pm2-Prozesse der Hauptseite, danach `deploy.sh main --all` über `tarkov-deploy`). Der Live-Code selbst verlangt weniger, `engines` des Zielstands aber 24.22.3.
+5. **nginx** auf Live-Stand der Härtung bringen: `proxy_set_header CF-Connecting-IP $remote_addr` und `X-Forwarded-For $remote_addr` in den App-/Auth-/Functions-Blöcken (der globale `real_ip` existiert dort schon), `/api/fork` sperren, Overlay-Blöcke (heute liefert live `/overlay.json` aus einer Kopie und kennt `/overlay-neutral.json` nicht).
+6. **Produzent-Cron** auf stammlive (Wrapper mit Live-Pfaden und „LIVE"-Kennzeichnung im Alarm), Overlay-Checkout vorher bereinigen (schmutziges `dist/`, fremde pnpm-Dateien).
+7. Neuer Checkout, Build mit niedriger Priorität außerhalb der Stoßzeit (Swap ist belegt), `live.env` um die neuen Namen ergänzen (neues Secret, **nicht** der Dev-Wert), App- und Functions-Umstellung im Wartungsfenster, nicht über Sonntag 03:45 oder 04:30.
+8. **noindex** bleibt, bis entschieden ist, ob Live indexiert werden soll (`NUXT_PUBLIC_ALLOW_INDEXING` nicht setzen).
+9. **Die Dev-Secrets vor dem Livegang rotieren** und auf Live eigene, neue Werte verwenden.
+10. Tägliches Supabase-Backup einrichten, Prüfliste oben auf der Live-Adresse.
 
-Den Namenskonflikt erzeugt aber nicht BSG, sondern eine **upstream-Datenkorrektur**: `overrides/tasks.json5` setzt für `639135…` `name: 'Glory to CPSU'` (Commit `045c943`, Niv, 2026-08-11), mit der Begründung, BSG habe das Suffix fallen lassen. Die Rohdaten sagen etwas anderes — dort steht weiterhin `Glory to CPSU - Part 1` bzw. `Heil der KPdSU - Teil 1`, und `normalizedName` sagt bis heute `glory-to-cpsu-part-1`.
+**Offene Entscheidungen** (nicht entschieden, nicht annehmen):
 
-Dass beide Zeilen **englisch** sind, hat zwei verschiedene Gründe:
+- Wartet Live, bis trackerdev dieselbe SHA einige Tage lief?
+- Live indexierbar oder noindex?
+- Overlay-Auslieferung live: nginx auf `overlay-fork/dist/*` oder Kopierschritt erweitern? (Seit dem `file://`-Weg ist das nur noch die Frage, wo die App liest; öffentlich bleibt 404.)
+- Kontolöschung der Hauptseite (#1294) im selben Promotion-PR wie der State-Nonce oder getrennt?
+- Auslaufen lassen oder abstellen: die täglichen `account-deletion-retry`-Fehler.
+- Tägliches `pg_dumpall` für beide Supabase-Stacks (Vorschlag, nicht eingerichtet).
+- Verwaiste Edge Function `team-members` auf live später entfernen (nur mit ausdrücklichem OK).
+- App auf stammdev dauerhaft per `setsid nohup` oder auf pm2 wie live.
 
-- `639135…` — `applyOverlay()` legt Datenkorrekturen **auf die bereits lokalisierten** Daten und **vor** `applyLocaleOverlays()`. Der englische Korrekturname überschreibt also das deutsche Bundle. Ein Name-Override in `locales/de.json5` gäbe es zurück; den haben wir nicht.
-- `64f5aac4…` — schlicht unübersetzt, BSGs deutsches Bundle liefert hier den englischen Namen.
+### Übersetzungsarbeit (Verfahren, Stand 2026-08, Zahlen nicht neu geprüft)
 
-**Die Lehre:** Vor dem Flicken in `de.json5` prüfen, ob `overrides/tasks.json5` denselben Task anfasst. Sonst behandelt man das Symptom auf der falschen Ebene — und ein Locale-Override, der eine falsche Datenkorrektur übermalt, versteckt den eigentlichen Fehler dauerhaft. Der saubere Weg ist hier upstream: die Umbenennung zurückziehen. **Noch nicht gemeldet.**
+Unser Deutsch liegt bei Upstream (`tarkovtracker-org/tarkov-data-overlay`, PR #280/#281); der Overlay-Fork trägt keine Daten- oder Übersetzungsänderungen mehr (Overlay-FORK.md). Neue Übersetzungen und Datenkorrekturen gehen als PR an Upstream (über den Spiegel). Werkzeuge:
 
-### Der nächste Griff
+```bash
+npm run status:locale de   # offen je Händler, Drift, wirkungslose Overrides
+npm run check-overrides    # was hat upstream inzwischen selbst gefixt
+npm run wiki:compare -- --all --cache   # tarkov.dev gegen das Wiki
+npx vitest run             # u.a. Dubletten-Wächter und die Korrektur-Kopplung
+```
 
-1. **Skier** übersetzen (8 Namen, 49 Ziele) — oder die Oberfläche angehen, dort sind 556 Schlüssel offen und jeder Nutzer sieht sie bei jedem Besuch
-2. `#859` beobachten; wenn es durchläuft, den Escort-Override entfernen
-3. Optional: die Drift-Prüfung und den Dubletten-Wächter kennt upstream jetzt — bei jedem Sync mitlaufen lassen
+**Die Falle, die zweimal zugeschlagen hat:** Eine Übersetzung folgt dem **korrigierten** Englisch, nicht dem der API. `overrides/tasks.json5` ersetzt falsches Englisch (One-Way Ticket: API „any target", korrekt 15 Kopfschuss-Kills). Eine Drift-Prüfung gegen das rohe Bundle meldet solche Einträge fälschlich als veraltet. Heute wendet die Prüfung die Datenkorrekturen vorher an, und `tests/locale-follows-corrections.test.ts` schlägt an, wenn ein `// Was:` einer Korrektur widerspricht (deckt nur die vorhandenen Überschneidungen ab).
+
+**`wiki:compare` ist ein Kandidatenfinder, kein Fehlerbericht.** Rund ein Sechstel sind gescheiterte Zuordnungen, `trustsWiki` steht bei allen auf `true`, Level- und XP-Abweichungen sind systematisch (vermutlich veraltete Wiki-Abschnitte). Gezielte Fragen lohnen, z. B. „Ziele mit abweichender Anzahl".
+
+**Escort:** Der Tracker zeigte neun Ziele, das Spiel hat acht. Der Fehler sitzt in `the-hideout/tarkov-data-manager` (`data/changed_quests.json`, handgepflegtes 9. Ziel); unser Overlay macht es per `optional: true` unschädlich. Suppressions sind kein Auslieferungsmechanismus (stehen nicht im gebauten `overlay.json`), und `disabled` gibt es nur auf Task-Ebene. PR the-hideout/tarkov-data-manager#859 war approved, aber durch deren Automatisierung blockiert; den Override erst entfernen, wenn `check-overrides` ihn als überflüssig meldet. Aktueller Stand des PR nicht neu geprüft.
+
+**„Glory to CPSU" steht zweimal da:** zwei echte Tasks (`639135b0…47d7` aus dem Spiel raus, `64f5aac4…14c2` aktuell). Den Namenskonflikt erzeugt eine upstream-Datenkorrektur in `overrides/tasks.json5` (Commit `045c943`), die den englischen Namen **über** das deutsche Bundle legt (Korrekturen wirken vor den Locale-Overlays). **Lehre:** vor dem Flicken in `de.json5` prüfen, ob `overrides/tasks.json5` denselben Task anfasst, sonst versteckt ein Locale-Override den eigentlichen Fehler dauerhaft. Sauberer Weg: die Umbenennung upstream zurückziehen, noch nicht gemeldet.
+
+Der Übersetzungsstand ändert sich laufend; aktuelle Zahlen liefert `status:locale de`, nicht dieses Dokument.
 
 ---
 
@@ -475,12 +527,12 @@ Dass beide Zeilen **englisch** sind, hat zwei verschiedene Gründe:
 
 ### Vor einem Produktivgang zwingend
 
-| Punkt                                 | Warum                                                                                                                                                                                     |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`proxy_cache` für `/api/tarkov/*`** | **Pflicht, nicht Optimierung.** Ohne Cloudflare-Edge geht jeder Request bis `json.tarkov.dev` — es gibt keine DB-Kopie der Quest-Daten. Dokumentiertes Worst-Case-Budget ~55 s pro Route. |
-| **Produktions-Host entscheiden**      | stammlive ist zu knapp (1,7 GB wirklich frei, 4 GB Swap belegt, mysqld hält 9,8 GB). stammdev hat reichlich. Ggf. an #1000 koppeln.                                                       |
-| **`wrangler.toml` `APP_URL`**         | zeigt auf `trackerdev…` — vor Produktivgang auf die Live-Domain, sonst zeigen Vorschau-Links in die Entwicklungsumgebung                                                                  |
-| **`OVERLAY_URL` auf unser Overlay**   | aktuell noch die Test-Datei aus Phase 0; muss auf das gebaute `dist/overlay.json` aus dem Overlay-Fork zeigen (**HTTPS zwingend**)                                                        |
+| Punkt                                 | Warum                                                                                                                                                                                                                                                    |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`proxy_cache` für `/api/tarkov/*`** | **Nicht mehr Pflicht:** die Spieldaten kommen aus dem lokalen Verzeichnis, nicht zur Laufzeit von `json.tarkov.dev` (FORK.md §2.3).                                                                                                                      |
+| **Produktions-Host**                  | entschieden: stammlive (dort läuft der Live-Tracker schon, Swap belegt, Build mit niedriger Priorität, §7c). Früher: stammlive ist zu knapp (1,7 GB wirklich frei, 4 GB Swap belegt, mysqld hält 9,8 GB). stammdev hat reichlich. Ggf. an #1000 koppeln. |
+| **`wrangler.toml` `APP_URL`**         | ohne Wirkung auf node-server (FORK.md §7), entfällt                                                                                                                                                                                                      |
+| **`OVERLAY_URL` auf unser Overlay**   | erledigt auf trackerdev (`file://`, §7c); auf live noch alte Kopie `overlay/overlay.json`                                                                                                                                                                |
 
 ### Funktionale Baustellen
 
@@ -492,7 +544,7 @@ Dass beide Zeilen **englisch** sind, hat zwei verschiedene Gründe:
 | **Analytics-Einwilligung**                               | der einzige Wiedereinstieg lag im ersetzten Footer (`useAnalyticsConsent().openPreferences()`) — ersatzlos weg                                                                                                                                                              |
 | **Schema-Rückbau alter Tracker**                         | siehe 7b — eigener Schritt, Sicherung liegt bereit                                                                                                                                                                                                                          |
 | **Migration der 338 Nutzer**                             | offen, ob/wie alter Fortschritt mitgenommen wird. Der Tracker hat Import-Wege (`useTarkovDevImport`, `useEftLogsImport`, Data-Backup).                                                                                                                                      |
-| **#1294 Löschkonzept**                                   | Supabase-Account beim User-Delete mitlöschen (DSGVO)                                                                                                                                                                                                                        |
+| **#1294 Löschkonzept**                                   | Tracker-Seite fertig (§7c); die Hauptseite ruft den Endpunkt noch nicht auf                                                                                                                                                                                                 |
 
 ## 9. Rückgaben an Upstream
 
