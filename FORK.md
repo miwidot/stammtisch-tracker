@@ -254,6 +254,16 @@ Beim Sync beachten:
 - Neue Schlüssel unter `page.kappa.*` in `en.json` brauchen einen Eintrag in `de.overrides.json` (`de-overrides.test.ts` prüft das).
 - Tests: `app/pages/__tests__/kappa.page.test.ts`, `app/features/drawer/__tests__/DrawerLinks.test.ts`, `app/features/kappa/__tests__/*`, `app/locales/__tests__/de-overrides.test.ts`.
 
+### 3.16 Instanzname in Titeln und Manifesten
+
+Der Seitenname kommt aus **einer** Konstante: `app/utils/siteBrand.ts` (`SITE_NAME = 'Tarkov Stammtisch'`, `SITE_TITLE_SUFFIX`). Daraus leiten sich ab: `titleTemplate`, `og:site_name`, `og:title`/`twitter:title` und `apple-mobile-web-app-title` in `nuxt.config.ts`, die Social-Titel-Kürzung in `app/utils/routeSeo.ts` (`previewTitle`) sowie der Rückfallwert dort.
+
+Weil JSON nichts importieren kann, steht der Name zusätzlich als Text in `app/locales/en.json` und `de.json`: `seo.site_name`, alle Suffixe `· Tarkov Stammtisch` unter `seo.routes.*.title`, in `de.json` außerdem `navigation_drawer.brand_name`. `public/manifest.json` und `public/manifest.webmanifest` tragen `name` bzw. `short_name` fest. `tests/fork-branding.test.ts` prüft, dass beides zusammenpasst und dass kein `TarkovTracker.org` im gerenderten Head steht.
+
+Bewusst **unverändert** (Herkunft, Lizenz oder Upstream-Inhalt): Fußzeile und `/herkunft` (`footer.origin_link`, Attribution), die Ressourcenführer über TarkovTracker.org/.io samt Kategorie- und Teamtexten, `page.about.*` (Upstream-Team), Titel von `/supporter` (liefert 404) und `/resources/tarkovtracker_org_vs_io`, Rechtstexte (`privacy.vue`, `terms-of-service.vue`, werden nie gerendert), "Powered by TarkovTracker.org" im Kappa-Overlay (`app/server/routes/overlay/kappa/`), `SEO_ORIGIN` (kleingeschriebene Upstream-Domain nur in Canonical/JSON-LD, die bei `noindex` entfallen), die zwölf nicht angebotenen Sprachdateien. **Nach jedem Upstream-Merge:** neue `seo.routes.*.title` mit `· TarkovTracker.org` in `en.json`/`de.json` auf unseren Namen setzen; `fork-branding.test.ts` schlägt sonst an.
+
+Tests: `tests/fork-branding.test.ts`, `tests/route-seo.test.ts`.
+
 ---
 
 ## 4. Overlay-Quelle (`OVERLAY_URL`)

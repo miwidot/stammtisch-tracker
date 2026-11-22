@@ -1,10 +1,8 @@
 {
-  "name": "TarkovTracker",
-  "short_name": "TarkovTracker",
+  "name": "Tarkov Stammtisch",
+  "short_name": "Stammtisch",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "icons": [
-    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
-  ]
+  "icons": [{ "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }]
 }

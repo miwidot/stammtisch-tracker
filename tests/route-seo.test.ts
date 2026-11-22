@@ -10,15 +10,15 @@ import {
 } from '@/utils/routeSeo';
 describe('route SEO registry', () => {
   it('uses the chosen compact previews for tasks, supporter, and combined Kappa/Lightkeeper', () => {
-    expect(resolveRouteSeo('/tasks').title).toBe('Tarkov Quest Tracker · TarkovTracker.org');
+    expect(resolveRouteSeo('/tasks').title).toBe('Tarkov Quest Tracker · Tarkov Stammtisch');
     expect(resolveRouteSeo('/supporter').description).toBe(
       'Help fund hosting and development. Explore supporter tiers and ways to contribute.'
     );
-    expect(resolveRouteSeo('/kappa').title).toBe('Kappa & Lightkeeper Tracker · TarkovTracker.org');
+    expect(resolveRouteSeo('/kappa').title).toBe('Kappa & Lightkeeper Tracker · Tarkov Stammtisch');
   });
   it('keeps browser titles while avoiding a repeated brand in social titles', () => {
     const head = createRouteSeoHead('/tasks');
-    expect(head.title).toBe('Tarkov Quest Tracker · TarkovTracker.org');
+    expect(head.title).toBe('Tarkov Quest Tracker · Tarkov Stammtisch');
     expect(head.meta).toContainEqual(
       expect.objectContaining({ property: 'og:title', content: 'Tarkov Quest Tracker' })
     );
@@ -26,7 +26,7 @@ describe('route SEO registry', () => {
       expect.objectContaining({ name: 'twitter:title', content: 'Tarkov Quest Tracker' })
     );
     expect(head.meta).toContainEqual(
-      expect.objectContaining({ property: 'og:site_name', content: 'TarkovTracker' })
+      expect.objectContaining({ property: 'og:site_name', content: 'Tarkov Stammtisch' })
     );
     expect(createRouteSeoHead('/supporter').meta).toContainEqual(
       expect.objectContaining({ property: 'og:title', content: 'Support TarkovTracker.org' })

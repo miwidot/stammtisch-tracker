@@ -1,5 +1,7 @@
 import { RESOURCES } from '../features/resources/resourceData';
 import english from '../locales/en.json';
+// Fork: instance name comes from one constant.
+import { SITE_NAME, SITE_TITLE_SUFFIX } from './siteBrand';
 export const SEO_ORIGIN = 'https://tarkovtracker.org';
 const PUBLIC_PAGE_KEYS = {
   '/': 'home',
@@ -63,7 +65,7 @@ const readEnglishKey = (key: string): string => {
   // Nuxt i18n compiles locale imports into message ASTs; Node receives plain JSON.
   const message = value as
     { body?: { static?: string }; b?: { s?: string }; loc?: { source?: string } } | undefined;
-  const candidates = [message?.body?.static, message?.b?.s, message?.loc?.source, 'TarkovTracker'];
+  const candidates = [message?.body?.static, message?.b?.s, message?.loc?.source, SITE_NAME];
   return candidates.find((candidate) => typeof candidate === 'string')!;
 };
 const normalizePath = (path: string): string => path.split(/[?#]/)[0]!.replace(/\/+$/, '') || '/';
@@ -176,7 +178,9 @@ const optionalImageMeta = (image?: RouteSeoImage) => (image ? imageMeta(image) :
 const canonicalMeta = (canonical?: string) =>
   canonical ? [{ property: 'og:url', content: canonical }] : [];
 // Discord already displays og:site_name above the title; avoid repeating the brand.
-const previewTitle = (title: string): string => title.replace(/ · TarkovTracker\.org$/, '');
+// Fork: the suffix is our instance name (siteBrand.ts), not upstream's.
+const previewTitle = (title: string): string =>
+  title.endsWith(SITE_TITLE_SUFFIX) ? title.slice(0, -SITE_TITLE_SUFFIX.length) : title;
 const createMeta = (seo: RouteSeo) =>
   [
     { name: 'description', content: seo.description },

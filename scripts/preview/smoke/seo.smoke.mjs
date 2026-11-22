@@ -82,7 +82,7 @@ async function readMetadata(page, html) {
   return { ...document, meta };
 }
 function assertSocialMetadata(meta, copy, route) {
-  const title = copy.title.replace(/ · TarkovTracker\.org$/, '');
+  const title = copy.title.replace(` · ${english.seo.site_name}`, '');
   expect(meta['og:title']).toEqual([title]);
   expect(meta['twitter:title']).toEqual([title]);
   expect(meta['og:description']).toEqual([copy.description]);
@@ -215,12 +215,12 @@ test('handle links use the private profile shell and load the public mode', asyn
 test('public to private to public navigation restores metadata', async ({ page }) => {
   await page.goto(`${origin}/resources/ratscanner`, { waitUntil: 'networkidle' });
   await page.locator('footer a[href="/tasks"]').click();
-  await expect(page).toHaveTitle('Tarkov Quest Tracker · TarkovTracker.org');
+  await expect(page).toHaveTitle(`Tarkov Quest Tracker · ${english.seo.site_name}`);
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'index, follow');
   await page.locator('footer a[href="/team"]').click();
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, nofollow');
   await page.locator('footer a[href="/tasks"]').click();
-  await expect(page).toHaveTitle('Tarkov Quest Tracker · TarkovTracker.org');
+  await expect(page).toHaveTitle(`Tarkov Quest Tracker · ${english.seo.site_name}`);
   await expect(page.locator('link[rel="canonical"]')).toHaveCount(1);
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
     'href',

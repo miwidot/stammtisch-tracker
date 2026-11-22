@@ -35,6 +35,8 @@ import {
   SHELL_DRAWER_EXPANDED_WIDTH,
   SHELL_DRAWER_RAIL_STORAGE_KEY,
 } from './app/utils/shellConfig';
+// Fork: instance name for title template and OG/Twitter tags.
+import { SITE_NAME } from './app/utils/siteBrand';
 import { resolveDiscordInviteUrl } from './app/utils/supportLinks';
 import { THEME_BOOT_SCRIPT } from './app/utils/theme';
 import { TURNSTILE_TEST_SECRET_KEY, TURNSTILE_TEST_SITE_KEY } from './app/utils/turnstileKeys';
@@ -250,6 +252,9 @@ export default defineNuxtConfig({
         process.env.NUXT_PUBLIC_TARKOV_DEV_IMPORT_COOLDOWN_MINUTES?.trim() || '60'
       ),
       adminWatchTimeoutMs: Number(process.env.ADMIN_WATCH_TIMEOUT_MS || '5000') || 5000,
+      // Fork: overrides the 12 h client cache TTL (ms); 0 = always revalidate. Empty keeps the
+      // upstream TTL. Runtime value: set NUXT_PUBLIC_TARKOV_DATA_CACHE_TTL_MS, no rebuild (FORK.md 3.16).
+      tarkovDataCacheTtlMs: '',
       // Fork: off by default. true brings back the server-side api.github.com calls behind
       // /api/changelog and /api/contributors (see FORK.md); anything else keeps them silent.
       upstreamGithubEnabled: process.env.UPSTREAM_GITHUB_ENABLED === 'true',
@@ -349,7 +354,7 @@ export default defineNuxtConfig({
     baseURL: '/',
     buildAssetsDir: '/_nuxt/',
     head: {
-      titleTemplate: '%s | Tarkov Stammtisch',
+      titleTemplate: `%s | ${SITE_NAME}`,
       title: 'Quest-, Hideout- und Item-Tracker',
       link: [
         { rel: 'icon', type: 'image/png', sizes: '16x16', href: '/favicon-16x16.png' },
@@ -438,9 +443,9 @@ export default defineNuxtConfig({
         { name: 'theme-color', content: '#c8a882' },
         // OpenGraph tags. og:image/twitter:image are deliberately not set here: upstream's
         // per-route SEO (useRouteSeo) owns images, and a static one would shadow guide share images.
-        { property: 'og:site_name', content: 'Tarkov Stammtisch' },
+        { property: 'og:site_name', content: SITE_NAME },
         { property: 'og:type', content: 'website' },
-        { property: 'og:title', content: 'Quest-Tracker | Tarkov Stammtisch' },
+        { property: 'og:title', content: `Quest-Tracker | ${SITE_NAME}` },
         {
           property: 'og:description',
           content:
@@ -450,13 +455,13 @@ export default defineNuxtConfig({
         { property: 'og:locale', content: 'de_DE' },
         // Twitter Card tags
         { name: 'twitter:card', content: 'summary_large_image' },
-        { name: 'twitter:title', content: 'Quest-Tracker | Tarkov Stammtisch' },
+        { name: 'twitter:title', content: `Quest-Tracker | ${SITE_NAME}` },
         {
           name: 'twitter:description',
           content:
             'Der deutsche Quest-Tracker der Tarkov-Stammtisch-Community - verfolge deinen Fortschritt bei Aufgaben, Hideout-Ausbau und benötigten Gegenständen.',
         },
-        { name: 'apple-mobile-web-app-title', content: 'Tarkov Stammtisch' },
+        { name: 'apple-mobile-web-app-title', content: SITE_NAME },
       ],
     },
   },

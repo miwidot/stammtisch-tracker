@@ -1948,7 +1948,7 @@
     "main_navigation": "Hauptnavigation",
     "close_menu": "Menü schließen",
     "toggle": "Menü umschalten",
-    "brand_name": "TarkovTracker.org",
+    "brand_name": "Tarkov Stammtisch",
     "login": "Anmelden",
     "logout": "Abmelden",
     "resources": "Ressourcen",
@@ -2805,44 +2805,44 @@
   },
   "generic": {},
   "seo": {
-    "site_name": "TarkovTracker",
+    "site_name": "Tarkov Stammtisch",
     "application_description": "Verfolge Aufgaben in Escape from Tarkov, Versteck-Upgrades, Kappa-Anforderungen, Storyline-Quests und benötigte Gegenstände in den Modi PvP, PvE und Seasonal.",
     "routes": {
       "home": {
-        "title": "Fortschrittstracker für Escape from Tarkov · TarkovTracker.org",
+        "title": "Fortschrittstracker für Escape from Tarkov · Tarkov Stammtisch",
         "description": "Verfolge Aufgaben in Escape from Tarkov, Versteck-Upgrades, Kappa-Anforderungen, Storyline-Quests und benötigte Gegenstände in den Modi PvP, PvE und Seasonal.",
         "heading": "Fortschrittstracker für Escape from Tarkov"
       },
       "tasks": {
-        "title": "Tarkov-Quest-Tracker · TarkovTracker.org",
+        "title": "Tarkov-Quest-Tracker · Tarkov Stammtisch",
         "description": "Verfolge Tarkov-Quests, Ziele, Belohnungen und Voraussetzungen in den Modi PvP, PvE und Seasonal."
       },
       "tasks_traders": {
-        "title": "Tarkov Quests by Trader · TarkovTracker.org",
+        "title": "Tarkov Quests by Trader · Tarkov Stammtisch",
         "description": "Work through each trader's Tarkov quests and see how many are left."
       },
       "tasks_maps": {
-        "title": "Tarkov Quest Map View · TarkovTracker.org",
+        "title": "Tarkov Quest Map View · Tarkov Stammtisch",
         "description": "See your open Tarkov quest objectives on each map to plan your next raid."
       },
       "tasks_graph": {
-        "title": "Tarkov Quest Graph · TarkovTracker.org",
+        "title": "Tarkov Quest Graph · Tarkov Stammtisch",
         "description": "Explore how each trader's Tarkov quests unlock one another."
       },
       "hideout": {
-        "title": "Tarkov-Versteck-Tracker · TarkovTracker.org",
+        "title": "Tarkov-Versteck-Tracker · Tarkov Stammtisch",
         "description": "Plane Versteck-Upgrades und verfolge Modulanforderungen sowie den Baufortschritt."
       },
       "needed_items": {
-        "title": "Tarkov-Tracker für benötigte Gegenstände · TarkovTracker.org",
+        "title": "Tarkov-Tracker für benötigte Gegenstände · Tarkov Stammtisch",
         "description": "Finde alle Gegenstände, die du noch für Questen und Versteck-Upgrades benötigst, in einer Liste."
       },
       "kappa": {
-        "title": "Kappa- und Lightkeeper-Tracker · TarkovTracker.org",
+        "title": "Kappa- und Lightkeeper-Tracker · Tarkov Stammtisch",
         "description": "Verfolge die Questanforderungen für Kappa und Lightkeeper und sieh, wie viel Fortschritt dir noch fehlt."
       },
       "storyline": {
-        "title": "Tarkov-Storyline-Tracker · TarkovTracker.org",
+        "title": "Tarkov-Storyline-Tracker · Tarkov Stammtisch",
         "description": "Verfolge die Storyline-Questen von Escape from Tarkov und behalte deinen Fortschritt im Blick."
       },
       "resources": {
@@ -2894,47 +2894,47 @@
         "description": "Erfahre, wie du den Rechner für den Kultistenkreis nutzt, um Opferrezepte und Belohnungen zu erkunden."
       },
       "settings": {
-        "title": "Einstellungen · TarkovTracker.org",
+        "title": "Einstellungen · Tarkov Stammtisch",
         "description": "Verwalte deine TarkovTracker-Einstellungen, Importe, Backups und Integrationen."
       },
       "progression": {
-        "title": "Fortschrittseinstellungen · TarkovTracker.org",
+        "title": "Fortschrittseinstellungen · Tarkov Stammtisch",
         "description": "Verwalte in TarkovTracker dein Level, deine Fähigkeiten und deine Fortschrittseinstellungen."
       },
       "prestige": {
-        "title": "Prestige-Einstellungen · TarkovTracker.org",
+        "title": "Prestige-Einstellungen · Tarkov Stammtisch",
         "description": "Verwalte deinen Prestige-Fortschritt in TarkovTracker."
       },
       "preferences": {
-        "title": "Präferenzen · TarkovTracker.org",
+        "title": "Präferenzen · Tarkov Stammtisch",
         "description": "Passe deine TarkovTracker-Sprache, dein Erscheinungsbild und deine Tracking-Präferenzen an."
       },
       "account": {
-        "title": "Konto · TarkovTracker.org",
+        "title": "Konto · Tarkov Stammtisch",
         "description": "Verwalte dein TarkovTracker-Konto und damit verbundene Dienste."
       },
       "team": {
-        "title": "Team · TarkovTracker.org",
+        "title": "Team · Tarkov Stammtisch",
         "description": "Verwalte dein TarkovTracker-Team und den gemeinsamen Fortschritt."
       },
       "admin": {
-        "title": "Verwaltung · TarkovTracker.org",
+        "title": "Verwaltung · Tarkov Stammtisch",
         "description": "Administrationsfunktionen von TarkovTracker."
       },
       "profile": {
-        "title": "Spielerprofil · TarkovTracker.org",
+        "title": "Spielerprofil · Tarkov Stammtisch",
         "description": "Betrachte ein TarkovTracker-Spielerprofil und den gemeinsamen Fortschritt."
       },
       "login": {
-        "title": "Anmelden · TarkovTracker.org",
+        "title": "Anmelden · Tarkov Stammtisch",
         "description": "Melde dich bei TarkovTracker an, um deinen Fortschritt zu synchronisieren und mit deinem Team zusammenzuarbeiten."
       },
       "auth_callback": {
-        "title": "Anmelde-Callback · TarkovTracker.org",
+        "title": "Anmelde-Callback · Tarkov Stammtisch",
         "description": "Schließe deine Anmeldung bei TarkovTracker ab."
       },
       "oauth_consent": {
-        "title": "Anwendung autorisieren · TarkovTracker.org",
+        "title": "Anwendung autorisieren · Tarkov Stammtisch",
         "description": "Prüfe die Anfrage einer Anwendung auf Zugriff auf dein TarkovTracker-Konto."
       },
       "not_found": {

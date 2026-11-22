@@ -3090,44 +3090,44 @@
   },
   "generic": {},
   "seo": {
-    "site_name": "TarkovTracker",
+    "site_name": "Tarkov Stammtisch",
     "application_description": "Track Escape from Tarkov tasks, hideout upgrades, Kappa requirements, storyline quests, and needed items across PvP, PvE, and Seasonal modes.",
     "routes": {
       "home": {
-        "title": "Escape from Tarkov Progress Tracker · TarkovTracker.org",
+        "title": "Escape from Tarkov Progress Tracker · Tarkov Stammtisch",
         "description": "Track Escape from Tarkov tasks, hideout upgrades, Kappa requirements, storyline quests, and needed items across PvP, PvE, and Seasonal modes.",
         "heading": "Escape from Tarkov Progress Tracker"
       },
       "tasks": {
-        "title": "Tarkov Quest Tracker · TarkovTracker.org",
+        "title": "Tarkov Quest Tracker · Tarkov Stammtisch",
         "description": "Track Tarkov quests, objectives, rewards, and prerequisites across PvP, PvE, and Seasonal."
       },
       "tasks_traders": {
-        "title": "Tarkov Quests by Trader · TarkovTracker.org",
+        "title": "Tarkov Quests by Trader · Tarkov Stammtisch",
         "description": "Work through each trader's Tarkov quests and see how many are left."
       },
       "tasks_maps": {
-        "title": "Tarkov Quest Map View · TarkovTracker.org",
+        "title": "Tarkov Quest Map View · Tarkov Stammtisch",
         "description": "See your open Tarkov quest objectives on each map to plan your next raid."
       },
       "tasks_graph": {
-        "title": "Tarkov Quest Graph · TarkovTracker.org",
+        "title": "Tarkov Quest Graph · Tarkov Stammtisch",
         "description": "Explore how each trader's Tarkov quests unlock one another."
       },
       "hideout": {
-        "title": "Tarkov Hideout Tracker · TarkovTracker.org",
+        "title": "Tarkov Hideout Tracker · Tarkov Stammtisch",
         "description": "Plan hideout upgrades and track module requirements and construction progress."
       },
       "needed_items": {
-        "title": "Tarkov Needed Items Tracker · TarkovTracker.org",
+        "title": "Tarkov Needed Items Tracker · Tarkov Stammtisch",
         "description": "Find the items you still need for quests and hideout upgrades in one list."
       },
       "kappa": {
-        "title": "Kappa & Lightkeeper Tracker · TarkovTracker.org",
+        "title": "Kappa & Lightkeeper Tracker · Tarkov Stammtisch",
         "description": "Track Kappa and Lightkeeper quest requirements and your remaining progression."
       },
       "storyline": {
-        "title": "Tarkov Storyline Tracker · TarkovTracker.org",
+        "title": "Tarkov Storyline Tracker · Tarkov Stammtisch",
         "description": "Follow Escape from Tarkov storyline quests and track your progression."
       },
       "resources": {
@@ -3179,47 +3179,47 @@
         "description": "Learn how to use the Cultist Circle calculator to explore sacrifice recipes and rewards."
       },
       "settings": {
-        "title": "Settings · TarkovTracker.org",
+        "title": "Settings · Tarkov Stammtisch",
         "description": "Manage your TarkovTracker preferences, imports, backups, and integrations."
       },
       "progression": {
-        "title": "Progression Settings · TarkovTracker.org",
+        "title": "Progression Settings · Tarkov Stammtisch",
         "description": "Manage your TarkovTracker level, skills, and progression settings."
       },
       "prestige": {
-        "title": "Prestige Settings · TarkovTracker.org",
+        "title": "Prestige Settings · Tarkov Stammtisch",
         "description": "Manage your TarkovTracker prestige progression."
       },
       "preferences": {
-        "title": "Preferences · TarkovTracker.org",
+        "title": "Preferences · Tarkov Stammtisch",
         "description": "Customize your TarkovTracker language, appearance, and tracking preferences."
       },
       "account": {
-        "title": "Account · TarkovTracker.org",
+        "title": "Account · Tarkov Stammtisch",
         "description": "Manage your TarkovTracker account and connected services."
       },
       "team": {
-        "title": "Team · TarkovTracker.org",
+        "title": "Team · Tarkov Stammtisch",
         "description": "Manage your TarkovTracker team and shared progression."
       },
       "admin": {
-        "title": "Administration · TarkovTracker.org",
+        "title": "Administration · Tarkov Stammtisch",
         "description": "TarkovTracker administration controls."
       },
       "profile": {
-        "title": "Player Profile · TarkovTracker.org",
+        "title": "Player Profile · Tarkov Stammtisch",
         "description": "View a TarkovTracker player profile and shared progression."
       },
       "login": {
-        "title": "Sign In · TarkovTracker.org",
+        "title": "Sign In · Tarkov Stammtisch",
         "description": "Sign in to TarkovTracker to sync progression and collaborate with your team."
       },
       "auth_callback": {
-        "title": "Sign In Callback · TarkovTracker.org",
+        "title": "Sign In Callback · Tarkov Stammtisch",
         "description": "Complete your TarkovTracker sign-in."
       },
       "oauth_consent": {
-        "title": "Authorize Application · TarkovTracker.org",
+        "title": "Authorize Application · Tarkov Stammtisch",
         "description": "Review an application's request to access your TarkovTracker account."
       },
       "not_found": {
