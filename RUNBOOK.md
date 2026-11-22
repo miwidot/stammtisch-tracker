@@ -471,8 +471,10 @@ Bekannter Lärm: `account-deletion-retry` schlägt täglich fehl (`storage.objec
 - [ ] `/overlay.json`, `/overlay-neutral.json`, `/overlay-fork/` von außen: 404
 - [ ] `/api/tarkov/extract-requirements` zeigt `dataOverlay.version` (erwartete Version) und `sourceUrl` mit `file://`
 - [ ] `/api/tarkov/strings?lang=de` liefert Deutsch; `bootstrap` und `tasks-core?lang=de` 200 (nicht 503)
-- [ ] Ausgehende Verbindungen des App-Prozesses (`ss -tnp`) nur Loopback plus `assets.tarkov.dev`/`tarkov.dev`; im Browser kein `static.cloudflareinsights.com` (der Cloudflare-Edge setzt es ein, im Dashboard „Web Analytics" für den Host abschalten)
+- [ ] Ausgehende Verbindungen des App-Prozesses (`ss -tnp`) nur Loopback plus `assets.tarkov.dev`/`tarkov.dev`
 - [ ] Danach FORK.md §8 (Rauchtest) durchgehen
+
+**Entschieden, kein offener Punkt:** Cloudflares Web-Analytics-Beacon bleibt an. Es ist unser eigener Cloudflare-Account, die Daten gehen an niemand Fremdes, und die Minimal-CSP blockiert das Skript im Browser ohnehin. Daher nicht in der Prüfliste.
 
 ### Produktivgang (stammlive)
 
@@ -569,6 +571,8 @@ Wir leben von deren Arbeit. Was allgemein nützlich ist, geht als PR zurück —
 | Quests plötzlich englisch                                                          | Overlay still verworfen: `$meta.version` fehlt, oder URL ist `http:`                                   |
 | **Komplett leere Seite trotz HTTP 200**                                            | alter Prozess lebt noch, serviert HTML des alten Builds → PID über `ss -tlnp \| grep 3101` killen (§3) |
 | **Overlay-Änderung im Browser nicht sichtbar, obwohl die App neu gestartet wurde** | **Zweiter Cache im Browser**, nicht der Server. Siehe unten.                                           |
+| `Repository not found` beim Pull                                                   | Deploy-Key (§3)                                                                                        |
+| Migration bricht bei `CREATE INDEX CONCURRENTLY`                                   | die `disable-transaction`-Datei (§4)                                                                   |
 
 ### Zwei Caches, nicht einer
 
@@ -605,5 +609,3 @@ Beide in Dateien, die bei uns byte-identisch mit upstream sind — ein Patch wä
 
 Entscheidung 2026-08-21: **nicht lokal patchen.** Der zweite sitzt in der volatilsten Datei des
 Projekts; ein Eingriff dort brächte dauerhaft Merge-Konflikte für einen fremden Fehler.
-| `Repository not found` beim Pull | Deploy-Key (§3) |
-| Migration bricht bei `CREATE INDEX CONCURRENTLY` | die `disable-transaction`-Datei (§4) |

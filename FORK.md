@@ -10,7 +10,7 @@ Privater Fork von [tarkovtracker-org/TarkovTracker](https://github.com/tarkovtra
 git diff --name-status upstream/main...HEAD | grep -v '__tests__'
 ```
 
-`RUNBOOK.md` beschreibt Aufbau und Betrieb des Prototyps. Sein Abschnitt 7c ("Übergabe, Stand 2026-08-26") ist **veraltet** (alter Overlay-Fork mit sieben Abweichungen, alter Übersetzungsstand): bei Widerspruch gilt diese Datei.
+`RUNBOOK.md` beschreibt Aufbau und Betrieb des Prototyps. Der Einstieg für den Betrieb ist dort Abschnitt 7c ("Übergabe"); die Abweichungen vom Upstream stehen in dieser Datei.
 
 ---
 
