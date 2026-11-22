@@ -48,6 +48,10 @@ import {
 } from '@/types/taskFilter';
 import { clearPreferencesStorage } from '@/utils/clientStorage';
 import { TRADER_SORT_DIRECTIONS, TRADER_SORT_MODES } from '@/utils/constants';
+import {
+  ANTIFANDOM_PREFERENCE_ENABLED,
+  STREAMER_MODE_PREFERENCE_ENABLED,
+} from '@/utils/forkConfig';
 import { DEFAULT_KEYBINDS, LEGACY_OMNIBAR_KEYBIND, sanitizeKeybind } from '@/utils/keybinds';
 import { logger } from '@/utils/logger';
 import { STORAGE_KEYS } from '@/utils/storageKeys';
@@ -453,6 +457,8 @@ export const usePreferencesStore = defineStore('preferences', {
   },
   getters: {
     getStreamerMode(state) {
+      // Fork: a hidden preference must not stay active invisibly (see forkConfig.ts).
+      if (!STREAMER_MODE_PREFERENCE_ENABLED) return false;
       return state.streamerMode ?? false;
     },
     teamIsHidden: (state) => {
@@ -591,6 +597,8 @@ export const usePreferencesStore = defineStore('preferences', {
     },
     /** Whether wiki links should open on the antifandom.com mirror. */
     getWikiUseAntifandom: (state) => {
+      // Fork: hidden preference resolves to upstream's default (fandom.com).
+      if (!ANTIFANDOM_PREFERENCE_ENABLED) return false;
       return state.wikiUseAntifandom ?? false;
     },
     // Task filter getters

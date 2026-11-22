@@ -9,4 +9,6 @@ import { vi } from 'vitest';
 vi.mock('@/utils/forkConfig', () => ({
   LIGHT_THEME_ENABLED: true,
   OVERFLOW_MENU_ENABLED: true,
+  STREAMER_MODE_PREFERENCE_ENABLED: true,
+  ANTIFANDOM_PREFERENCE_ENABLED: true,
 }));

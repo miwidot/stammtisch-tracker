@@ -87,49 +87,59 @@
             {{ status }}
           </p>
         </div>
-        <USeparator />
-        <div class="flex items-center justify-between gap-3">
-          <div class="space-y-1">
-            <p :id="privacyModeLabelId" class="text-surface-200 text-sm font-semibold">
-              {{ $t('settings.general.privacy_mode', 'Privacy Mode') }}
-            </p>
-            <p class="text-surface-400 text-sm">
-              {{
-                $t(
-                  'settings.general.privacy_mode_hint',
-                  "Hides sensitive information while you're streaming."
-                )
-              }}
-            </p>
+        <!-- Fork: hidden via STREAMER_MODE_PREFERENCE_ENABLED (app/utils/forkConfig.ts) -->
+        <template v-if="STREAMER_MODE_PREFERENCE_ENABLED">
+          <USeparator />
+          <div class="flex items-center justify-between gap-3">
+            <div class="space-y-1">
+              <p :id="privacyModeLabelId" class="text-surface-200 text-sm font-semibold">
+                {{ $t('settings.general.privacy_mode', 'Privacy Mode') }}
+              </p>
+              <p class="text-surface-400 text-sm">
+                {{
+                  $t(
+                    'settings.general.privacy_mode_hint',
+                    "Hides sensitive information while you're streaming."
+                  )
+                }}
+              </p>
+            </div>
+            <USwitch
+              class="shrink-0"
+              :model-value="streamerMode"
+              :aria-labelledby="privacyModeLabelId"
+              :disabled="!isLoggedIn || streamerModeCooldown"
+              :ui="{
+                base: 'data-[state=unchecked]:bg-error-500 data-[state=checked]:bg-success-500',
+              }"
+              @update:model-value="handleStreamerModeToggle"
+            />
           </div>
-          <USwitch
-            class="shrink-0"
-            :model-value="streamerMode"
-            :aria-labelledby="privacyModeLabelId"
-            :disabled="!isLoggedIn || streamerModeCooldown"
-            :ui="{
-              base: 'data-[state=unchecked]:bg-error-500 data-[state=checked]:bg-success-500',
-            }"
-            @update:model-value="handleStreamerModeToggle"
-          />
-        </div>
-        <USeparator />
-        <div class="flex items-center justify-between gap-3">
-          <div class="space-y-1">
-            <p :id="antifandomLabelId" class="text-surface-200 text-sm font-semibold">
-              {{ $t('settings.interface.links.antifandom', 'Use antifandom.com') }}
-            </p>
-            <p class="text-surface-400 text-sm">
-              {{
-                $t(
-                  'settings.interface.links.antifandom_hint',
-                  'Open wiki links on antifandom.com, a community-run, ad-light mirror of Fandom, instead of fandom.com.'
-                )
-              }}
-            </p>
+        </template>
+        <!-- Fork: hidden via ANTIFANDOM_PREFERENCE_ENABLED (app/utils/forkConfig.ts) -->
+        <template v-if="ANTIFANDOM_PREFERENCE_ENABLED">
+          <USeparator />
+          <div class="flex items-center justify-between gap-3">
+            <div class="space-y-1">
+              <p :id="antifandomLabelId" class="text-surface-200 text-sm font-semibold">
+                {{ $t('settings.interface.links.antifandom', 'Use antifandom.com') }}
+              </p>
+              <p class="text-surface-400 text-sm">
+                {{
+                  $t(
+                    'settings.interface.links.antifandom_hint',
+                    'Open wiki links on antifandom.com, a community-run, ad-light mirror of Fandom, instead of fandom.com.'
+                  )
+                }}
+              </p>
+            </div>
+            <USwitch
+              v-model="useAntifandom"
+              class="shrink-0"
+              :aria-labelledby="antifandomLabelId"
+            />
           </div>
-          <USwitch v-model="useAntifandom" class="shrink-0" :aria-labelledby="antifandomLabelId" />
-        </div>
+        </template>
       </div>
     </template>
   </GenericCard>
@@ -139,7 +149,11 @@
   import { useLocaleSwitch } from '@/composables/useLocaleSwitch';
   import { useTheme } from '@/composables/useTheme';
   import { usePreferencesStore } from '@/stores/usePreferences';
-  import { LIGHT_THEME_ENABLED } from '@/utils/forkConfig';
+  import {
+    ANTIFANDOM_PREFERENCE_ENABLED,
+    LIGHT_THEME_ENABLED,
+    STREAMER_MODE_PREFERENCE_ENABLED,
+  } from '@/utils/forkConfig';
   import { getLocaleNativeName } from '@/utils/locales';
   import type { SupabaseUser } from '@/types/supabase-plugin';
   import type { ThemeMode } from '@/utils/theme';

@@ -287,6 +287,12 @@ Beim Sync beachten:
 - Die Namen `DEFAULT_OVERLAY_URL` und `DEFAULT_URL` müssen aus `overlay.ts` bzw. `neutralOverlay.ts` exportiert bleiben.
 - Tests: `app/utils/__tests__/dataFingerprint.cache.test.ts`, `app/server/utils/__tests__/dataFingerprint.test.ts`, `app/server/api/tarkov/__tests__/data-fingerprint.get.test.ts`.
 
+### 3.17 Zwei Einstellungs-Schalter ausgeblendet
+
+`app/features/settings/AppPreferencesCard.vue`: in der Karte "App-Einstellungen" (`/settings#preferences`) fehlen die Zeilen "Streamer-Modus" und "antifandom.com verwenden" (`STREAMER_MODE_PREFERENCE_ENABLED=false`, `ANTIFANDOM_PREFERENCE_ENABLED=false` in `app/utils/forkConfig.ts`; `tests/fork-test-setup.ts` mockt beide auf `true`). Die Trenner gehören zur jeweiligen Zeile, es bleibt keine Lücke. "Sprache" bleibt.
+
+Ein früher gespeicherter Wert wirkt nicht unsichtbar weiter: `getStreamerMode` liefert `false`, `getWikiUseAntifandom` liefert `false` (Upstream-Standard, Wiki-Links bleiben auf `fandom.com`). Der Sync (`app/plugins/zz.preferences-sync.client.ts`) sendet `streamer_mode: false`, und `clearHiddenStreamerMode` (`app/utils/hiddenPreferences.ts`) setzt einen gespeicherten `true`-Wert beim Login zurück und schiebt ihn zum Server, weil `app/server/api/profile/[userId]/[mode].get.ts` `streamer_mode` aus der Datenbank liest. Die Streamer-Overlay-Routen (`/overlay/kappa/...`, `/api/streamer/...`) sind unberührt. Beim Sync: kommt Upstream mit einem weiteren Leser des Rohwerts `state.streamerMode`, stattdessen den Getter nutzen. Tests: `AppPreferencesCard.disabled.test.ts`, `app/stores/__tests__/usePreferences.hiddenToggles.test.ts`.
+
 ---
 
 ## 4. Overlay-Quelle (`OVERLAY_URL`)

@@ -9,7 +9,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ref } from 'vue';
 import AppPreferencesCard from '@/features/settings/AppPreferencesCard.vue';
 import type { ThemeMode } from '@/utils/theme';
-vi.mock('@/utils/forkConfig', () => ({ LIGHT_THEME_ENABLED: false }));
+vi.mock('@/utils/forkConfig', () => ({
+  LIGHT_THEME_ENABLED: false,
+  STREAMER_MODE_PREFERENCE_ENABLED: false,
+  ANTIFANDOM_PREFERENCE_ENABLED: false,
+}));
 const { mockState, setters } = vi.hoisted(() => ({
   mockState: {
     themeMode: 'dark' as ThemeMode,
@@ -107,10 +111,31 @@ describe('AppPreferencesCard theme row disabled (fork: light theme unreachable)'
     await wrapper.get('select').setValue('de');
     expect(setters.setThemeMode).not.toHaveBeenCalled();
   });
-  it('keeps the language selector and both switches', () => {
+  it('keeps the language selector and renders no switches', () => {
     const wrapper = mountCard();
     expect(wrapper.find('select').exists()).toBe(true);
-    expect(wrapper.findAll('[role="switch"]')).toHaveLength(2);
+    expect(wrapper.findAll('[role="switch"]')).toHaveLength(0);
+  });
+  it('renders neither the streamer-mode nor the antifandom row, but keeps the Sprache row', () => {
+    const wrapper = mountCard();
+    expect(wrapper.text()).toContain('settings.locale');
+    expect(wrapper.text()).not.toContain('settings.general.privacy_mode');
+    expect(wrapper.text()).not.toContain('settings.interface.links.antifandom');
+    expect(wrapper.find('#settings-privacy-mode-label').exists()).toBe(false);
+    expect(wrapper.find('#settings-antifandom-label').exists()).toBe(false);
+  });
+  it('leaves no trailing separator or empty gap after the language row', () => {
+    const wrapper = mountCard();
+    const last = wrapper.get('.space-y-3').element.lastElementChild;
+    expect(last?.querySelector('select')).not.toBeNull();
+    expect(wrapper.findAllComponents({ name: 'USeparator' })).toHaveLength(0);
+    expect(wrapper.html()).not.toContain('use-separator');
+  });
+  it('never writes the hidden preferences', async () => {
+    const wrapper = mountCard();
+    await wrapper.get('select').setValue('de');
+    expect(setters.setStreamerMode).not.toHaveBeenCalled();
+    expect(setters.setWikiUseAntifandom).not.toHaveBeenCalled();
   });
   it('starts with the language row instead of a dangling separator', () => {
     const wrapper = mountCard();

@@ -10,3 +10,10 @@ describe('forkConfig module mock (global setup default)', () => {
     expect(LIGHT_THEME_ENABLED).toBe(true);
   });
 });
+describe('forkConfig hidden-preference flags (global setup default)', () => {
+  it('are mocked true so upstream tests keep their original behavior', async () => {
+    const config = await import('@/utils/forkConfig');
+    expect(config.STREAMER_MODE_PREFERENCE_ENABLED).toBe(true);
+    expect(config.ANTIFANDOM_PREFERENCE_ENABLED).toBe(true);
+  });
+});

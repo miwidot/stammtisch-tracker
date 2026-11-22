@@ -11,6 +11,8 @@ import {
   type PreferencesState,
 } from '@/stores/usePreferences';
 import { SKILL_SORT_MODES, TRADER_SORT_DIRECTIONS, TRADER_SORT_MODES } from '@/utils/constants';
+import { STREAMER_MODE_PREFERENCE_ENABLED } from '@/utils/forkConfig';
+import { clearHiddenStreamerMode } from '@/utils/hiddenPreferences';
 import { logger } from '@/utils/logger';
 import { migrateLegacyMapMarkerColors, normalizeMapMarkerColors } from '@/utils/theme-colors';
 import type { Pinia } from 'pinia';
@@ -135,7 +137,8 @@ const buildPreferencesSyncPayload = (
 ): Record<string, unknown> => {
   return {
     user_id: userId,
-    streamer_mode: preferencesState.streamerMode,
+    // Fork: a hidden streamer-mode preference is always sent as off.
+    streamer_mode: STREAMER_MODE_PREFERENCE_ENABLED ? preferencesState.streamerMode : false,
     team_hide: preferencesState.teamHide,
     task_team_hide_all: preferencesState.taskTeamHideAll,
     items_team_hide_all: preferencesState.itemsTeamHideAll,
@@ -320,6 +323,8 @@ export default defineNuxtPlugin((nuxtApp) => {
         preferencesStore.setProfileSharePvePublic(false);
         preferencesStore.setProfileSharePvpPublic(false);
       }
+      // Fork: clear a streamer-mode value stored before the toggle was hidden, and push it.
+      if (clearHiddenStreamerMode(preferencesStore)) shouldSyncLocalStateToRemote = true;
       const syncController = startPreferencesSync(preferencesStore, userId);
       if (shouldSyncLocalStateToRemote) {
         void syncController.syncToSupabase(preferencesStore.$state);

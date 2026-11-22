@@ -21,3 +21,17 @@ export const LIGHT_THEME_ENABLED = false;
  * the bar. Flip back to `true` to restore upstream's behavior.
  */
 export const OVERFLOW_MENU_ENABLED = false;
+/**
+ * Fork decision: the "Streamer-Modus" (privacy mode) row in the settings "App-Einstellungen" card
+ * is hidden. While `false` the preference is also neutralised: `getStreamerMode` resolves to
+ * `false`, the sync payload sends `streamer_mode: false`, and a previously stored `true` is
+ * cleared on login (see `clearHiddenStreamerMode`). The streamer overlay routes are unaffected.
+ * Flip back to `true` to restore upstream's behavior.
+ */
+export const STREAMER_MODE_PREFERENCE_ENABLED = false;
+/**
+ * Fork decision: the "antifandom.com verwenden" row is hidden. While `false`,
+ * `getWikiUseAntifandom` resolves to upstream's default (`false`), so wiki links keep their
+ * original fandom.com host. Flip back to `true` to restore upstream's behavior.
+ */
+export const ANTIFANDOM_PREFERENCE_ENABLED = false;
