@@ -7,7 +7,7 @@
       class="border-b border-white/10 px-3 py-2.5"
       :class="{ 'bg-success-500/5': allComplete }"
     >
-      <div class="flex items-center gap-2.5">
+      <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1">
         <div class="bg-surface-900 h-8 w-8 shrink-0 overflow-hidden rounded-full">
           <img
             v-if="group.trader.imageLink"
@@ -18,7 +18,7 @@
           />
           <UIcon v-else name="i-mdi-account-circle" class="text-surface-500 h-full w-full" />
         </div>
-        <h2 class="text-surface-100 min-w-0 flex-1 truncate text-sm font-semibold">
+        <h2 class="text-surface-100 min-w-0 flex-1 basis-16 truncate text-sm font-semibold">
           {{ group.trader.name }}
         </h2>
         <span class="text-surface-400 shrink-0 text-xs tabular-nums">

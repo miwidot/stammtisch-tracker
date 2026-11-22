@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-full overflow-x-hidden">
     <div class="px-3 py-6 sm:px-6">
-      <div class="mx-auto max-w-350 space-y-3 sm:space-y-4">
+      <div class="mx-auto max-w-350 space-y-3 sm:space-y-4 xl:max-w-400 2xl:max-w-450">
         <slot name="header" />
         <StatusTabBar
           v-model="activeTabKey"
@@ -27,16 +27,7 @@
           variant="soft"
           :title="t('page.kappa.empty', 'No tasks for this list yet.')"
         />
-        <div
-          v-else-if="lgAndUp"
-          class="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] items-start gap-3"
-        >
-          <KappaTraderColumn
-            v-for="group in groupedByTraderWithoutFence"
-            :key="group.trader.id"
-            :group="group"
-          />
-        </div>
+        <KappaTraderGrid v-else-if="lgAndUp" :groups="groupedByTraderWithoutFence" />
         <template v-else>
           <KappaTraderSelector v-model="selectedTraderId" :groups="groupedByTraderWithoutFence" />
           <KappaTraderColumn v-if="selectedTraderGroup" :group="selectedTraderGroup" />
@@ -50,6 +41,7 @@
   import { useSharedBreakpoints } from '@/composables/useSharedBreakpoints';
   import KappaLoadingState from '@/features/kappa/KappaLoadingState.vue';
   import KappaTraderColumn from '@/features/kappa/KappaTraderColumn.vue';
+  import KappaTraderGrid from '@/features/kappa/KappaTraderGrid.vue';
   import KappaTraderSelector from '@/features/kappa/KappaTraderSelector.vue';
   import TrackerSummary from '@/features/kappa/TrackerSummary.vue';
   import { useKappaOverview, type KappaTabKey } from '@/features/kappa/useKappaOverview';
