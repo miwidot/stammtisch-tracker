@@ -63,7 +63,7 @@ describe('Overlay Kappa Route', () => {
     expect(cspHeader).not.toContain('fonts.googleapis.com');
     expect(cspHeader).not.toContain('fonts.gstatic.com');
     expect(cspHeader).toContain("font-src 'self'");
-    expect(html).toContain('<title>TarkovTracker Stream Overlay</title>');
+    expect(html).toContain(`<title>${SITE_NAME} Stream Overlay</title>`);
     expect(html).not.toContain('fonts.googleapis.com');
     expect(html).not.toContain('fonts.gstatic.com');
     expect(html).toContain('@font-face');

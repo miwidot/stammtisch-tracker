@@ -398,7 +398,7 @@ export default defineEventHandler((event) => {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>TarkovTracker Stream Overlay</title>
+    <title>${SITE_NAME} Stream Overlay</title>
     <style>
       ${fontFaceCss}
 
