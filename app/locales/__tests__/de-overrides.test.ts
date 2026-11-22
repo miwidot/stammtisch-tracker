@@ -249,6 +249,66 @@ describe('effective German locale', () => {
       '{trader} Ansehen {requirement}'
     );
   });
+  // Terminology and form-of-address guard over the EFFECTIVE German strings (Crowdin de.json
+  // merged with de.overrides.json), so a Crowdin sync that reintroduces a banned term fails here.
+  describe('consistent German terminology and du-form', () => {
+    // Polite forms of address are never allowed anywhere.
+    const POLITE_FORMS =
+      /\b(Ihr|Ihre|Ihrem|Ihren|Ihrer|Ihres|Ihnen)\b|\b[A-Za-zÄÖÜäöü]+(?:en|et|t) Sie\b/;
+    // A bare "Sie" is only allowed where it means "they"/"it" (a sentence starting with Sie that
+    // refers back to a plural or feminine noun). Each key was checked by hand; anything else
+    // starting with "Sie" is the polite pronoun and must be rewritten as du-form.
+    const SIE_MEANS_THEY_OR_IT = new Set([
+      'progress_save_status.cloud_also_pending_note',
+      'page.tasks.questcard.time_gate_tooltip',
+      'page.resources.guides.tarkovmonitor.overview',
+      'page.account_retention.scope',
+      'page.account_retention.exceptions',
+      'settings.data_management.bug_report_description',
+      'settings.data_management.older_tab_recovery_available',
+      'settings.data_management.superseded_other_season',
+      'settings.data_management.recovery_copies_sign_in',
+      'needed_items.hidden_for_you_hint',
+      'stash_import.excess',
+    ]);
+    const offenders = (test: (key: string, value: string) => boolean) =>
+      [...effective].filter(([key, value]) => test(key, value)).map(([key]) => key);
+    it('uses du-form: no polite Ihr/Ihnen/"Klicken Sie" forms in any effective string', () => {
+      expect(offenders((_key, value) => POLITE_FORMS.test(value))).toEqual([]);
+    });
+    it('uses du-form: a bare "Sie" only appears in the reviewed allow-list', () => {
+      expect(
+        offenders((key, value) => /\bSie\b/.test(value) && !SIE_MEANS_THEY_OR_IT.has(key))
+      ).toEqual([]);
+    });
+    it('keeps every allow-listed Sie key real and still containing a Sie', () => {
+      for (const key of SIE_MEANS_THEY_OR_IT) {
+        expect(effective.get(key), `${key} no longer needs the allow-list`).toMatch(/\bSie\b/);
+      }
+    });
+    it('words the settings page header in du-form', () => {
+      expect(effective.get('settings.page_description')).toBe(
+        'Verwalte dein Konto, deinen Spielfortschritt und die Einstellungen deiner Anwendung.'
+      );
+    });
+    it('never says Unterschlupf: the hideout is "Hideout" as a feature name, "Versteck" in sentences', () => {
+      expect(offenders((_key, value) => /Unterschlupf/i.test(value))).toEqual([]);
+      expect(effective.get('omnibar.placeholder')).toBe(
+        'Aufgaben, benötigte Gegenstände, Hideout...'
+      );
+      expect(effective.get('common.hideout')).toBe('Hideout');
+    });
+    it('says Gegenstand/Gegenstände instead of Artikel, and the nav matches the page text', () => {
+      // "Artikel 6" (a legal article number) is not an item.
+      // Only keys the UI can reach (present in en.json); de.json still carries a stale
+      // Crowdin-only `page.needed_items.view.items` that nothing renders.
+      expect(
+        offenders((key, value) => source.has(key) && /\bArtikel\b(?!\s*\d)/.test(value))
+      ).toEqual([]);
+      expect(effective.get('common.needed_items')).toBe('Benötigte Gegenstände');
+      expect(effective.get('common.item')).toBe('Gegenstand');
+    });
+  });
   // The /resources description no longer advertises the hidden TarkovMonitor (FORK.md 3.14).
   it('does not advertise TarkovMonitor in the resources meta description', () => {
     const key = 'seo.routes.resources.description';

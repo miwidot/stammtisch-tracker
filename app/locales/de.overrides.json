@@ -6,7 +6,9 @@
     "lightkeeper": "Lightkeeper",
     "mark_complete": "Als abgeschlossen markieren",
     "reset_failed": "Fehlgeschlagen zurücksetzen",
-    "reset": "Zurücksetzen"
+    "reset": "Zurücksetzen",
+    "needed_items": "Benötigte Gegenstände",
+    "item": "Gegenstand"
   },
   "footer": {
     "origin_link": "TarkovTracker.org",
@@ -112,7 +114,8 @@
           "manual_fail_actions_hint": "Fügt eine Schaltfläche hinzu, mit der du Aufgaben selbst als fehlgeschlagen markierst."
         },
         "advanced": {
-          "failed_tasks_summary": "{count} fehlgeschlagene Aufgaben wurden möglicherweise fälschlich als fehlgeschlagen markiert."
+          "failed_tasks_summary": "{count} fehlgeschlagene Aufgaben wurden möglicherweise fälschlich als fehlgeschlagen markiert.",
+          "repair_failed": "Fehlgeschlagene Aufgaben reparieren"
         }
       },
       "blockers": {
@@ -263,11 +266,36 @@
       "migration_banner": {
         "chip": "Von .io?"
       },
-      "breadcrumb": "Pfadnavigation"
+      "breadcrumb": "Pfadnavigation",
+      "items": {
+        "tarkovtracker_org_vs_io": {
+          "description": "Welche TarkovTracker-Seite solltest du verwenden? Wie geht TarkovTracker.org mit der ursprünglichen .io-Seite um und wie verschiebst du deinen Fortschritt?"
+        }
+      },
+      "guides": {
+        "tarkovtracker_org_vs_io": {
+          "overview": "TarkovTracker existiert auf zwei Domänen: TarkovTracker.io ist die Originalseite, die vom Gründer des TarkovTracker-Projekts erstellt wurde und die ursprüngliche Codebasis beherbergt. TarkovTracker.org ist die aktiv gepflegte Fortsetzung eines langjährigen Beitragenden und ehemaligen Betreuers des ursprünglichen Projekts, als freier Open-Source-Fork unter derselben GNU-GPLv3-Lizenz. Dieser Leitfaden erläutert die Unterschiede und die unterstützten Wege, deinen Fortschritt auf TarkovTracker.org wieder aufzubauen.",
+          "step_1_desc": "Erstelle ein TarkovTracker.org-Konto oder melde dich bei dem Konto an, in dem du deinen aktuellen Wipe-Fortschritt verfolgen möchtest.",
+          "step_2_desc": "Öffne die Einstellungen, wähle Importe und nutze den Tarkov.dev-Profilimport, um unterstützte Profildetails wie Stufe, Fraktion und Fähigkeiten wiederherzustellen.",
+          "step_3_desc": "Wähle im selben Importe-Tab deinen EFT-Log-Ordner aus, um Start- und Abschlussereignisse von Quests wiederherzustellen, die noch in deinen lokalen Logs vorhanden sind.",
+          "step_4_desc": "Prüfe deine Aufgabenliste und dein Versteck und stelle dann manuell den Fortschritt wieder her, den Tarkov.dev und deine verfügbaren Spielprotokolle nicht wiederfinden konnten.",
+          "step_5_desc": "Richte TarkovMonitor mit einem neuen TarkovTracker.org-API-Token ein, damit künftige unterstützte Fortschrittsaktualisierungen an dein .org-Konto gehen.",
+          "faq_2_a": "Nutze TarkovTracker.org. Es ist die einzige Version, die Updates, Fehlerbehebungen und Unterstützung für aktuelle Tarkov-Inhalte erhält. Neue Konten solltest du immer auf TarkovTracker.org erstellen.",
+          "faq_3_a": "TarkovTracker.org bietet derzeit keinen direkten .io-Token-Import. Erstelle ein .org-Konto oder melde dich an und nutze dann den unterstützten Tarkov.dev-Profilimport und den EFT-Game-Log-Import in den Einstellungen. Prüfe Aufgaben und den Fortschritt im Versteck manuell, weil diese Quellen möglicherweise nicht alles enthalten, was auf .io erfasst wurde. Der Fortschritt wird nicht zwischen den beiden Seiten synchronisiert."
+        },
+        "ratscanner": {
+          "faq_4_a": "Ja. Installiere RatScanner, öffne den TarkovTracker-Abschnitt in den Einstellungen und stelle das TarkovTracker-Backend von .io auf .org um, bevor du deinen tarkovtracker.org-API-Token eingibst. Das TarkovTracker.org-Team hilft inzwischen bei der Pflege von RatScanner, sodass die .org-Integration und die Standardeinstellungen in künftigen Versionen weiter verbessert werden."
+        },
+        "tarkovdev": {
+          "overview": "Tarkov.dev ist das Rückgrat des Community-Datenökosystems. Es pflegt einen quelloffenen Datensatz zu Gegenständen, Quests, Händlern, Versteck-Stationen und mehr, der über kostenlose statische JSON-Endpunkte unter json.tarkov.dev zugänglich ist. TarkovTracker selbst nutzt diese Endpunkte, um mit den neuesten Spieldaten aktuell zu bleiben. Wenn du Tools entwickelst, Anleitungen schreibst oder einfach Gegenstandsstatistiken nachschlagen möchtest, ist Tarkov.dev die maßgebliche Quelle.",
+          "step_1_desc": "Besuche tarkov.dev, um Gegenstände zu suchen, Questanforderungen zu prüfen, Händlerinventare anzusehen und Versteck-Daten in einer übersichtlichen, werbefreien Oberfläche zu erkunden."
+        }
+      }
     },
     "about": {
       "help": {
-        "discord_support": "Hilfe holen oder ein Problem auf Discord melden"
+        "discord_support": "Hilfe holen oder ein Problem auf Discord melden",
+        "routing": "Nutze für die schnellste Antwort die kanalspezifischen Support-Workflows in unserem Discord, statt Teammitgliedern direkt zu schreiben. Reproduzierbare Fehler und Feature-Ideen gehören auf GitHub, Sicherheitsberichte durchlaufen unsere privaten Sicherheitsrichtlinien."
       },
       "github_profile": "GitHub-Profil"
     },
@@ -409,13 +437,51 @@
         "policy": "Teams, in denen nur der Besitzer übrig ist, werden nach sieben aufeinanderfolgenden Tagen automatisch aufgelöst, auch wenn der Besitzer aktiv ist. Sobald ein Mitglied beitritt, stoppt der Countdown; ist das Team wieder allein, beginnen sieben neue Tage. Dein persönlicher Fortschritt bleibt erhalten.",
         "title": "In deinem Team bist nur du",
         "warning": "Dieses Team wird am oder nach dem {deadline} automatisch aufgelöst, wenn du das einzige Mitglied bleibst. Lade jemanden ein, um den Countdown zu stoppen. Kontoaktivität verlängert die Frist nicht. Dein persönlicher Fortschritt bleibt erhalten."
+      },
+      "invite": {
+        "subtitle": "Teile dein Team mit vertrauenswürdigen Teammitgliedern.",
+        "helper": "Jeder mit diesem Link kann deinem Team beitreten."
+      },
+      "members": {
+        "alone": "Du bist hier allein – teile deinen Einladungslink, um Teammitglieder hinzuzufügen."
+      },
+      "card": {
+        "myteam": {
+          "already_in_team": "Du bist bereits in einem {mode}-Team. Verlasse zuerst dein aktuelles Team.",
+          "login_required": "Melde dich an, um ein Team zu erstellen oder deinen Team-Einladungslink zu verwalten."
+        }
+      },
+      "visibility": {
+        "items_section": "Gegenstände"
       }
     },
     "profile": {
-      "copy_profile_link": "Profillink kopieren"
+      "copy_profile_link": "Profillink kopieren",
+      "hideout_meta": "{completed_parts} abgeschlossene Gegenstandsetappen im Versteck",
+      "hideout_item_fallback": "Versteck-Gegenstand",
+      "hideout_module_fallback": "Versteck-Upgrade",
+      "timeline_hideout": "Versteckmodul abgeschlossen",
+      "timeline_hideout_item": "Versteckmaterialien geliefert"
     },
     "terms_of_service": {
       "index_button": "Inhalt"
+    },
+    "supporter": {
+      "perk_subscription_retention": "Von der routinemäßigen Inaktivitätsbereinigung ausgenommen, solange ein qualifizierendes Abonnement aktiv ist",
+      "billing_summary": "Abonnements erneuern sich automatisch im ausgewählten Intervall. Du kannst zukünftige Erneuerungen jederzeit kündigen. Einmalige Beiträge werden nicht erneuert.",
+      "terms_summary": "Unterstütze dieses kostenlose Projekt. Perks können sich ändern und sind nicht garantiert. Zahlungen sind im Allgemeinen nicht rückerstattbar, vorbehaltlich geltendem Recht.",
+      "privacy_summary": "Stripe bearbeitet Zahlungen. Wir führen begrenzte Zahlungs- und Unterstützerdatensätze durch, um deine Unterstützung zu verwalten. Unsere Datenschutzrichtlinie erläutert die Verwendung, Vorratsdatenspeicherung und deine Rechte."
+    },
+    "settings": {
+      "card": {
+        "apitokens": {
+          "name_update_error": "Fehler beim Aktualisieren des Token-Namens. Bitte versuch es erneut."
+        }
+      }
+    },
+    "account_retention": {
+      "exceptions": "Voll erstattete Beiträge qualifizieren sich nicht für die Beibehaltung der Unterstützer; andere gültige Beiträge können sich weiterhin qualifizieren. Eine Rückzahlung entfernt sofort alle Unterstützervorteile und Unterstützerhistorie einschließlich der Vorteile früherer Beiträge. Konten mit einer Rückbuchung folgen der Regel der sechsmonatigen Inaktivität. Diese Schutzvorkehrungen gelten nur für die Routinaktivitätsbereinigung. Sie verhindern keine Löschung, die du anforderst, Maßnahmen aus Missbrauchs- oder Sicherheitsgründen, die gesetzlich vorgeschriebene Löschung oder die Löschung der Dienste, wenn der Dienst eingestellt wird.",
+      "backup": "Exportiere deinen Fortschritt aus den Einstellungen und behalte deine eigene Sicherung. Export und Wiederherstellung sind möglicherweise während eines Ausfalls oder nachdem Daten verloren gegangen oder gelöscht wurden, nicht verfügbar."
     }
   },
   "settings": {
@@ -520,12 +586,18 @@
       "recovery_copies_add_failed": "Nur {added} von {total} Wiederherstellungskopien konnten in diesem Browser gespeichert werden. Gib Browser-Speicher frei und stelle die Datei erneut wieder her.",
       "invalid_superseded_archive": "Diese Datei mit Wiederherstellungskopien ist ungültig oder hat eine nicht unterstützte Version. Es wurde nichts importiert.",
       "superseded_archive_too_large": "Diese Datei mit Wiederherstellungskopien ist zu groß (maximal 16 MiB).",
-      "export_and_clear_older_copies": "Ältere Kopien exportieren und löschen"
+      "export_and_clear_older_copies": "Ältere Kopien exportieren und löschen",
+      "prestige_mode_warning": "Dein aktueller {mode}-Lauf wird archiviert, danach wird sein Fortschritt für die nächste Prestigestufe zurückgesetzt. Andere Modi sind davon nicht betroffen.",
+      "import_error_description": "Deine Sicherung konnte nicht importiert werden. Bitte versuch es erneut."
     },
     "account_data": {
       "billing_unavailable": "Wir konnten nicht prüfen, ob dein Abo beendet ist. Dein Konto wurde beibehalten. Bitte versuche es später erneut.",
       "recent_login_required": "Melde dich erneut bei deinem verknüpften Anbieter an, kehre dann zu den Einstellungen zurück und bestätige das Löschen innerhalb von fünf Minuten. Dein Konto und deine Gerätedaten wurden beibehalten.",
-      "sign_in_again": "Erneut anmelden"
+      "sign_in_again": "Erneut anmelden",
+      "delete_success_cleanup_failed_sr_only": "Dein Konto wurde gelöscht, aber einige Daten bleiben auf diesem Gerät. Du kannst die Bereinigung wiederholen oder mit den verbleibenden Daten fortfahren.",
+      "other_session_deleted_description": "Das Konto, mit dem diese Löschung begonnen wurde, wurde gelöscht. Dein aktuelles Konto ist weiterhin angemeldet und wurde nicht geändert.",
+      "session_end_failed": "Dieser Browser ist noch mit dem gelöschten Konto angemeldet. Wähle „Zum Dashboard gehen“, um zu versuchen, dich erneut abzumelden.",
+      "session_changed": "Dein angemeldetes Konto hat sich geändert. In dieser Sitzung werden keine weiteren Schritte unternommen."
     },
     "discord_link": {
       "linked": "Discord-Konto verknüpft"
@@ -566,20 +638,72 @@
       "errors": {
         "choose_unknown_mode": "Wähle einen Zielmodus für Ereignisse mit unbekanntem Modus.",
         "invalid_date": "Gib eine gültige Startzeit für den Import ein oder lösche sie, um den gesamten ausgewählten Verlauf einzubeziehen.",
-        "empty_selection": "In dieser Auswahl bleiben keine passenden Aufgabenstatus übrig. Beziehe einen Spielmodus und einen Aufgabenstatus ein oder passe den Stichtag für den Verlauf an."
-      }
+        "empty_selection": "In dieser Auswahl bleiben keine passenden Aufgabenstatus übrig. Beziehe einen Spielmodus und einen Aufgabenstatus ein oder passe den Stichtag für den Verlauf an.",
+        "budget_exceeded": "Die ausgewählten Protokolle überschreiten das sichere Importbudget. Wähle weniger aktuelle Sitzungen oder entpacke nur die relevanten Logdateien. Es wurde kein Fortschritt importiert.",
+        "invalid_mode": "Wähle einen gültigen Zielspielmodus.",
+        "outside_active_season": "Diese Protokolle enthalten Ereignisse außerhalb der aktiven Saison oder ohne verwendbares Datum. Wähle Sitzungen aus der aktiven Saison aus, bevor du in das saisonale PvP importierst."
+      },
+      "large_folder_hint": "Große Ordner werden lokal in Blöcken gelesen. Lass diese Seite geöffnet; du kannst abbrechen, während die Protokolle gelesen werden."
     },
     "tarkov_dev_import": {
       "errors": {
-        "level_thresholds_unavailable": "Spielerleveldaten konnten nicht geladen werden. Es wurde kein Fortschritt importiert. Prüfe deine Verbindung und versuche es erneut."
-      }
+        "level_thresholds_unavailable": "Spielerleveldaten konnten nicht geladen werden. Es wurde kein Fortschritt importiert. Prüfe deine Verbindung und versuche es erneut.",
+        "cooldown_active": "Du hast dieses Profil kürzlich importiert. Du kannst es in etwa {minutes} min erneut importieren.",
+        "profile_stale": "Tarkov.dev hat dieses Profil zuletzt vor {days} Tagen aktualisiert, das ist zu alt für den Import. Öffne die Profilseite auf Tarkov.dev, lass sie laden und ruf das Profil dann erneut ab.",
+        "rate_limited": "Zu viele Importversuche. Warte etwa {minutes} min und versuch es dann erneut.",
+        "verification_failed": "Die menschliche Verifizierung ist fehlgeschlagen. Lade die Seite neu und versuch es erneut.",
+        "tarkov_uid_conflict": "Dieses Tarkov-Profil ist bereits mit einem anderen TarkovTracker-Account verknüpft und wurde deshalb hier nicht verknüpft. Der importierte Fortschritt wurde gespeichert. Entferne die Verknüpfung im anderen Konto und importiere dann erneut.",
+        "save_failed": "Das Profil wurde auf diesem Gerät importiert, konnte aber noch nicht in deinem Konto gespeichert werden. Prüfe deine Verbindung; der Import bleibt bis zur Synchronisierung auf diesem Gerät."
+      },
+      "cooldown_hint": "Kürzlich importiert. Du kannst dieses Profil in etwa {minutes} min erneut importieren."
     },
     "device_data": {
-      "recovery_copies_warning": "Dadurch wird auch {count} Wiederherstellungskopie dieses Kontos gelöscht. Lade sie vorher unter „Wiederherstellungskopien“ in „Sichern & Wiederherstellen“ herunter, falls du sie noch brauchst. | Dadurch werden auch {count} Wiederherstellungskopien dieses Kontos gelöscht. Lade sie vorher unter „Wiederherstellungskopien“ in „Sichern & Wiederherstellen“ herunter, falls du sie noch brauchst."
+      "recovery_copies_warning": "Dadurch wird auch {count} Wiederherstellungskopie dieses Kontos gelöscht. Lade sie vorher unter „Wiederherstellungskopien“ in „Sichern & Wiederherstellen“ herunter, falls du sie noch brauchst. | Dadurch werden auch {count} Wiederherstellungskopien dieses Kontos gelöscht. Lade sie vorher unter „Wiederherstellungskopien“ in „Sichern & Wiederherstellen“ herunter, falls du sie noch brauchst.",
+      "description": "Beim Abmelden bleibt der gespeicherte Fortschritt dieses Kontos in diesem Browser erhalten, damit Änderungen, die die Cloud noch nicht erreicht haben, nach dem erneuten Anmelden synchronisiert werden können. Der Fortschritt, der durch einen Reset oder einen Saisonaufschlag verdrängt wird, wird separat für den Export aufbewahrt. Das Entfernen der Daten dieses Geräts löscht den Fortschritt, die Wiederherstellungskopien und die Einstellungen aus diesem Browser und meldet dich ab.",
+      "cloud_unaffected": "Dein Cloud-Fortschritt wird nicht gelöscht. Die Daten anderer Konten auf diesem Gerät sind nicht betroffen.",
+      "confirm_description": "Der Fortschritt, die Wiederherstellungskopien, verdrängte Fortschrittsexporte und die Einstellungen werden aus diesem Browser gelöscht und du wirst abgemeldet. Dein Cloud-Fortschritt bleibt verfügbar, wenn du dich erneut anmeldest.",
+      "remove_error": "Einige Kontodaten konnten nicht von diesem Gerät entfernt werden. Versuch es noch einmal, bevor du hier ein anderes Konto verwendest.",
+      "remove_incomplete": "Einige Daten aus dem von dir gelöschten Konto sind noch auf diesem Gerät. Versuch es noch einmal, bevor du hier ein anderes Konto verwendest.",
+      "retry_removal": "Versuch es erneut",
+      "revocation_unavailable": "Der Server konnte nicht erreicht werden, daher bist du immer noch angemeldet. Du kannst dich nur auf diesem Gerät abmelden und die Daten entfernen; dem Server wird das nicht mitgeteilt, sodass die Sitzung dort aktiv bleibt, bis sie ausläuft oder du dich von einem anderen Gerät abmeldest."
+    },
+    "page_description": "Verwalte dein Konto, deinen Spielfortschritt und die Einstellungen deiner Anwendung.",
+    "appearance": {
+      "theme_hint": "Wähle zwischen der dunklen und der hellen Oberfläche. Deine Wahl wird auf diesem Gerät gespeichert."
+    },
+    "reset_pvp": {
+      "success_description": "Dein PvP-Fortschritt wurde erfolgreich zurückgesetzt.",
+      "error_description": "PvP-Daten konnten nicht zurückgesetzt werden. Bitte versuch es erneut."
+    },
+    "reset_pve": {
+      "success_description": "Dein PvE-Fortschritt wurde erfolgreich zurückgesetzt.",
+      "error_description": "PvE-Daten konnten nicht zurückgesetzt werden. Bitte versuch es erneut."
+    },
+    "reset_seasonal": {
+      "error_description": "Fehler beim Zurücksetzen der saisonalen PvP-Daten. Bitte versuch es erneut."
+    },
+    "reset_all": {
+      "success_description": "Dein gesamter Fortschritt wurde erfolgreich zurückgesetzt.",
+      "error_description": "Daten konnten nicht zurückgesetzt werden. Bitte versuch es erneut."
+    },
+    "prestige": {
+      "archive_description_mode": "Nutze dies nur, wenn du jetzt tatsächlich Prestige machst. Dein aktueller {mode}-Lauf wird archiviert und für die nächste Prestigestufe zurückgesetzt."
+    },
+    "display_name": {
+      "game_edition_hint": "Wähle die Spielausgabe, die du besitzt, damit das Tracking zu deinen verfügbaren Inhalten passt."
+    },
+    "skills": {
+      "collapsed_hint": "{shown} von {total} Skills werden angezeigt. Zeige alle an, um jeden Skill zu sehen."
+    },
+    "danger_zone": {
+      "confirm_instruction": "Gib {word} ein, um das Zurücksetzen aller Daten zu bestätigen:"
     }
   },
   "app_bar": {
-    "report_problem_discord": "Problem auf Discord melden"
+    "report_problem_discord": "Problem auf Discord melden",
+    "logout_unreachable": "Der Server konnte nicht erreicht werden, daher bist du immer noch angemeldet. Du kannst dich nur auf diesem Gerät abmelden; dem Server wird das nicht mitgeteilt, sodass die Sitzung dort aktiv bleibt, bis sie ausläuft oder du dich von einem anderen Gerät abmeldest.",
+    "logout_this_device_done": "Nur auf diesem Gerät abgemeldet. Die Sitzung auf dem Server bleibt aktiv, bis sie abläuft oder du dich von einem anderen Gerät abmeldest.",
+    "logout_local_only": "Auf diesem Gerät abgemeldet. Der Server konnte nicht erreicht werden, sodass deine anderen Sitzungen möglicherweise noch angemeldet sind."
   },
   "stash_import": {
     "sell_incomplete": "Die Verkaufsempfehlung ist nicht verfügbar, weil bei 1 offenen Aufgabe die Anforderungsdaten unvollständig sind. | Die Verkaufsempfehlung ist nicht verfügbar, weil bei {count} offenen Aufgaben die Anforderungsdaten unvollständig sind.",
@@ -754,13 +878,32 @@
   },
   "admin": {
     "purge_audit_failed_title": "Cache mit Warnung geleert",
-    "purge_audit_failed_description": "Cloudflare hat den Cache geleert, aber der Audit-Eintrag konnte nicht gespeichert werden. Einige Nutzer sehen möglicherweise noch veraltete Spieldaten."
+    "purge_audit_failed_description": "Cloudflare hat den Cache geleert, aber der Audit-Eintrag konnte nicht gespeichert werden. Einige Nutzer sehen möglicherweise noch veraltete Spieldaten.",
+    "error": {
+      "cache_purge_failed": "Der Cache konnte nicht gelöscht werden. Bitte versuch es erneut.",
+      "invalid_purge_type": "Wähle einen gültigen Cache-Purge-Typ.",
+      "admin_privileges_required": "Du hast keine Berechtigung, diese Aktion durchzuführen.",
+      "invalid_channel": "Gib einen gültigen Twitch-Kanalnamen ein.",
+      "invalid_display_name": "Gib einen gültigen Anzeigenamen ein.",
+      "invalid_target_user_id": "Gib eine gültige Benutzer-ID ein.",
+      "invalid_tier": "Wähle eine gültige Unterstützerstufe."
+    },
+    "twitch_config_description": "Lege den Twitch-Kanal in der Ecke der Seite fest. Besucher nehmen die Änderung innerhalb weniger Minuten auf.",
+    "tarkov_data_cache_description": "Löscht zwischengespeicherte Spieldaten (Aufgaben, Hideout, Gegenstände). Benutzer werden neue Daten über die tarkov.dev-API abrufen."
   },
   "progress_save_status": {
     "live_updates_delayed_label": "Live-Updates verzögert",
     "live_updates_delayed_description": "Updates von anderen Geräten erscheinen möglicherweise verzögert. Das Speichern deiner Änderungen läuft davon getrennt. Wir suchen nach Updates und verbinden uns automatisch neu, sobald dieser Tab online und aktiv ist.",
     "cloud_payload_too_large_description": "Dein Cloud-Speicherstand ist zu groß. Änderungen bleiben ausstehend und du kannst weiter Fortschritt eintragen. Automatische Wiederholungen sind pausiert. Exportiere eine Sicherung und wende dich an den Support.",
-    "cause_payload_too_large": "Ursache: Dein Fortschritt überschreitet das Größenlimit für den Cloud-Speicher."
+    "cause_payload_too_large": "Ursache: Dein Fortschritt überschreitet das Größenlimit für den Cloud-Speicher.",
+    "cloud_pending_description": "Deine letzten Fortschrittsänderungen wurden noch nicht in der Cloud gespeichert.",
+    "cloud_retrying_description": "Das Speichern der letzten Änderungen in der Cloud ist fehlgeschlagen. Du kannst weitermachen, während automatisch ein weiterer Versuch läuft.",
+    "cloud_failed_description": "Automatische Versuche, deine letzten Änderungen in der Cloud zu speichern, sind gestoppt. Die Änderungen warten weiterhin darauf, gespeichert zu werden. Du kannst jederzeit weitermachen und es erneut versuchen.",
+    "local_failed_description": "Deine neuesten Fortschrittsänderungen konnten in diesem Browser nicht gespeichert werden. Du kannst weitermachen, aber nicht gespeicherte Änderungen können verloren gehen, wenn du diesen Tab neu lädst, schließt oder dich abmeldest.",
+    "cause_auth": "Grund: Deine Anmeldesitzung konnte nicht überprüft werden.",
+    "quota_guidance": "Das Löschen der Daten dieser Website oder ein erneutes Laden könnte deine einzige Kopie dieser Änderungen entfernen. Exportiere deinen Fortschritt, bevor du Daten löschst.",
+    "retry_succeeded": "Deine Fortschrittsänderungen wurden in der Cloud gespeichert.",
+    "retry_failed": "Die Cloud-Speicherung war nicht erfolgreich. Deine Änderungen warten noch darauf, gespeichert zu werden."
   },
   "older_tab_recovery_notice": {
     "title": "Änderungen aus älteren Tabs wurden gesichert",
@@ -828,7 +971,8 @@
         "train": "Zug",
         "timer": "Zeitgesteuert",
         "flare": "Leuchtrakete",
-        "green_smoke": "Grüner Rauch"
+        "green_smoke": "Grüner Rauch",
+        "transfer": "Gegenstand"
       }
     },
     "elevation": {
@@ -871,7 +1015,11 @@
         "navigate": "Navigation"
       },
       "copy_coordinates": "{key}, um die Koordinaten unter dem Mauszeiger zu kopieren",
-      "coordinates": "Unten links werden die Spielkoordinaten (x, z) unter dem Mauszeiger angezeigt."
+      "coordinates": "Unten links werden die Spielkoordinaten (x, z) unter dem Mauszeiger angezeigt.",
+      "floor_panel": "Oder nutze die Etagenleiste.",
+      "click_marker": "Klick auf einen Marker für Details.",
+      "fullscreen": "Nutze den Vollbild-Button in den Kartensteuerelementen.",
+      "resize": "Zieh die untere Kante der Karte, um sie zu vergrößern."
     },
     "tooltip": {
       "task_list": "Aufgabenliste",
@@ -902,7 +1050,12 @@
     "hidden_for_you": "Für dich ausgeblendet",
     "hidden_for_you_hint": "Du hast diese Aufgabe ausgeblendet. Sie bleibt gelistet, weil Teamkollegen diesen Gegenstand noch brauchen: {teammates}",
     "for_teammates": "Für Teamkollegen",
-    "collect": "Sammeln"
+    "collect": "Sammeln",
+    "aria": {
+      "increase_fir": "FIR-Anzahl erhöhen",
+      "decrease_non_fir": "Anzahl der Nicht-FIR verringern",
+      "increase_non_fir": "Anzahl der Nicht-FIR erhöhen"
+    }
   },
   "game_settings": {
     "seasonal_label": "Saisonal"
@@ -925,5 +1078,28 @@
         "description": "Entdecke Community-Tools und Anleitungen für TarkovTracker, RatScanner und Tarkov.dev."
       }
     }
+  },
+  "sign_out_confirm": {
+    "risk": "Deine neuesten Fortschrittsänderungen werden weder in diesem Browser noch in der Cloud gespeichert. Wenn du dich jetzt abmeldest, gehen sie verloren.",
+    "options": "Du kannst angemeldet bleiben und erneut versuchen zu speichern oder deinen aktuellen Fortschritt exportieren, bevor du dich entscheidest.",
+    "retry_succeeded": "Deine Änderungen wurden in der Cloud gespeichert. Du kannst dich jetzt sicher abmelden."
+  },
+  "toast": {
+    "tarkov_uid_conflict": {
+      "description": "Tarkov UID {uid} ist bereits mit einem anderen TarkovTracker-Account verknüpft und wurde deshalb nicht mit diesem verknüpft. Dein Fortschritt wurde trotzdem gespeichert. Entferne die UID vom anderen Konto oder importiere dein eigenes Profil."
+    }
+  },
+  "tarkov_access": {
+    "title": "Überprüfe deinen Browser",
+    "dismissed_notice": "Spieldaten werden pausiert, bis du die Sicherheitsüberprüfung abgeschlossen hast.",
+    "verification_failed_retry": "Die Sicherheitsüberprüfung ist nicht abgeschlossen. Du kannst es erneut versuchen.",
+    "failed": "Das Laden der Tarkov-Daten ist derzeit nicht verfügbar. Du kannst es erneut versuchen.",
+    "blocked": "Der Zugriff auf Tarkov-Daten ist derzeit für dein Netzwerk gesperrt. Du kannst es erneut versuchen oder später wiederkommen.",
+    "rate_limited": "Zu viele Überprüfungen in kurzer Zeit. Warte einen Moment und versuch es dann erneut.",
+    "widget_unavailable": "Die Sicherheitsüberprüfung konnte nicht geladen werden. Du kannst es erneut versuchen."
+  },
+  "omnibar": {
+    "placeholder": "Aufgaben, benötigte Gegenstände, Hideout...",
+    "group_hideout": "Versteck-Stationen"
   }
 }
