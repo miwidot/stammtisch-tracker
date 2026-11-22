@@ -5,7 +5,8 @@
     "kappa_lightkeeper": "Kappa & Lightkeeper",
     "lightkeeper": "Lightkeeper",
     "mark_complete": "Als abgeschlossen markieren",
-    "reset_failed": "Fehlgeschlagen zurücksetzen"
+    "reset_failed": "Fehlgeschlagen zurücksetzen",
+    "reset": "Zurücksetzen"
   },
   "footer": {
     "origin_link": "TarkovTracker.org",
@@ -17,7 +18,8 @@
     }
   },
   "navigation_drawer": {
-    "brand_name": "Tarkov Stammtisch"
+    "brand_name": "Tarkov Stammtisch",
+    "level_input": "Aktuelles Level, {min} bis {max}"
   },
   "page": {
     "herkunft": {
@@ -65,28 +67,209 @@
         "requirement_status_available": "verfügbar",
         "requirement_status_not_started": "nicht begonnen",
         "requires_currently": "aktuell {status}",
-        "requires_tooltip_conflict": "„{name}\" ist {current}, benötigt wird aber {expected} — diese Aufgabe ist möglicherweise dauerhaft gesperrt"
+        "requires_tooltip_conflict": "„{name}\" ist {current}, benötigt wird aber {expected} — diese Aufgabe ist möglicherweise dauerhaft gesperrt",
+        "hide_task": "Aufgabe ausblenden",
+        "unhide_task": "Aufgabe einblenden",
+        "objectives_load_error": "Ziele konnten nicht geladen werden.",
+        "time_gate": "Wird {duration} nach Abschluss der Vorgängeraufgaben freigeschaltet",
+        "time_gate_range": "Wird {min}–{max} nach Abschluss der Vorgängeraufgaben freigeschaltet",
+        "time_gate_tooltip": "Das Spiel wartet nach Abschluss der Vorgängeraufgaben diese Zeit, bevor es die Aufgabe anbietet. Sie kann hier also schon verfügbar wirken, bevor sie im Spiel erscheint. TarkovTracker erfasst die verbleibende Zeit nicht.",
+        "duration_seconds": "{seconds} s",
+        "duration_minutes": "{minutes} min",
+        "duration_hours": "{hours} h",
+        "duration_hours_minutes": "{hours} h {minutes} min",
+        "quest_links": "Aufgabenverknüpfungen",
+        "quest_links_count": "{count} verknüpfte Aufgabe | {count} verknüpfte Aufgaben",
+        "quest_links_mutual": "Schließen sich gegenseitig aus",
+        "quest_links_mutual_hint": "Der Abschluss einer der beiden Aufgaben lässt die andere fehlschlagen.",
+        "quest_links_fails_others": "Der Abschluss dieser Aufgabe lässt folgende fehlschlagen",
+        "quest_links_failed_by_others": "Der Abschluss einer dieser Aufgaben lässt diese Aufgabe fehlschlagen"
       },
       "settings": {
         "cards": {
-          "collapse_completed_objectives": "Ziele abgeschlossener Aufgaben einklappen"
+          "collapse_completed_objectives": "Ziele abgeschlossener Aufgaben einklappen",
+          "title": "Aufgabenkarten",
+          "required_labels": "Labels „Erforderlich“",
+          "required_labels_hint": "Abzeichen für Kappa, Lightkeeper und editionsexklusive Aufgaben.",
+          "experience_rewards": "Erfahrungsbelohnungen",
+          "rewards_hint": "Der Belohnungsbereich auf jeder Karte.",
+          "previous_tasks": "Vorherige Aufgaben",
+          "next_tasks": "Nächste Aufgaben",
+          "start_collapsed": "Karten eingeklappt starten",
+          "start_collapsed_hint": "Zeigt nur den Titel, bis du eine Karte ausklappst.",
+          "collapse_completed_objectives_hint": "Blendet bei abgeschlossenen Aufgaben die Zielliste aus."
+        },
+        "filters_moved": "Du suchst die Filter für Aufgabentyp, Schlüssel oder Karte? Du findest sie in der Werkzeugleiste unter „Filter“.",
+        "status_tabs": {
+          "title": "Status-Tabs",
+          "hint": "Lege fest, welche Status-Tabs in der Werkzeugleiste erscheinen."
+        },
+        "behavior": {
+          "title": "Verhalten",
+          "impact_respects_filters": "Auswirkungs-Sortierung folgt Filtern",
+          "impact_respects_filters_hint": "Bei der Sortierung nach Auswirkung zählen nur Folgeaufgaben, die deine Filter für Aufgabentyp und Schlüssel erfüllen.",
+          "manual_fail_actions": "Aufgaben manuell fehlschlagen lassen",
+          "manual_fail_actions_hint": "Fügt eine Schaltfläche hinzu, mit der du Aufgaben selbst als fehlgeschlagen markierst."
+        },
+        "advanced": {
+          "failed_tasks_summary": "{count} fehlgeschlagene Aufgaben wurden möglicherweise fälschlich als fehlgeschlagen markiert."
         }
       },
       "blockers": {
-        "trader_story_unlock": "Schalte {trader} frei: {objective} ({chapter})"
+        "trader_story_unlock": "Schalte {trader} frei: {objective} ({chapter})",
+        "player_level_required": "Benötigt Spielerlevel {requirement} (du: {current}).",
+        "trader_level_required": "Benötigt Ansehensstufe {requirement} bei {trader} (du: {current}).",
+        "trader_reputation_required": "Benötigt Ansehen {requirement} bei {trader} (du: {current}).",
+        "trader_unlock_unknown": "Schalte {trader} frei, indem du dessen Aufgabe abschließt. Aufgabendaten sind nicht verfügbar.",
+        "global_variable_required": "Zusätzlicher Spielfortschritt erforderlich.",
+        "global_variable_unknown_required": "Zusätzlicher Spielfortschritt erforderlich. Nutze „Als verfügbar markieren“ nur, wenn diese Aufgabe im Spiel verfügbar ist."
       },
       "requirements": {
         "story_alternative": "Oder komm in einem Story-Kapitel weiter: {chapters}",
-        "story_objective": "Story-Ziel: {objective} ({chapter})"
+        "story_objective": "Story-Ziel: {objective} ({chapter})",
+        "title": "Voraussetzungen",
+        "met_count": "{met} von {total} erfüllt",
+        "comparison_above": "über {value}",
+        "comparison_at_most": "{value} oder weniger",
+        "comparison_below": "unter {value}",
+        "comparison_exactly": "genau {value}",
+        "comparison_not_equal": "nicht {value}",
+        "trader_level": "{trader} Ansehensstufe {requirement}",
+        "trader_reputation": "{trader} Ansehen {requirement}",
+        "you": "du: {value}",
+        "met": "Erfüllt",
+        "unmet": "Nicht erfüllt",
+        "dialogue": "Händlergespräch",
+        "global_variable": "Zusätzlicher Spielfortschritt erforderlich",
+        "named_pool_one": "Schließe {requirement} LL{level}-Aufgabe von {trader} ab",
+        "named_pool_other": "Schließe {requirement} LL{level}-Aufgaben von {trader} ab",
+        "task_pool_one": "Schließe {requirement} Aufgabe aus dem erforderlichen Pool ab",
+        "task_pool_other": "Schließe {requirement} Aufgaben aus dem erforderlichen Pool ab",
+        "task_count_at_least": "mindestens {value}",
+        "task_count_above": "mehr als {value}",
+        "task_count_at_most": "höchstens {value}",
+        "task_count_below": "weniger als {value}",
+        "task_count_exactly": "genau {value}",
+        "task_count_not_equal": "eine andere Anzahl als {value}",
+        "pool_tracked": "{value} erfasst",
+        "pool_account": "{value} im Spiel",
+        "pool_unverified": "Fortschritt nicht überprüft",
+        "pool_show_tasks": "Aufgaben anzeigen",
+        "pool_hide_tasks": "Aufgaben ausblenden",
+        "pool_tasks": "Aufgaben, die zählen",
+        "pool_candidates": "Mögliche Aufgaben",
+        "pool_explanation": "Nur Aufgaben in diesem Pool zählen. Das Erreichen der Ansehensstufe beim Händler ist eine eigene Voraussetzung.",
+        "pool_candidate_explanation": "Diese Voraussetzung gehört zum LL-Aufgabenpool des Händlers. Die Aufgaben unten kommen als Beitrag infrage.",
+        "pool_caveat": "Die Zählregeln für diesen Pool sind nicht überprüft. Diese Aufgaben können dazu beitragen; ihr Abschluss kann diese Voraussetzung aber nicht bestätigen.",
+        "pool_confirmation_hint": "Wenn diese Aufgabe im Spiel schon verfügbar ist, nutze „Als verfügbar markieren“. Das schließt keine Pool-Aufgaben ab.",
+        "pool_confirmed": "Im Spiel bestätigt",
+        "pool_any_of": "Jede beliebige Aufgabe zählt einmal",
+        "pool_credit_earned": "1 Anrechnung erreicht",
+        "pool_all_of": "Schließe alle Aufgaben dieser Gruppe für eine Anrechnung ab",
+        "pool_current_task": "Diese Aufgabe",
+        "pool_status_unavailable": "Nicht verfügbar"
+      },
+      "status_tabs_label": "Aufgabenstatus",
+      "shared_link": {
+        "unavailable": "Verlinkte Aufgabe in {mode} nicht verfügbar",
+        "checking_modes": "Andere Spielmodi werden geprüft…",
+        "choose_mode": "Wechsle den Spielmodus, um diese Aufgabe zu öffnen.",
+        "switch_mode": "Zu {mode} wechseln",
+        "no_match": "Prüfe den Link oder probiere einen anderen Spielmodus."
+      },
+      "primary_views": {
+        "aria_label": "Aufgabenansichten",
+        "needs_wider_screen": "(benötigt einen breiteren Bildschirm)"
+      },
+      "graph": {
+        "narrow_title": "Der Graph braucht einen breiteren Bildschirm",
+        "narrow_description": "Der Aufgabengraph öffnet sich in Fenstern ab {width} Pixeln Breite. Vergrößere das Fenster oder sieh dir die Aufgaben desselben Händlers in der Händleransicht an.",
+        "narrow_traders_link": "Händleransicht öffnen"
+      },
+      "filters": {
+        "team_aria_label": "Fortschritt von {name} anzeigen",
+        "whole_team": "Ganzes Team",
+        "title": "Aufgaben filtern",
+        "types": {
+          "title": "Aufgabentypen",
+          "hint": "Zeigt Aufgaben, die zu einer der gewählten Gruppen gehören.",
+          "locked_hint": "Mindestens ein Aufgabentyp bleibt ausgewählt."
+        },
+        "narrow": {
+          "title": "Eingrenzen",
+          "required_keys": "Benötigt Schlüssel",
+          "required_keys_hint": "Nur Aufgaben, die einen Schlüssel erfordern.",
+          "team_shared": "Vom ganzen Team benötigt",
+          "team_shared_hint": "Du siehst die verfügbaren Aufgaben des ganzen Teams: nur Aufgaben, die noch jedes Teammitglied braucht."
+        },
+        "map": {
+          "title": "Diese Karte",
+          "global_tasks": "Ortsunabhängige Aufgaben zeigen",
+          "global_tasks_hint": "Aufgaben, die auf jeder Karte erledigt werden können, nicht nur auf dieser.",
+          "hide_map_complete": "Hier Erledigtes ausblenden",
+          "hide_map_complete_hint": "Blendet Aufgaben aus, deren Ziele auf dieser Karte alle erledigt sind."
+        },
+        "chips": {
+          "required_keys": "Benötigt Schlüssel",
+          "team_shared": "Vom ganzen Team benötigt",
+          "global_hidden": "Ortsunabhängige ausgeblendet",
+          "map_complete_hidden": "Hier Erledigtes ausgeblendet"
+        }
+      },
+      "no_available_tasks": "Gerade keine verfügbaren Aufgaben",
+      "no_available_tasks_description": "In deinem Fortschritt gibt es keine verfügbaren Aufgaben. Sieh dir unten die nächsten Schritte und offenen Voraussetzungen an.",
+      "no_search_matches": "Keine Aufgaben passen zu deiner Suche.",
+      "no_search_matches_description": "Prüfe die Schreibweise, probiere den Namen eines Belohnungsgegenstands oder ändere die Filter für Aufgabentyp und Karte.",
+      "search_scope": {
+        "all_statuses": "Suche in allen Status nach „{query}“",
+        "clear_and_return": "Suche löschen, um zu „{status}“ zurückzukehren",
+        "pinned_status": "Treffer in „{status}“ für „{query}“"
+      },
+      "map": {
+        "raid_plan": {
+          "trader_reputation": "Händleransehen",
+          "any_reward": "Beliebige Belohnung",
+          "any_reputation_gain": "Beliebiger Zuwachs",
+          "minimum_reputation": "+{amount} oder mehr",
+          "no_reputation_matches": "Keine Aufgaben auf der Karte passen zu diesem Filter.",
+          "reputation_quests_shown": "{count} Aufgabe angezeigt | {count} Aufgaben angezeigt",
+          "clear_reputation_filter": "Ansehensfilter zurücksetzen",
+          "legend_label": "Aufgabenfarben",
+          "legend_highlight_named": "{name} auf der Karte hervorheben",
+          "quest_color_named": "Farbe für {name}",
+          "reset_quest_color_named": "Automatische Farbe für {name} verwenden",
+          "reset_quest_colors": "Aufgabenfarben zurücksetzen"
+        }
+      },
+      "hidden_tasks": {
+        "section_title": "Ausgeblendete Aufgaben ({count})",
+        "section_description": "Ausblenden schließt eine Aufgabe weder ab noch lässt es sie fehlschlagen, daher bleiben Aufgaben, die darauf aufbauen, gesperrt.",
+        "section_expand": "Ausgeblendete Aufgaben anzeigen",
+        "section_collapse": "Ausgeblendete Aufgaben einklappen",
+        "unhide_all": "Alle einblenden",
+        "hidden_toast": "{name} ausgeblendet. Dein Fortschritt bleibt unverändert; du findest die Aufgabe unter „Ausgeblendete Aufgaben“.",
+        "unhidden_toast": "{name} ist wieder in deiner Aufgabenliste."
+      },
+      "trader_sections": {
+        "loyalty_level": "Ansehensstufe {level}",
+        "essential": "Wichtige Aufgaben",
+        "essential_hint": "Gehören zu keiner Ansehensstufen-Gruppe und zählen daher nicht für deren Aufgaben-Freischaltungen.",
+        "other": "Weitere Aufgaben",
+        "other_hint": "Spielinterne Gruppe noch nicht bekannt."
       }
     },
     "resources": {
-      "suggest_discord_cta": "Ressource auf Discord vorschlagen"
+      "suggest_discord_cta": "Ressource auf Discord vorschlagen",
+      "migration_banner": {
+        "chip": "Von .io?"
+      },
+      "breadcrumb": "Pfadnavigation"
     },
     "about": {
       "help": {
         "discord_support": "Hilfe holen oder ein Problem auf Discord melden"
-      }
+      },
+      "github_profile": "GitHub-Profil"
     },
     "changelog": {
       "upstream_link": "Release-Notes des Upstream-Projekts TarkovTracker"
@@ -106,10 +289,36 @@
           "choice_hint": "Öffne das Kapitel und vergleiche die Alternativen, bevor du weitermachst.",
           "review": "Prüfe deinen Kapitelfortschritt",
           "review_hint": "Es ist kein nächster Hauptschritt erfasst. Sieh dir das Kapitel an, bevor du es als abgeschlossen markierst."
+        },
+        "blocked_title": "Nächste Freischaltungen",
+        "view_all": "Alle Aufgaben anzeigen",
+        "filtered_badge": "Gefiltert",
+        "left_one": "1 übrig",
+        "left_other": "{count} übrig",
+        "turn_in": "Abgeben",
+        "hidden_one": "1 verfügbare Aufgabe wird durch deine Filter ausgeblendet",
+        "hidden_other": "{count} verfügbare Aufgaben werden durch deine Filter ausgeblendet",
+        "complete": "Alle sichtbaren Aufgaben sind erledigt.",
+        "none_ready": "Noch ist nichts kurz vor der Freischaltung. In der Aufgabenliste siehst du, was noch gesperrt ist.",
+        "reason": {
+          "unlock_trader": "Schaltet {trader} frei",
+          "opens_one": "Öffnet 1 Aufgabe",
+          "opens_other": "Öffnet {count} Aufgaben",
+          "almost_done": "Fast fertig",
+          "in_progress": "In Arbeit"
         }
       },
       "traders": {
-        "unlock_via_storyline": "Wird in der Storyline freigeschaltet: {chapter}"
+        "unlock_via_storyline": "Wird in der Storyline freigeschaltet: {chapter}",
+        "unlock_unavailable": "Freischaltdetails nicht verfügbar",
+        "unlock_unconfirmed": "Freischaltvoraussetzung noch nicht bestätigt",
+        "unlock_via_task": "Wird nach Aufgabe freigeschaltet"
+      },
+      "changelog": {
+        "unread": "Neue Updates"
+      },
+      "progress": {
+        "view_full_progress": "Gesamten Fortschritt ansehen"
       }
     },
     "storyline": {
@@ -131,7 +340,7 @@
         "level_unmet_aria": "Benötigt Level {required}, du bist Level {current}",
         "level_title": "Benötigtes Level {required} (du bist Level {current})",
         "level_summary": "Level {required} (du bist Level {current})",
-        "trader_level": "{trader} Loyalty Level {level}",
+        "trader_level": "{trader} Ansehensstufe {level}",
         "action_uncomplete": "Als nicht abgeschlossen markieren",
         "action_reset_failed": "Fehlgeschlagen zurücksetzen",
         "locked_by": "Voraussetzung: {task}"
@@ -147,6 +356,66 @@
       "trader": {
         "other": "Sonstige"
       }
+    },
+    "hideout": {
+      "public_requirements": "Stationsvoraussetzungen (PvP)",
+      "no_listed_requirements": "Für diese Stufe sind keine Voraussetzungen angegeben.",
+      "status_tabs_label": "Stationsstatus",
+      "settings": {
+        "title": "Versteck-Einstellungen",
+        "requirements_help": "Diese Optionen legen fest, wie streng die Versteck-Seite beim Markieren von Stationen als verfügbar oder gesperrt vorgeht."
+      }
+    },
+    "needed_items": {
+      "pvp_checklist": "Checkliste für Gegenstände aus PvP-Aufgaben und Versteck",
+      "filter_tabs_label": "Filter für benötigte Gegenstände",
+      "items_count": "{count} Gegenstand | {count} Gegenstände",
+      "filters": {
+        "title": "Gegenstände filtern",
+        "found_in_raid": {
+          "title": "Im Raid gefunden",
+          "hint": "Zeigt nur Gegenstände, die im Raid gefunden werden müssen, oder nur die, bei denen das nicht nötig ist."
+        },
+        "hide": {
+          "owned": "Bereits vorhandene Gegenstände",
+          "owned_hint": "Blendet Bedarf aus, den du bereits ausreichend gedeckt hast.",
+          "team": "Bedarf der Teamkollegen",
+          "team_hint": "Zeigt nur, was du brauchst, nicht was dein Team braucht.",
+          "special_equipment": "Spezialausrüstung ohne FIR",
+          "special_equipment_hint": "Blendet platzierbare Aufgabenausrüstung wie MS2000-Marker und WLAN-Kameras aus."
+        },
+        "tasks": {
+          "kappa_only": "Nur Kappa-Aufgaben",
+          "kappa_only_hint": "Zeigt nur Aufgabengegenstände, die für den Kappa-Container benötigt werden.",
+          "kappa_only_disabled": "Kappa gilt für Aufgabengegenstände und ist im Versteck-Tab daher deaktiviert."
+        },
+        "chips": {
+          "fir": "Nur FIR",
+          "non_fir": "Nur Nicht-FIR",
+          "hide_owned": "Vorhandenes ausgeblendet",
+          "hide_team": "Teambedarf ausgeblendet",
+          "hide_special_equipment": "Spezialausrüstung ausgeblendet",
+          "kappa_only": "Nur Kappa"
+        }
+      },
+      "view": {
+        "show_once": "Jeden Gegenstand nur einmal zeigen",
+        "show_once_hint": "Addiert die Mengen, die über Aufgaben und Versteck-Ausbauten benötigt werden."
+      },
+      "teammates_label": "Teamkollegen:"
+    },
+    "team": {
+      "expiry": {
+        "policy": "Teams, in denen nur der Besitzer übrig ist, werden nach sieben aufeinanderfolgenden Tagen automatisch aufgelöst, auch wenn der Besitzer aktiv ist. Sobald ein Mitglied beitritt, stoppt der Countdown; ist das Team wieder allein, beginnen sieben neue Tage. Dein persönlicher Fortschritt bleibt erhalten.",
+        "title": "In deinem Team bist nur du",
+        "warning": "Dieses Team wird am oder nach dem {deadline} automatisch aufgelöst, wenn du das einzige Mitglied bleibst. Lade jemanden ein, um den Countdown zu stoppen. Kontoaktivität verlängert die Frist nicht. Dein persönlicher Fortschritt bleibt erhalten."
+      }
+    },
+    "profile": {
+      "copy_profile_link": "Profillink kopieren"
+    },
+    "terms_of_service": {
+      "index_button": "Inhalt"
     }
   },
   "settings": {
@@ -155,9 +424,506 @@
       "description": "Dein Quest-Tracker-Konto gehört zu deinem Tarkov-Stammtisch-Konto. Um es zu löschen, lösche dein Stammtisch-Konto auf der Hauptseite. Das Tracker-Konto und dein Fortschritt werden dabei mit entfernt.",
       "device_hint": "Nur die in diesem Browser gespeicherten Daten löschst du im Bereich Gerätedaten weiter oben.",
       "link": "Konto beim Tarkov Stammtisch löschen"
+    },
+    "locale_loading": "Sprache und Spieldaten werden geladen…",
+    "locale_failed": "Die Sprache konnte nicht geladen werden. Bitte versuche es erneut.",
+    "locale_cooldown": "Warte {seconds} s, bevor du eine weitere Sprache lädst. Bereits geladene Sprachen sind sofort verfügbar.",
+    "active_mode": "Aktiver Modus",
+    "app_preferences": {
+      "title": "App-Einstellungen"
+    },
+    "interface": {
+      "maps": {
+        "objective_colors": {
+          "title": "Zielfarben",
+          "description": "Lege fest, was die Farbe einer Zielmarkierung anzeigt. Das Symbol zeigt immer die Zielart.",
+          "modes": {
+            "task": "Aufgabe",
+            "type": "Zielart"
+          },
+          "mode_hints": {
+            "category": "Eigene, angeheftete und Team-Ziele nutzen die Kategoriefarben unten.",
+            "task": "Jede Aufgabe bekommt eine eigene Farbe. Die Farbe einer Aufgabe wählst du auf der Aufgabenkarte unter „Aufgaben auswählen“.",
+            "type": "Jede Zielart bekommt eine eigene Farbe, die im Schlüssel „Zielsymbole“ des Ebenen-Panels angezeigt wird."
+          },
+          "palettes": {
+            "okabe_ito": "Okabe-Ito (7 Farben)",
+            "tol_bright": "Tol hell (6 Farben)",
+            "tol_muted": "Tol gedämpft (9 Farben)"
+          },
+          "palette_hint": "Jede Palette bleibt auch bei Rot-Grün- und Blau-Gelb-Schwäche unterscheidbar. Farben wiederholen sich, sobald eine Karte mehr Aufgaben als die Palette Farben hat."
+        }
+      }
+    },
+    "profile_sharing": {
+      "handle_label": "Profilname",
+      "handle_placeholder": "dein_name",
+      "handle_help": "Wähle 3–24 Buchstaben, Ziffern oder Unterstriche, davon mindestens einen Buchstaben. Wenn du einen dauerhaften Namen beanspruchst, bleiben deine aktuellen Freigabeeinstellungen erhalten.",
+      "handle_claim": "Namen beanspruchen",
+      "handle_use_pmc": "PMC-Name verwenden: {handle}",
+      "handle_invalid": "Wähle einen anderen Namen. Dieser ist ungültig oder reserviert.",
+      "handle_taken": "Dieser Name oder dieses Konto hat bereits eine Beanspruchung. Lade die Seite neu und versuche es erneut.",
+      "handle_failed": "Dein Profilname konnte nicht geladen oder gespeichert werden. Versuche es später erneut.",
+      "handle_streamer": "Namenslinks sind nicht verfügbar, solange der Streamer-Modus aktiv ist."
+    },
+    "data_management": {
+      "reading_backup": "Sicherung wird gelesen…",
+      "bug_report_title": "Fehlerbericht-Datei",
+      "bug_report_description": "Wenn etwas nicht stimmt, lade diese Datei herunter und hänge sie an ein GitHub-Issue, oder kopiere sie und füge sie in Discord ein, damit sich das Problem nachstellen lässt. Sie enthält deinen Fortschritt, deine Einstellungen und Browserdetails, aber keine Anmelde-Tokens, E-Mail-Adresse oder Profilbilder. Es wird nichts automatisch gesendet.",
+      "bug_report_download": "Fehlerbericht-Datei herunterladen",
+      "bug_report_copy": "Fehlerbericht kopieren",
+      "bug_report_error_title": "Fehlerbericht konnte nicht erstellt werden",
+      "empty_device_archive": "Dieses Wiederherstellungsarchiv enthält weder Fortschritt noch Wiederherstellungskopien.",
+      "invalid_device_archive": "Dieses Wiederherstellungsarchiv ist ungültig oder hat eine nicht unterstützte Version. Es wurde kein Fortschritt importiert.",
+      "import_owner_changed": "Das angemeldete Konto hat sich geändert. Prüfe die Sicherung noch einmal, bevor du sie importierst.",
+      "older_tab_recovery_full": "Einige Änderungen aus älteren Tabs konnten nicht aufbewahrt werden. Exportiere die verfügbaren Wiederherstellungskopien für dieses Konto und lösche dann die exportierten Kopien, um Platz zu schaffen. Lass ältere Tabs geöffnet, bis ihre Änderungen gesichert sind.",
+      "review_older_edit": "Ältere Änderung {index} ansehen",
+      "older_tab_recovery_available": "Es gibt Änderungen aus älteren Tabs zur Wiederherstellung ({count}). Sie haben deinen lokal gespeicherten Fortschritt nicht ersetzt.",
+      "export_device_recovery": "Lokal gespeicherte Gerätedaten und Wiederherstellungskopien exportieren",
+      "clear_older_copies": "Wiederherstellungskopien älterer Tabs löschen",
+      "clear_older_copies_confirmation": "Lade ein Wiederherstellungsarchiv herunter und stelle sicher, dass die Datei gespeichert ist, bevor du die Bereinigung bestätigst. Gelöscht werden nur die exportierten Kopien älterer Tabs. Dein lokal gespeicherter Fortschritt und die ursprünglichen Gerätedaten bleiben erhalten.",
+      "saved_recovery_archive_confirmation": "Ich habe die Datei gespeichert. Exportierte ältere Kopien löschen",
+      "recovery_export_failed": "Wiederherstellungskopien konnten nicht exportiert werden. Versuche es erneut. Deine Kopien sind weiterhin vorhanden.",
+      "recovery_cleanup_failed": "Exportierte Wiederherstellungskopien konnten nicht gelöscht werden. Versuche es erneut mit deinem gespeicherten Archiv.",
+      "recovery_owner_changed": "Das angemeldete Konto hat sich geändert. Lade das Wiederherstellungsarchiv erneut herunter, bevor du Kopien löschst.",
+      "recovery_archive_download_required": "Lade ein Wiederherstellungsarchiv herunter, bevor du Kopien löschst.",
+      "older_edit_unavailable": "Diese ältere Änderung ist nicht mehr verfügbar.",
+      "older_edit_read_failed": "Diese ältere Änderung konnte nicht gelesen werden. Versuche es erneut.",
+      "recovery_archive_too_large": "Dieses Wiederherstellungsarchiv ist zu groß für eine Vorschau (maximal 128 MiB).",
+      "recovery_archive_select_entry": "Wähle die archivierte Kopie für die Vorschau aus. Importiere erst nach der Prüfung.",
+      "recovery_archive_current": "Lokal gespeicherter Fortschritt",
+      "recovery_archive_original": "Ursprüngliche Gerätedaten",
+      "recovery_archive_older": "Ältere Änderung {index}",
+      "recovery_copies_title": "Wiederherstellungskopien",
+      "recovery_copies_description": "Wenn ein Zurücksetzen, ein Saisonwechsel oder ein älterer Tab Fortschritt ersetzt, der sonst verloren gehen könnte, etwa Änderungen, die noch nicht in der Cloud angekommen waren, bewahrt TarkovTracker hier eine Kopie auf. Kopien werden nie von selbst wiederhergestellt. Du kannst sie hier wiederherstellen, herunterladen oder verwerfen.",
+      "device_recovery_archive_link": "Den in diesem Browser gespeicherten Fortschritt herunterladen (Geräte-Wiederherstellungsarchiv)",
+      "superseded_copy_label": "{mode} · ersetzt am {date}",
+      "superseded_copy_label_season": "{mode} Saison {season} · ersetzt am {date}",
+      "superseded_copy_summary": "Level {level} · {count} Aufgabe | Level {level} · {count} Aufgaben",
+      "superseded_other_season": "Diese Kopie stammt aus einer früheren Saison. Sie kann heruntergeladen, aber nicht in die aktuelle Saison wiederhergestellt werden.",
+      "superseded_restore": "Wiederherstellen",
+      "superseded_restore_confirmation": "Deinen aktuellen {mode}-Fortschritt ({current}) durch diese Kopie ersetzen? Dein aktueller {mode}-Fortschritt bleibt hier als Wiederherstellungskopie erhalten, andere Modi bleiben unverändert.",
+      "superseded_restore_confirm": "{mode}-Fortschritt ersetzen",
+      "superseded_restored": "{mode}-Fortschritt wiederhergestellt. Die Kopie bleibt hier, bis du sie verwirfst.",
+      "superseded_restore_failed": "Diese Kopie konnte nicht wiederhergestellt werden. Dein Fortschritt wurde nicht verändert.",
+      "superseded_restore_keep_failed": "Dein aktueller Fortschritt konnte nicht als Wiederherstellungskopie gesichert werden, daher wurde nichts wiederhergestellt. Gib Browser-Speicher frei und versuche es erneut.",
+      "superseded_restore_unavailable": "Fortschritt kann im Moment nicht in diesem Browser gespeichert werden, daher wurde nichts wiederhergestellt. Lade die Seite neu und versuche es erneut.",
+      "superseded_copy_unavailable": "Diese Wiederherstellungskopie ist nicht mehr verfügbar.",
+      "superseded_download_failed": "Diese Wiederherstellungskopie konnte nicht heruntergeladen werden.",
+      "superseded_discard": "Verwerfen",
+      "superseded_discard_confirmation": "Diese Kopie verwerfen? Das lässt sich nicht rückgängig machen. Lade sie vorher herunter, falls du sie noch brauchst.",
+      "superseded_discard_confirm": "Kopie verwerfen",
+      "superseded_discard_failed": "Diese Wiederherstellungskopie konnte nicht verworfen werden.",
+      "recovery_copies_added": "{count} Wiederherstellungskopie hinzugefügt. Stelle sie unter „Wiederherstellungskopien“ wieder her. | {count} Wiederherstellungskopien hinzugefügt. Stelle sie unter „Wiederherstellungskopien“ wieder her.",
+      "recovery_copies_already_present": "Die Kopien in dieser Datei sind bereits unter „Wiederherstellungskopien“ aufgeführt.",
+      "recovery_copies_sign_in": "Melde dich an, um Wiederherstellungskopien wiederherzustellen. Sie werden für ein angemeldetes Konto aufbewahrt.",
+      "recovery_copies_add_failed": "Nur {added} von {total} Wiederherstellungskopien konnten in diesem Browser gespeichert werden. Gib Browser-Speicher frei und stelle die Datei erneut wieder her.",
+      "invalid_superseded_archive": "Diese Datei mit Wiederherstellungskopien ist ungültig oder hat eine nicht unterstützte Version. Es wurde nichts importiert.",
+      "superseded_archive_too_large": "Diese Datei mit Wiederherstellungskopien ist zu groß (maximal 16 MiB).",
+      "export_and_clear_older_copies": "Ältere Kopien exportieren und löschen"
+    },
+    "account_data": {
+      "billing_unavailable": "Wir konnten nicht prüfen, ob dein Abo beendet ist. Dein Konto wurde beibehalten. Bitte versuche es später erneut.",
+      "recent_login_required": "Melde dich erneut bei deinem verknüpften Anbieter an, kehre dann zu den Einstellungen zurück und bestätige das Löschen innerhalb von fünf Minuten. Dein Konto und deine Gerätedaten wurden beibehalten.",
+      "sign_in_again": "Erneut anmelden"
+    },
+    "discord_link": {
+      "linked": "Discord-Konto verknüpft"
+    },
+    "faction": {
+      "title": "Fraktion"
+    },
+    "player_level": {
+      "range_hint": "Gib eine ganze Zahl von {min} bis {max} ein.",
+      "range_hint_fallback": "Gib eine ganze Zahl von {min} bis {max} ein. Bis die Leveldaten geladen sind, gilt der Standardbereich.",
+      "saved_title": "Level aktualisiert",
+      "saved_description": "Dein {mode}-Level ist jetzt {level}.",
+      "errors": {
+        "required": "Gib ein Level von {min} bis {max} ein.",
+        "whole_number": "Das Level muss eine ganze Zahl sein.",
+        "out_of_range": "Das Level muss zwischen {min} und {max} liegen."
+      }
+    },
+    "log_import": {
+      "account_filter_tooltip": "Logs werden nach dem beim Login erfassten EFT-Konto gruppiert. Wird nur ein Konto erkannt, werden Sitzungen ohne erfasstes Konto diesem zugeordnet und gehören möglicherweise zu einem anderen Konto. Prüfe daher deine ausgewählten Sitzungen. Jeder Import schreibt in den Fortschritt dieses Trackers.",
+      "account_label": "Konto …{suffix}",
+      "account_unidentified": "Sitzungen ohne erfasstes Konto",
+      "multiple_accounts_title": "Logs von mehreren Konten erkannt",
+      "multiple_accounts_description": "Nur die Sitzungen der ausgewählten Option (ein Konto oder Sitzungen ohne erfasstes Konto) werden in den Fortschritt dieses Trackers importiert. Standardmäßig ist das zuletzt gespielte Konto ausgewählt. Würdest du hier ein zweites Konto importieren, kämen dessen Aufgaben zu denen des ersten hinzu.",
+      "mode_filter_label": "Spielmodi einbeziehen",
+      "mode_filter_hint": "Nicht angehakte Modi bleiben unberührt. Ereignisse mit unbekanntem Modus werden standardmäßig ausgeschlossen, wenn bekannte Modi erkannt wurden; beziehe sie nur ein, wenn du weißt, wohin sie gehören.",
+      "unidentified_mode": "Unbekannter Modus",
+      "state_filter_label": "Aufgabenstatus einbeziehen",
+      "state_filter_hint": "Es wird nur der zuletzt aufgezeichnete Status jeder Aufgabe berücksichtigt. Einen Status auszuschließen stellt keinen älteren wieder her. Abgeschlossene Aufgaben stellen auch Ziele wieder her und können Vorgängeraufgaben, Mindest-Level und Mindest-Ansehensstufen sowie Story-Freischaltungen nach sich ziehen.",
+      "states": {
+        "started": "Gestartet / aktiv"
+      },
+      "history_filter_label": "Wipe- / Prestige-Verlauf",
+      "history_filter_hint": "Logs enthalten kein verifiziertes Ereignis für ein eigenes Prestige oder Zurücksetzen. Wenn du weißt, wann dieser Charakter zurückgesetzt wurde, gib für diesen Modus eine Startzeit für den Import an (deine lokale Zeit). Ältere und undatierte Ereignisse werden ausgeschlossen, auch alte Benachrichtigungen, die später erneut abgespielt wurden. Lass das Feld leer, um den gesamten ausgewählten Verlauf einzubeziehen. Das löscht keinen gespeicherten Fortschritt und ändert kein Prestige.",
+      "import_since": "{mode}: Ereignisse ab",
+      "selection_summary": "Ausgewählte Aufgabenstatus ({count}): {modes}",
+      "no_modes": "keine Modi",
+      "errors": {
+        "choose_unknown_mode": "Wähle einen Zielmodus für Ereignisse mit unbekanntem Modus.",
+        "invalid_date": "Gib eine gültige Startzeit für den Import ein oder lösche sie, um den gesamten ausgewählten Verlauf einzubeziehen.",
+        "empty_selection": "In dieser Auswahl bleiben keine passenden Aufgabenstatus übrig. Beziehe einen Spielmodus und einen Aufgabenstatus ein oder passe den Stichtag für den Verlauf an."
+      }
+    },
+    "tarkov_dev_import": {
+      "errors": {
+        "level_thresholds_unavailable": "Spielerleveldaten konnten nicht geladen werden. Es wurde kein Fortschritt importiert. Prüfe deine Verbindung und versuche es erneut."
+      }
+    },
+    "device_data": {
+      "recovery_copies_warning": "Dadurch wird auch {count} Wiederherstellungskopie dieses Kontos gelöscht. Lade sie vorher unter „Wiederherstellungskopien“ in „Sichern & Wiederherstellen“ herunter, falls du sie noch brauchst. | Dadurch werden auch {count} Wiederherstellungskopien dieses Kontos gelöscht. Lade sie vorher unter „Wiederherstellungskopien“ in „Sichern & Wiederherstellen“ herunter, falls du sie noch brauchst."
     }
   },
   "app_bar": {
     "report_problem_discord": "Problem auf Discord melden"
+  },
+  "stash_import": {
+    "sell_incomplete": "Die Verkaufsempfehlung ist nicht verfügbar, weil bei 1 offenen Aufgabe die Anforderungsdaten unvollständig sind. | Die Verkaufsempfehlung ist nicht verfügbar, weil bei {count} offenen Aufgaben die Anforderungsdaten unvollständig sind.",
+    "sell_incomplete_tasks": "Beispiele für unvollständige Aufgabendaten: {tasks}.",
+    "sell_heading": "Was kann ich verkaufen?",
+    "sell_summary": "1 Gegenstandstyp wird in verfolgten Aufgaben und Versteck-Stationen nicht mehr gebraucht. | {count} Gegenstandstypen werden in verfolgten Aufgaben und Versteck-Stationen nicht mehr gebraucht.",
+    "sell_empty": "In diesem Screenshot gibt es keine bestätigten Verkaufskandidaten. Prüfe unsichere Treffer und Mengen; benötigte Gegenstände bleiben geschützt.",
+    "sell_unavailable": "Die Verkaufsempfehlung ist nicht verfügbar, solange Aufgaben-, Versteck- oder Gegenstandsdaten fehlen oder sich ändern. Öffne den Import nach einem Wechsel des Spielmodus erneut.",
+    "sell_scope": "Basiert auf diesem Screenshot und dem geladenen {mode}-Katalog für Aufgaben und Versteck, einschließlich späterer Voraussetzungen. Prüfe Treffer, Story-Kapitel, Saison-Perks und andere Verwendungen, bevor du etwas verkaufst. Die Liste sagt nichts über Überschüsse oder die Annahme durch Händler aus. Das Durchsehen ändert keinen Fortschritt.",
+    "title": "Gegenstände per Screenshot importieren",
+    "description": "Scanne einen Screenshot deines Stashs oder eines Behälters direkt auf deinem Gerät, prüfe die erkannten Gegenstände und aktualisiere damit deine Zähler bei den benötigten Gegenständen.",
+    "destination": "Aktualisiert deinen {mode}-Fortschritt",
+    "steps_label": "Import-Schritte",
+    "step_review": "Gegenstände prüfen",
+    "step_apply": "Fortschritt aktualisieren",
+    "stage_decode": "Screenshot wird gelesen…",
+    "stage_catalog": "Erkennungsdaten werden geladen…",
+    "stage_match": "Gegenstände werden abgeglichen…",
+    "drop_title": "Screenshot hier ablegen",
+    "drop_now": "Zum Scannen loslassen",
+    "drop_hint": "Oder füge ihn mit {shortcut} ein oder wähle eine Datei. PNG, JPEG oder WebP.",
+    "drop_replace": "Loslassen, um stattdessen diesen Screenshot zu scannen",
+    "choose_image": "Datei auswählen",
+    "try_demo": "Demo-Screenshot ausprobieren",
+    "demo_destination": "Demo · Speichern deaktiviert",
+    "demo_no_save": "Demo-Screenshot: Probiere den Abgleich aus und sieh dir die Vorschau der Zähler an. Speichern ist deaktiviert; wähle einen eigenen Screenshot, um deinen Fortschritt zu aktualisieren.",
+    "paste_image": "Aus der Zwischenablage einfügen",
+    "tip_open": "Öffne im Spiel dein Stash oder einen Behälter und mach einen Screenshot.",
+    "tip_tooltips": "Bewege den Mauszeiger vorher weg, damit kein Tooltip die Gegenstände verdeckt.",
+    "tip_private": "Das Bild bleibt auf deinem Gerät. Beim Speichern werden nur die geprüften Mengen und ein Bild-Fingerabdruck hochgeladen.",
+    "local_notice": "Dein Screenshot verlässt dieses Gerät nie.",
+    "screenshot": "Screenshot mit erkannten Gegenstandsbereichen",
+    "region_label": "Gegenstand {number}: {status}",
+    "whole_image": "Gesamtansicht",
+    "zoom_item": "Auf Gegenstand zoomen",
+    "draw_region": "Übersehenen Gegenstand markieren",
+    "enter_region": "Koordinaten eingeben",
+    "rescan": "Erneut scannen",
+    "draw_help": "Ziehe einen Rahmen um einen Gegenstand. Er ersetzt alle Rahmen, die er überlappt. Stelle unten die Größe in Slots ein, wenn der Gegenstand größer als 1×1 ist.",
+    "legend_check": "Zu prüfen",
+    "legend_ok": "Bestätigt",
+    "legend_skip": "Nicht benötigt",
+    "legend_selected": "Ausgewählt",
+    "legend_removed": "Entfernt",
+    "region_help": "Gib Position und Größe des Gegenstands in Screenshot-Pixeln an, gemessen von der oberen linken Ecke, und danach seine Größe in Stash-Slots. Jeder Bereich muss mindestens 8 Pixel breit und hoch sein. Überlappende Erkennungen werden ersetzt und nicht doppelt gezählt.",
+    "region_x": "Links (Pixel)",
+    "region_y": "Oben (Pixel)",
+    "region_width": "Breite (Pixel)",
+    "region_height": "Höhe (Pixel)",
+    "columns": "Slots breit",
+    "rows": "Slots hoch",
+    "match_region": "Bereich abgleichen",
+    "found_count": "Keine Gegenstände gefunden | 1 Gegenstand gefunden | {count} Gegenstände gefunden",
+    "review_count": "{count} zu prüfen",
+    "all_checked": "alle geprüft",
+    "filter_label": "Gegenstände anzeigen",
+    "filter_check": "Zu prüfen ({count})",
+    "filter_all": "Alle ({count})",
+    "set_fir": "Alle als FIR markieren…",
+    "set_fir_confirm": "Alle Gegenstände als im Raid gefunden markieren? Tu das nur, wenn im Spiel bei allen das FIR-Häkchen angezeigt wird.",
+    "set_fir_yes": "Alle als FIR markieren",
+    "unidentified": "Unbekannter Gegenstand",
+    "removed": "Nicht gezählt",
+    "skip_detail": "Dieser Gegenstand ist bestätigt und wird aktuell nicht benötigt, deshalb wird er nicht gezählt. Wähle einen anderen Gegenstand, falls der Treffer nicht stimmt.",
+    "skip_heading": "Nicht benötigt ({count})",
+    "quantity_missing": "Menge eingeben",
+    "units": "1 Stück | {count} Stück",
+    "unknown": "FIR unbekannt",
+    "fir": "Im Raid gefunden",
+    "non_fir": "Nicht FIR",
+    "raid_short_unknown": "Unbekannt",
+    "raid_short_non_fir": "Nicht FIR",
+    "nothing_to_check": "Alles, was deine Zähler verändern kann, ist geprüft. Mach weiter oder öffne „Alle“, um noch einmal nachzusehen.",
+    "nothing_found": "Es wurden keine Gegenstände gefunden. Nutze auf dem Screenshot „Übersehenen Gegenstand markieren“.",
+    "coverage": "Zur Erkennung",
+    "match_help": "Jeder Treffer ist nur ein Vorschlag. Prüfe den Screenshot, auch auf ausgelassene oder teilweise verdeckte Gegenstände. Wähle einen beliebigen Bereich aus, um ihn zu korrigieren, auch wenn er nicht markiert war.",
+    "coverage_detail": "Alle indizierten Gegenstände haben passende Bildvorlagen. | 1 indizierter Gegenstand hat keine passende Bildvorlage. Suche ihn, um ihn manuell zuzuordnen. | {count} indizierte Gegenstände haben keine passende Bildvorlage. Suche sie, um sie manuell zuzuordnen.",
+    "coverage_limits": "Modifizierte Waffen, verdeckte Abzeichen, andere Spielsprachen und ungewöhnliche UI-Skalierungen können Korrekturen nötig machen. Stapelgrößen werden aus dem Symbol gelesen, wenn die Ziffern klar erkennbar sind; andernfalls gib sie selbst ein. Nur ein klares Häkchen setzt „Im Raid gefunden“. Alle anderen Gegenstände starten als „FIR unbekannt“, auch solche ohne Markierung. Setze FIR oder „Nicht FIR“ daher selbst, wo es darauf ankommt.",
+    "attribution": "Erkennung angepasst von Cultist Circle – MIT-Lizenz",
+    "which_item": "Gegenstand",
+    "search_item": "Alle Gegenstände durchsuchen",
+    "matches": "Vorgeschlagene Gegenstände",
+    "compare_label": "Erkannter Gegenstand im Vergleich mit dem ausgewählten Gegenstand",
+    "compare_screenshot": "In deinem Screenshot",
+    "compare_selected": "Ausgewählter Gegenstand",
+    "compare_none": "Kein Gegenstand gewählt",
+    "compare_fir_seen": "FIR-Markierung erkannt",
+    "no_search_results": "Keine Gegenstände passen zu dieser Suche.",
+    "no_suggestions": "Keine Vorschläge. Suche oben nach dem Gegenstand.",
+    "quantity": "Menge in diesem Stapel",
+    "quantity_placeholder": "z. B. 60",
+    "stack_help": "Wird aus der Zahl in der Ecke des Symbols übernommen, sofern sie lesbar ist. Verwendungen oder Haltbarkeit sind keine Mengen.",
+    "raid_status": "Im Raid gefunden",
+    "unknown_help": "Nur ein klares Häkchen am Symbol setzt „Im Raid gefunden“ automatisch. Unbekannte Gegenstände zählen nur für Anforderungen ohne FIR-Pflicht.",
+    "confirm_next": "Bestätigen",
+    "exclude": "Nicht zählen",
+    "split": "Dieser Rahmen umfasst mehrere Gegenstände",
+    "split_help": "Teile ihn in gleich große Teile auf, die jeweils einzeln abgeglichen werden.",
+    "split_apply": "Aufteilen und abgleichen",
+    "other_image": "Anderer Screenshot",
+    "review_first": "1 Gegenstand muss noch geprüft werden | {count} Gegenstände müssen noch geprüft werden",
+    "ready_to_continue": "Alle Gegenstände geprüft.",
+    "continue": "Weiter",
+    "mode_title": "Wie sollen diese Gegenstände gezählt werden?",
+    "mode_replace": "Zähler aus Screenshot übernehmen",
+    "mode_replace_help": "Jede Anforderung unten wird auf den Wert gesetzt, den der Screenshot zeigt. Die Zähler können dabei sinken.",
+    "mode_replace_when": "Am besten für den ersten Import, einen Neustart oder einen erneuten Scan desselben Stashs.",
+    "mode_add": "Zu aktuellen Zählern addieren",
+    "mode_add_help": "Die Gegenstände werden zu dem addiert, was du bereits erfasst hast. Die Zähler sinken nie.",
+    "mode_add_when": "Am besten für neue Beute oder eine weitere Stash-Seite. Addiere keine Gegenstände, die du schon gezählt hast.",
+    "impact_none": "Keine Änderungen",
+    "impact_add": "+{units} bei {count} Anforderungen | +{units} bei 1 Anforderung | +{units} bei {count} Anforderungen",
+    "impact_replace": "Ändert {count} Anforderungen | Ändert 1 Anforderung | Ändert {count} Anforderungen",
+    "impact_replace_lower": "Ändert {count} Anforderungen, {lower} sinken | Ändert 1 Anforderung, {lower} sinkt | Ändert {count} Anforderungen, {lower} sinken",
+    "targets": "Zu aktualisierende Anforderungen",
+    "select_all": "Alle auswählen",
+    "select_none": "Keine auswählen",
+    "no_targets": "Zu diesen Gegenständen passt keine offene Anforderung aus Aufgaben oder Versteck. Setze den FIR-Status für Anforderungen, die FIR verlangen, oder geh zurück und prüfe die Gegenstände.",
+    "fir_required": "FIR erforderlich",
+    "found_label": "Im Screenshot:",
+    "found_non_fir": "{count} nicht FIR",
+    "found_unknown": "{count} FIR unbekannt",
+    "delta_skipped": "Übersprungen",
+    "delta_complete": "Erledigt",
+    "delta_none": "Gleich",
+    "show_unchanged": "1 weitere Anforderung ohne Änderung anzeigen | {count} weitere Anforderungen ohne Änderung anzeigen",
+    "excess": "{count} Stück bleiben übrig, nachdem die gewählten Anforderungen gedeckt sind. Sie werden nicht gespeichert.",
+    "unmatched": "1 Gegenstand wird für nichts gebraucht | {count} Gegenstände werden für nichts gebraucht",
+    "eligibility_help": "Abgeschlossene oder fehlgeschlagene Aufgaben, abgegebene Ziele und gebaute Stationen sind ausgenommen. Gemeinsam genutzte Gegenstandspools, reine Aufgabenobjekte und Waffenbau-Anforderungen musst du weiterhin selbst nachhalten. Das Auffüllen der Zähler gibt keine Aufgabe ab und baut keine Station.",
+    "confirm_decreases": "Ich verstehe, dass 1 Zähler sinkt. | Ich verstehe, dass {count} Zähler sinken.",
+    "back": "Zurück",
+    "no_changes": "Nichts zu ändern. Deine Zähler stimmen bereits.",
+    "confirm_first": "Bestätige oben die niedrigeren Zähler, um zu speichern.",
+    "apply_replace": "Zähler setzen | 1 Zähler setzen | {count} Zähler setzen",
+    "apply_add": "Gegenstände hinzufügen | Zu 1 Anforderung hinzufügen | Zu {count} Anforderungen hinzufügen",
+    "check_receipt": "Prüfen, ob gespeichert wurde",
+    "refresh_progress": "Fortschritt aktualisieren",
+    "conflict_refreshed": "Dein Fortschritt hat sich auf einem anderen Gerät geändert, daher wurde nichts gespeichert. Die Zahlen unten sind aktualisiert. Prüfe sie und speichere erneut.",
+    "saved_replace": "Zähler aktualisiert | 1 Zähler aktualisiert | {count} Zähler aktualisiert",
+    "saved_add": "Gegenstände hinzugefügt | Gegenstände zu 1 Anforderung hinzugefügt | Gegenstände zu {count} Anforderungen hinzugefügt",
+    "already_imported": "Dieser Screenshot wurde bereits importiert. Es wurden keine Zähler hinzugefügt oder ersetzt.",
+    "saved_detail": "Deine benötigten Gegenstände entsprechen jetzt diesem Screenshot. Aufgaben werden nie für dich abgegeben und Versteck-Stationen nie für dich gebaut.",
+    "import_another": "Weiteren importieren",
+    "errors": {
+      "one_image": "Wähle immer nur einen Screenshot. Sich überlappende Screenshots dürfen nicht zusammen hinzugefügt werden.",
+      "image_size": "Dieses Bild ist zu groß oder hat ungültige Abmessungen. Nutze einen Screenshot unter 32 MB und 16 Megapixeln oder schneide ihn vorher zu.",
+      "image_type": "Wähle einen Screenshot als PNG, JPEG oder WebP. Eine Datei umzubenennen konvertiert sie nicht.",
+      "image_invalid": "Dieses Bild konnte nicht gelesen werden. Speichere den Screenshot am besten neu als PNG.",
+      "unsupported": "Dein Browser unterstützt das lokale Scannen nicht. Probiere einen aktuellen Desktop-Browser. Dein Screenshot wurde nicht hochgeladen.",
+      "region_invalid": "Wähle einen Bereich innerhalb des Screenshots und eine ganzzahlige Slot-Größe von 1 bis 10.",
+      "catalog_invalid": "Die Erkennungsdaten haben die Prüfung nicht bestanden. Schließe den Import und versuche es erneut; dein Fortschritt bleibt unverändert.",
+      "catalog_unavailable": "Die Erkennungsdaten konnten nicht geladen werden. Prüfe deine Verbindung und versuche es erneut. Der Screenshot bleibt lokal.",
+      "no_grid": "Es wurde kein klares Stash-Raster gefunden. Ziehe einen Rahmen um einen sichtbaren Gegenstand und gib seine Slot-Größe ein, oder mach einen Screenshot ohne verdeckende Tooltips.",
+      "too_many_cells": "Es wurden zu viele Bereiche erkannt. Schneide den Screenshot auf einen Stash- oder Behälterbereich zu.",
+      "scan_failed": "Der Scan konnte nicht abgeschlossen werden. Probiere einen kleineren, schärferen Screenshot. Dein Fortschritt bleibt unverändert.",
+      "cancelled": "Scan abgebrochen. Es wurde kein Fortschritt geändert.",
+      "quantity": "Gib ganzzahlige Mengen von mindestens 1 ein. Die Summe pro Gegenstand über alle einbezogenen Bereiche darf 1.000.000 nicht überschreiten.",
+      "review_required": "Bestätige oder schließe unsichere Treffer und Mengen aus, bevor du weitermachst.",
+      "sign_in": "Melde dich an, um zu speichern. Scannen und Prüfen funktioniert auch ohne Konto.",
+      "unsynced": "Der Fortschritt auf deinem Gerät und in der Cloud stimmt noch nicht überein. Warte, bis die Synchronisierung abgeschlossen ist, und öffne dann die Vorschau erneut. Es wurde nichts überschrieben.",
+      "catalog_loading": "Die Zielanforderungen werden noch geladen. Warte einen Moment und öffne dann die Vorschau erneut.",
+      "too_many_targets": "Dieser Import ändert mehr als 256 Anforderungen. Wähle weniger Anforderungen aus und öffne die Vorschau erneut.",
+      "rate_limited": "Zu viele Import- oder Beleg-Prüfungen. Warte eine Minute und wiederhole dann dieselbe Aktion. Deine Prüfung bleibt erhalten.",
+      "stale": "Dein Fortschritt hat sich während der Prüfung geändert. Die Zahlen wurden aktualisiert; prüfe sie und speichere erneut.",
+      "save_unknown": "Die Antwort der Cloud-Speicherung wurde unterbrochen. Der Import ist möglicherweise bei deinem Cloud-Konto angekommen. Prüfe den Beleg, bevor du einen weiteren Import startest, und trage die Zähler nicht von Hand nach.",
+      "receipt_missing": "Es wurde kein Cloud-Importbeleg gefunden. Eine verzögerte Anfrage kann noch durchlaufen. Deine ursprüngliche Prüfung bleibt erhalten; schau noch einmal nach, bevor du einen weiteren Import startest. Der Abgleich addiert bei einem erneuten Versuch nie Zähler.",
+      "clipboard_empty": "In deiner Zwischenablage ist kein Bild. Kopiere zuerst einen Screenshot und füge ihn dann ein.",
+      "clipboard_denied": "Der Browser hat den Zugriff auf die Zwischenablage blockiert. Drücke stattdessen Strg+V (⌘V am Mac) oder wähle eine Datei.",
+      "reimport_blocked": "Dieser Screenshot wurde vor dem Zurücksetzen deines Fortschritts importiert und kann nicht erneut importiert werden. Mach einen neuen Screenshot, um diese Gegenstände zu importieren."
+    },
+    "go_back_for_image": "Um einen anderen Screenshot zu verwenden, geh zuerst zurück zu „Gegenstände prüfen“."
+  },
+  "admin": {
+    "purge_audit_failed_title": "Cache mit Warnung geleert",
+    "purge_audit_failed_description": "Cloudflare hat den Cache geleert, aber der Audit-Eintrag konnte nicht gespeichert werden. Einige Nutzer sehen möglicherweise noch veraltete Spieldaten."
+  },
+  "progress_save_status": {
+    "live_updates_delayed_label": "Live-Updates verzögert",
+    "live_updates_delayed_description": "Updates von anderen Geräten erscheinen möglicherweise verzögert. Das Speichern deiner Änderungen läuft davon getrennt. Wir suchen nach Updates und verbinden uns automatisch neu, sobald dieser Tab online und aktiv ist.",
+    "cloud_payload_too_large_description": "Dein Cloud-Speicherstand ist zu groß. Änderungen bleiben ausstehend und du kannst weiter Fortschritt eintragen. Automatische Wiederholungen sind pausiert. Exportiere eine Sicherung und wende dich an den Support.",
+    "cause_payload_too_large": "Ursache: Dein Fortschritt überschreitet das Größenlimit für den Cloud-Speicher."
+  },
+  "older_tab_recovery_notice": {
+    "title": "Änderungen aus älteren Tabs wurden gesichert",
+    "description": "Änderungen aus einem Tab mit einer älteren Version von TarkovTracker wurden als Wiederherstellungskopien aufbewahrt. Dein Fortschritt wurde dadurch nicht überschrieben.",
+    "overflow_description": "Einige Änderungen aus einem Tab mit einer älteren Version von TarkovTracker konnten nicht aufbewahrt werden. Lass diesen Tab geöffnet und exportiere die vorhandenen Wiederherstellungskopien.",
+    "review_link": "In {section} ansehen"
+  },
+  "promoted_stream": {
+    "title": "{streamer} ist live"
+  },
+  "filter_menu": {
+    "button": "Filter",
+    "button_active": "Filter, {count} aktiv",
+    "active_label": "Gefiltert nach",
+    "remove_filter": "Filter entfernen: {name}",
+    "clear_all": "Alle zurücksetzen",
+    "sort_ascending": "Aufsteigend",
+    "sort_descending": "Absteigend"
+  },
+  "maps": {
+    "extract_requirements": {
+      "raid_notice": "Kein Live-Raid-Status",
+      "curated_detail": "Hinweise zu Leuchtraketen, Rauch und Schlüsseln stammen aus kuratierten öffentlichen Quellen.",
+      "no_additional_data": "Keine Voraussetzungen angegeben. Die Verfügbarkeit ist nicht garantiert.",
+      "unknown_detail": "Voraussetzungen unbekannt. Prüfe es im Raid.",
+      "rubles": "Rubel",
+      "dollars": "US-Dollar",
+      "euros": "Euro",
+      "red_rebel": "Red-Rebel-Eispickel",
+      "zb014_key": "ZB-014-Schlüssel",
+      "factory_key": "Fabrik-Notausgangsschlüssel",
+      "key_detail": "Mit {item} aufschließen",
+      "unknown_item": "Benötigter Gegenstand (Name nicht verfügbar)",
+      "base_cost": "{count} {item} zahlen",
+      "base_cost_hint": "Der Preis hängt vom Ansehen ab",
+      "hand_over": "{count} × {item} abgeben",
+      "bring": "{count} × {item} mitbringen",
+      "empty_slot": "Ohne {slot} ausgerüstet",
+      "equipment_slot": "eingeschränkte Ausrüstung",
+      "backpack_slot": "Rucksack",
+      "armor_slot": "Körperpanzerung",
+      "chance_detail": "{percent} % Chance, dass er offen ist",
+      "vehicle_detail": "Das Fahrzeug muss noch da sein",
+      "coop_detail": "Benötigt einen PMC und einen Scav zusammen",
+      "activation_detail": "Zuerst aktivieren (Strom, Schalter oder Tür)",
+      "green_flare_detail": "Zuerst eine grüne Leuchtrakete im Signalbereich abfeuern",
+      "flare_detail": "Zuerst eine Signalrakete abfeuern",
+      "green_smoke_detail": "Offen, wenn grüner Rauch sichtbar ist",
+      "no_backpack_detail": "Kein Rucksack ausgerüstet",
+      "restriction_detail": "Ausrüstungsbeschränkung, siehe Hinweis im Raid",
+      "train_detail": "Einsteigen, bevor der Zug abfährt",
+      "timer_detail": "Öffnet nach einem Timer",
+      "window_detail": "Zeitfenster: {min}–{max} nach Raid-Beginn",
+      "legend_title": "Extraktionssymbole",
+      "tags": {
+        "key": "Schlüssel",
+        "money": "Geld",
+        "gear": "Ausrüstung",
+        "no_backpack": "Kein Rucksack",
+        "no_armor": "Keine Panzerung",
+        "restriction": "Beschränkung",
+        "conditional": "Bedingt",
+        "coop": "Koop",
+        "activation": "Aktivieren",
+        "train": "Zug",
+        "timer": "Zeitgesteuert",
+        "flare": "Leuchtrakete",
+        "green_smoke": "Grüner Rauch"
+      }
+    },
+    "elevation": {
+      "above": "{count} Stockwerk nach oben | {count} Stockwerke nach oben",
+      "below": "{count} Stockwerk nach unten | {count} Stockwerke nach unten",
+      "legend": "Auf anderem Stockwerk (Zahl = Stockwerke Abstand)"
+    },
+    "cursor_coordinates_copy_hint": "{key} zum Kopieren",
+    "layers": {
+      "always_show_names": "Namen immer anzeigen",
+      "coop": "Koop",
+      "coop_hint": "PMC und Scav zusammen",
+      "groups": {
+        "extracts": "Extraktionen",
+        "locations": "Orte"
+      },
+      "hidden_count": "{count} ausgeblendet",
+      "names_hint": "Sonst erscheinen Namen beim Hineinzoomen, per Hover oder per Tippen",
+      "shared": "Geteilt",
+      "shared_hint": "Beide Fraktionen",
+      "shared_or_unknown": "Geteilt / unbekannt",
+      "shared_or_unknown_hint": "Beide Fraktionen oder Fraktion nicht angegeben",
+      "show_all": "Alle Ebenen anzeigen",
+      "title": "Ebenen"
+    },
+    "objective_icons": {
+      "legend_title": "Zielsymbole",
+      "kinds": {
+        "visit": "Aufsuchen / finden",
+        "plant": "Platzieren / verstauen",
+        "find": "Finden / aufheben",
+        "mark": "Markieren",
+        "shoot": "Eliminieren",
+        "use": "Gegenstand benutzen",
+        "extract": "Extraktion"
+      }
+    },
+    "help": {
+      "groups": {
+        "navigate": "Navigation"
+      },
+      "copy_coordinates": "{key}, um die Koordinaten unter dem Mauszeiger zu kopieren",
+      "coordinates": "Unten links werden die Spielkoordinaten (x, z) unter dem Mauszeiger angezeigt."
+    },
+    "tooltip": {
+      "task_list": "Aufgabenliste",
+      "key": "Schlüssel: {key}"
+    }
+  },
+  "needed_items": {
+    "view_requirements_for": "{requirements} für {name}",
+    "remaining_count": "{count} übrig",
+    "view_requirements": "Verwendung ansehen ({count})",
+    "inline_counts": {
+      "label": "{name} ({type}) verfolgen",
+      "increase": "{name} erhöhen",
+      "decrease": "{name} verringern",
+      "updated": "Erfasste Mengen für {name} aktualisiert",
+      "undo_conflict": "Diese Zähler haben sich nach dieser Änderung geändert. Rückgängig machen kann neueren Fortschritt nicht überschreiben."
+    },
+    "craft": {
+      "craftable": "Herstellbar",
+      "available": "Jetzt herstellbar",
+      "unavailable": "Herstellbar (Stationsstufe zu niedrig)",
+      "source": "{station} {level} (du: {current})",
+      "more": " +{count} weitere"
+    },
+    "search_accepted_items": "Akzeptierte Gegenstände suchen...",
+    "no_accepted_items": "Keine akzeptierten Gegenstände passen zu deiner Suche.",
+    "accepted_items_page": "Seite {page} von {pages} · {count} Gegenstände",
+    "hidden_for_you": "Für dich ausgeblendet",
+    "hidden_for_you_hint": "Du hast diese Aufgabe ausgeblendet. Sie bleibt gelistet, weil Teamkollegen diesen Gegenstand noch brauchen: {teammates}",
+    "for_teammates": "Für Teamkollegen",
+    "collect": "Sammeln"
+  },
+  "game_settings": {
+    "seasonal_label": "Saisonal"
+  },
+  "seo": {
+    "routes": {
+      "tasks_traders": {
+        "title": "Tarkov-Aufgaben nach Händler · Tarkov Stammtisch",
+        "description": "Arbeite die Aufgaben jedes Händlers in Tarkov durch und sieh, wie viele noch offen sind."
+      },
+      "tasks_maps": {
+        "title": "Tarkov-Aufgabenkarte · Tarkov Stammtisch",
+        "description": "Sieh dir deine offenen Aufgabenziele in Tarkov auf jeder Karte an und plane deinen nächsten Raid."
+      },
+      "tasks_graph": {
+        "title": "Tarkov-Aufgabengraph · Tarkov Stammtisch",
+        "description": "Entdecke, wie die Aufgaben der Händler in Tarkov aufeinander aufbauen."
+      },
+      "resources": {
+        "description": "Entdecke Community-Tools und Anleitungen für TarkovTracker, RatScanner und Tarkov.dev."
+      }
+    }
   }
 }

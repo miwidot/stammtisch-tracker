@@ -32,6 +32,37 @@ function flatten(tree: Tree, prefix = ''): Map<string, string> {
 const overrides = flatten(deOverrides as Tree);
 const source = flatten(en as Tree);
 const crowdin = flatten(de as Tree);
+// Identical in both languages on purpose: a brand name, and a badge that is
+// pure formatting. Everything else matching English means someone pasted the
+// source string in and the override does nothing.
+const IDENTICAL_BY_DESIGN = new Set([
+  'navigation_drawer.brand_name',
+  // A trader's name. The override restores the English spelling on purpose —
+  // see the Lightkeeper case below.
+  'common.kappa_lightkeeper',
+  // The trader's name again, on the Kappa tracker tab and the profile card.
+  'common.lightkeeper',
+  // Project names and a license identifier — none of these have a German
+  // form, so the /herkunft page and footer attribution line intentionally
+  // reuse the English label.
+  'footer.attribution.tracker_label',
+  'footer.attribution.license_label',
+  // The upstream project's domain name, used as the footer quick-link
+  // label pointing at our own /herkunft page — a proper noun, not text to
+  // translate.
+  'footer.origin_link',
+  'page.herkunft.origin.tracker_label',
+  'page.herkunft.origin.license_label',
+  'page.herkunft.origin.license_file_label',
+  // "Credits" is the loanword this app already uses in German
+  // (common.credits carries the same English spelling).
+  'page.herkunft.origin.credits_label',
+  'page.herkunft.related.tarkovtracker',
+  'page.herkunft.related.tarkov_data_overlay',
+  'page.herkunft.related.tarkov_dev',
+  'page.herkunft.related.tarkov_monitor',
+  'page.herkunft.related.ratscanner',
+]);
 describe('de.overrides.json', () => {
   it('overrides only keys that exist in the source locale', () => {
     const orphans = [...overrides.keys()].filter((key) => !source.has(key));
@@ -44,37 +75,6 @@ describe('de.overrides.json', () => {
     );
     expect(broken).toEqual([]);
   });
-  // Identical in both languages on purpose: a brand name, and a badge that is
-  // pure formatting. Everything else matching English means someone pasted the
-  // source string in and the override does nothing.
-  const IDENTICAL_BY_DESIGN = new Set([
-    'navigation_drawer.brand_name',
-    // A trader's name. The override restores the English spelling on purpose —
-    // see the Lightkeeper case below.
-    'common.kappa_lightkeeper',
-    // The trader's name again, on the Kappa tracker tab and the profile card.
-    'common.lightkeeper',
-    // Project names and a license identifier — none of these have a German
-    // form, so the /herkunft page and footer attribution line intentionally
-    // reuse the English label.
-    'footer.attribution.tracker_label',
-    'footer.attribution.license_label',
-    // The upstream project's domain name, used as the footer quick-link
-    // label pointing at our own /herkunft page — a proper noun, not text to
-    // translate.
-    'footer.origin_link',
-    'page.herkunft.origin.tracker_label',
-    'page.herkunft.origin.license_label',
-    'page.herkunft.origin.license_file_label',
-    // "Credits" is the loanword this app already uses in German
-    // (common.credits carries the same English spelling).
-    'page.herkunft.origin.credits_label',
-    'page.herkunft.related.tarkovtracker',
-    'page.herkunft.related.tarkov_data_overlay',
-    'page.herkunft.related.tarkov_dev',
-    'page.herkunft.related.tarkov_monitor',
-    'page.herkunft.related.ratscanner',
-  ]);
   it('carries no entry that merely repeats the English source', () => {
     const untranslated = [...overrides]
       .filter(([key]) => !IDENTICAL_BY_DESIGN.has(key))
@@ -184,5 +184,214 @@ describe('reported translation defects', () => {
       expect(crowdin.get(path)).not.toBe(source.get(path));
       expect(overrides.has(path)).toBe(false);
     }
+  });
+});
+// The German UI is Crowdin's de.json plus this override layer. Keys missing from both fall back
+// to English, so an untranslated string shows up as "identical to en.json" in the merged view.
+describe('effective German locale', () => {
+  const effective = new Map([...crowdin, ...overrides]);
+  const sameAsEnglish = [...source.keys()].filter(
+    (key) => (effective.get(key) ?? source.get(key)) === source.get(key)
+  );
+  // The most visible strings: toolbar buttons, the task filter and requirement panels, the
+  // blocker lines on locked task cards. A regression here is noticed by every German user at once.
+  it('renders the most visible task and filter strings in German', () => {
+    const visible = [
+      'filter_menu.button',
+      'filter_menu.button_active',
+      'filter_menu.clear_all',
+      'page.tasks.filters.title',
+      'page.tasks.filters.types.title',
+      'page.tasks.requirements.title',
+      'page.tasks.requirements.met_count',
+      'page.tasks.requirements.met',
+      'page.tasks.requirements.unmet',
+      'page.tasks.blockers.trader_story_unlock',
+      'page.tasks.blockers.player_level_required',
+      'page.tasks.blockers.trader_level_required',
+      'page.tasks.trader_sections.loyalty_level',
+      'page.tasks.questcard.time_gate',
+      'page.tasks.hidden_tasks.section_title',
+      'page.needed_items.filters.title',
+      'page.needed_items.filters.found_in_raid.title',
+      'page.hideout.settings.title',
+      'maps.layers.title',
+      'maps.extract_requirements.legend_title',
+      'settings.data_management.recovery_copies_title',
+      'settings.player_level.saved_title',
+      'stash_import.title',
+      'seo.routes.tasks_traders.title',
+    ];
+    for (const key of visible) {
+      expect(source.has(key)).toBe(true);
+      expect(effective.get(key), `${key} is missing in German`).toEqual(expect.any(String));
+      expect(effective.get(key), `${key} is still English`).not.toBe(source.get(key));
+    }
+  });
+  // The reported wording: the trader level reads "Ansehensstufe", never the English phrase.
+  it('words loyalty levels as Ansehensstufe', () => {
+    expect(overrides.get('page.kappa.row.trader_level')).toBe('{trader} Ansehensstufe {level}');
+    expect(overrides.get('page.tasks.trader_sections.loyalty_level')).toBe('Ansehensstufe {level}');
+    expect([...effective.values()].filter((value) => /Loyalty Level/i.test(value))).toEqual([]);
+  });
+  // The /resources description no longer advertises the hidden TarkovMonitor (FORK.md 3.14).
+  it('does not advertise TarkovMonitor in the resources meta description', () => {
+    const key = 'seo.routes.resources.description';
+    expect(source.get(key)).not.toMatch(/TarkovMonitor/i);
+    expect(effective.get(key)).not.toMatch(/TarkovMonitor/i);
+    expect(effective.get(key)).not.toBe(source.get(key));
+  });
+  // German keeps these as they are. Listing them keeps the guard below from flagging them, and
+  // makes a newly appearing untranslated key an explicit decision instead of a silent fallback.
+  const ENGLISH_ON_PURPOSE = new Set([
+    // Loanwords and game terms German players use as-is (Level, Raid, PMC, Scav, Kappa, PvP, PvE,
+    // FIR, Hideout, Dashboard, Team, API, Layout, Graph, Overlay, Wiki, Arena, Container).
+    // The "Hideout" tab label stays because the navigation uses it too.
+    // Proper nouns, brand names, file paths, key formats and pure placeholders follow below.
+    // stash_import
+    'stash_import.step_intake',
+    'stash_import.raid_short_fir',
+    'stash_import.found_fir',
+    // toast
+    'toast.clipboard_copied.description',
+    // common
+    'common.level',
+    'common.hideout',
+    'common.pvp',
+    'common.pve',
+    'common.scav',
+    'common.lightkeeper',
+    'common.kappa',
+    'common.storyline',
+    'common.credits',
+    'common.streamer_tools',
+    'common.prestige',
+    'common.timmy',
+    'common.dashboard',
+    'common.optional',
+    'common.lv',
+    'common.kappa_lightkeeper',
+    'common.lvl_level',
+    'common.fir',
+    'common.team',
+    'common.api',
+    // maps
+    'maps.extract_requirements.paracord',
+    'maps.tooltip_density',
+    'maps.cursor_coordinates',
+    'maps.factions.pmc',
+    'maps.layers.transit',
+    // page.dashboard
+    'page.dashboard.up_next.storyline.chapter',
+    'page.dashboard.up_next.reason.kappa',
+    'page.dashboard.traders.rep_progress_label',
+    // page.storyline
+    'page.storyline.quest_route_unnamed',
+    // page.tasks
+    'page.tasks.auto_tracking_guide',
+    'page.tasks.primary_views.graph',
+    'page.tasks.filters.types.kappa',
+    'page.tasks.blockers.task_status',
+    'page.tasks.requirements.comparison_at_least',
+    'page.tasks.requirements.player_level',
+    'page.tasks.requirements.task',
+    // page.hideout
+    'page.hideout.stationcard.requirements.trader',
+    // page.needed_items
+    'page.needed_items.sort.name',
+    'page.needed_items.view.layout',
+    'page.needed_items.items_and_needs',
+    // page.about
+    'page.about.projects.tarkov_dev',
+    // page.resources
+    'page.resources.meta.windows',
+    'page.resources.items.tarkovtracker_org_vs_io.name',
+    'page.resources.items.tarkovdev.name',
+    'page.resources.items.tarkovmonitor.name',
+    'page.resources.items.ratscanner.name',
+    'page.resources.items.cultistcircle.name',
+    // page.herkunft
+    'page.herkunft.origin.tracker_label',
+    'page.herkunft.origin.license_label',
+    'page.herkunft.origin.license_file_label',
+    'page.herkunft.origin.credits_label',
+    'page.herkunft.related.tarkovtracker',
+    'page.herkunft.related.tarkov_data_overlay',
+    'page.herkunft.related.tarkov_dev',
+    'page.herkunft.related.tarkov_monitor',
+    'page.herkunft.related.ratscanner',
+    // footer
+    'footer.call_to_action.github',
+    'footer.origin_link',
+    'footer.attribution.tracker_label',
+    'footer.attribution.license_label',
+    // navigation_drawer
+    'navigation_drawer.brand_name',
+    // profile
+    'profile.season_short',
+    // streamer_tools
+    'streamer_tools.metric_label',
+    'streamer_tools.platform_obs',
+    'streamer_tools.platform_xsplit',
+    'streamer_tools.layout_label',
+    'streamer_tools.background_transparent',
+    'streamer_tools.accent_info',
+    'streamer_tools.accent_warning',
+    'streamer_tools.resolution_1080',
+    'streamer_tools.resolution_1440',
+    'streamer_tools.container_label',
+    'streamer_tools.colors_text',
+    // settings
+    'settings.tab_groups.app',
+    'settings.interface.maps.objective_colors.palette',
+    'settings.game_profile.game_edition_with_value',
+    'settings.data_management.prestige_history_option',
+    'settings.account_data.subscription_active',
+    'settings.prestige.confirm_word',
+    'settings.prestige.requirement_source.tarkov_dev',
+    'settings.prestige.requirement_source.overlay',
+    'settings.prestige.requirement_source.wiki',
+    'settings.prestige.requirement_progress',
+    'settings.log_import.default_path_value',
+    'settings.log_import.session_folder_example_path',
+    'settings.tarkov_dev_import.profile_url_placeholder',
+    'settings.tarkov_dev_import.profile_url_hint_link',
+    'settings.tarkov_dev_import.refetch_mode_arena',
+    // needed_items
+    'needed_items.progress_format',
+    'needed_items.craft.title',
+    // oauth
+    'oauth.consent.error',
+    // prestige
+    'prestige.prestige_n',
+    // seo
+    'seo.site_name',
+    'seo.routes.team.title',
+  ]);
+  // Fork-hidden features: the supporter page and banner, the TarkovMonitor guide link and card.
+  const HIDDEN_FEATURE_KEYS = [
+    /^page\.supporter\./,
+    /^page\.dashboard\.support_banner\./,
+    /^page\.resources\.items\.tarkovmonitor\./,
+    /^page\.tasks\.auto_tracking_guide$/,
+    /^settings\.account_data\.subscription_active$/,
+  ];
+  it('leaves no visible string untranslated except the listed loanwords', () => {
+    const missing = sameAsEnglish
+      .filter((key) => !ENGLISH_ON_PURPOSE.has(key) && !IDENTICAL_BY_DESIGN.has(key))
+      .filter((key) => !HIDDEN_FEATURE_KEYS.some((pattern) => pattern.test(key)));
+    expect(missing).toEqual([]);
+  });
+  it('keeps the English-on-purpose list honest', () => {
+    const stale = [...ENGLISH_ON_PURPOSE].filter((key) => !sameAsEnglish.includes(key));
+    expect(stale, 'listed as English but already translated or removed').toEqual([]);
+  });
+  it('keeps every override value free of leftover English phrasing in the translated set', () => {
+    const english = /\b(the|your|with|and|for|from|click|failed|loading)\b/i;
+    const leaked = [...overrides]
+      .filter(([key, value]) => !IDENTICAL_BY_DESIGN.has(key) && value !== source.get(key))
+      .filter(([, value]) => english.test(value.replace(/\{[^}]+\}/g, '')))
+      .map(([key]) => key);
+    expect(leaked).toEqual([]);
   });
 });
