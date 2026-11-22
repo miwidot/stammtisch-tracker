@@ -118,7 +118,7 @@
       "blockers": {
         "trader_story_unlock": "Schalte {trader} frei: {objective} ({chapter})",
         "player_level_required": "Benötigt Spielerlevel {requirement} (du: {current}).",
-        "trader_level_required": "Benötigt Ansehensstufe {requirement} bei {trader} (du: {current}).",
+        "trader_level_required": "Benötigt Loyalitätsstufe {requirement} bei {trader} (du: {current}).",
         "trader_reputation_required": "Benötigt Ansehen {requirement} bei {trader} (du: {current}).",
         "trader_unlock_unknown": "Schalte {trader} frei, indem du dessen Aufgabe abschließt. Aufgabendaten sind nicht verfügbar.",
         "global_variable_required": "Zusätzlicher Spielfortschritt erforderlich.",
@@ -134,7 +134,7 @@
         "comparison_below": "unter {value}",
         "comparison_exactly": "genau {value}",
         "comparison_not_equal": "nicht {value}",
-        "trader_level": "{trader} Ansehensstufe {requirement}",
+        "trader_level": "{trader} Loyalitätsstufe {requirement}",
         "trader_reputation": "{trader} Ansehen {requirement}",
         "you": "du: {value}",
         "met": "Erfüllt",
@@ -158,7 +158,7 @@
         "pool_hide_tasks": "Aufgaben ausblenden",
         "pool_tasks": "Aufgaben, die zählen",
         "pool_candidates": "Mögliche Aufgaben",
-        "pool_explanation": "Nur Aufgaben in diesem Pool zählen. Das Erreichen der Ansehensstufe beim Händler ist eine eigene Voraussetzung.",
+        "pool_explanation": "Nur Aufgaben in diesem Pool zählen. Das Erreichen der Loyalitätsstufe beim Händler ist eine eigene Voraussetzung.",
         "pool_candidate_explanation": "Diese Voraussetzung gehört zum LL-Aufgabenpool des Händlers. Die Aufgaben unten kommen als Beitrag infrage.",
         "pool_caveat": "Die Zählregeln für diesen Pool sind nicht überprüft. Diese Aufgaben können dazu beitragen; ihr Abschluss kann diese Voraussetzung aber nicht bestätigen.",
         "pool_confirmation_hint": "Wenn diese Aufgabe im Spiel schon verfügbar ist, nutze „Als verfügbar markieren“. Das schließt keine Pool-Aufgaben ab.",
@@ -251,9 +251,9 @@
         "unhidden_toast": "{name} ist wieder in deiner Aufgabenliste."
       },
       "trader_sections": {
-        "loyalty_level": "Ansehensstufe {level}",
+        "loyalty_level": "Loyalitätsstufe {level}",
         "essential": "Wichtige Aufgaben",
-        "essential_hint": "Gehören zu keiner Ansehensstufen-Gruppe und zählen daher nicht für deren Aufgaben-Freischaltungen.",
+        "essential_hint": "Gehören zu keiner Loyalitätsstufen-Gruppe und zählen daher nicht für deren Aufgaben-Freischaltungen.",
         "other": "Weitere Aufgaben",
         "other_hint": "Spielinterne Gruppe noch nicht bekannt."
       }
@@ -340,7 +340,7 @@
         "level_unmet_aria": "Benötigt Level {required}, du bist Level {current}",
         "level_title": "Benötigtes Level {required} (du bist Level {current})",
         "level_summary": "Level {required} (du bist Level {current})",
-        "trader_level": "{trader} Ansehensstufe {level}",
+        "trader_level": "{trader} Loyalitätsstufe {level}",
         "action_uncomplete": "Als nicht abgeschlossen markieren",
         "action_reset_failed": "Fehlgeschlagen zurücksetzen",
         "locked_by": "Voraussetzung: {task}"
@@ -554,7 +554,7 @@
       "mode_filter_hint": "Nicht angehakte Modi bleiben unberührt. Ereignisse mit unbekanntem Modus werden standardmäßig ausgeschlossen, wenn bekannte Modi erkannt wurden; beziehe sie nur ein, wenn du weißt, wohin sie gehören.",
       "unidentified_mode": "Unbekannter Modus",
       "state_filter_label": "Aufgabenstatus einbeziehen",
-      "state_filter_hint": "Es wird nur der zuletzt aufgezeichnete Status jeder Aufgabe berücksichtigt. Einen Status auszuschließen stellt keinen älteren wieder her. Abgeschlossene Aufgaben stellen auch Ziele wieder her und können Vorgängeraufgaben, Mindest-Level und Mindest-Ansehensstufen sowie Story-Freischaltungen nach sich ziehen.",
+      "state_filter_hint": "Es wird nur der zuletzt aufgezeichnete Status jeder Aufgabe berücksichtigt. Einen Status auszuschließen stellt keinen älteren wieder her. Abgeschlossene Aufgaben stellen auch Ziele wieder her und können Vorgängeraufgaben, Mindest-Level und Mindest-Loyalitätsstufen sowie Story-Freischaltungen nach sich ziehen.",
       "states": {
         "started": "Gestartet / aktiv"
       },

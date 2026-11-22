@@ -228,11 +228,26 @@ describe('effective German locale', () => {
       expect(effective.get(key), `${key} is still English`).not.toBe(source.get(key));
     }
   });
-  // The reported wording: the trader level reads "Ansehensstufe", never the English phrase.
-  it('words loyalty levels as Ansehensstufe', () => {
-    expect(overrides.get('page.kappa.row.trader_level')).toBe('{trader} Ansehensstufe {level}');
-    expect(overrides.get('page.tasks.trader_sections.loyalty_level')).toBe('Ansehensstufe {level}');
+  // User decision: the trader level reads "Loyalitätsstufe", never the English phrase and never
+  // "Ansehensstufe". "Ansehen" stays only where the English says reputation or standing.
+  it('words loyalty levels as Loyalitätsstufe', () => {
+    expect(overrides.get('page.kappa.row.trader_level')).toBe('{trader} Loyalitätsstufe {level}');
+    expect(overrides.get('page.tasks.trader_sections.loyalty_level')).toBe(
+      'Loyalitätsstufe {level}'
+    );
+    expect(overrides.get('page.tasks.blockers.trader_level_required')).toBe(
+      'Benötigt Loyalitätsstufe {requirement} bei {trader} (du: {current}).'
+    );
     expect([...effective.values()].filter((value) => /Loyalty Level/i.test(value))).toEqual([]);
+  });
+  it('has no effective German string containing Ansehensstufe', () => {
+    const offenders = [...effective].filter(([, value]) => /Ansehensstufe/i.test(value));
+    expect(offenders).toEqual([]);
+  });
+  it('keeps Ansehen for reputation strings', () => {
+    expect(overrides.get('page.tasks.requirements.trader_reputation')).toBe(
+      '{trader} Ansehen {requirement}'
+    );
   });
   // The /resources description no longer advertises the hidden TarkovMonitor (FORK.md 3.14).
   it('does not advertise TarkovMonitor in the resources meta description', () => {
