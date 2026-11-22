@@ -35,4 +35,18 @@ describe('DrawerLinks (fork)', () => {
       );
     }
   });
+  it('links the Kappa & Lightkeeper tracker in the main block, collapsed or not', () => {
+    for (const collapsed of [false, true]) {
+      const wrapper = mountLinks(collapsed);
+      const kappa = wrapper.find('[data-to="/kappa"]');
+      expect(kappa.exists()).toBe(true);
+      expect(kappa.attributes('data-key')).toBe('common.kappa_lightkeeper');
+      expect(targets(wrapper).filter((to) => to === '/kappa')).toHaveLength(1);
+    }
+  });
+  it('places Kappa after Team and before Settings', () => {
+    const order = targets(mountLinks());
+    expect(order.indexOf('/kappa')).toBeGreaterThan(order.indexOf('/team'));
+    expect(order.indexOf('/kappa')).toBeLessThan(order.indexOf('/settings'));
+  });
 });

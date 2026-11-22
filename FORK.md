@@ -232,6 +232,28 @@ Grundsatz: Der Fork redet nur mit Hosts, die er braucht. **Der einzige externe H
 
 `app/features/resources/resourceData.ts`: der Eintrag `tarkovmonitor` bleibt im Upstream-Block stehen, `RESOURCES` filtert ihn über `FORK_HIDDEN_RESOURCE_SLUGS` heraus. Damit verschwindet die Karte auf `/resources`, die Route steht nicht mehr in `PUBLIC_SEO_ROUTES` (kein Prerender, kein Sitemap-Eintrag), und `/resources/tarkovmonitor` antwortet über die bestehende Prüfung in `app/pages/resources/[slug].vue` mit einem echten 404 (wie jeder unbekannte Slug; kein Redirect, weil die Seite hier nicht existiert). `public/llms.txt` verweist nicht mehr auf die Anleitung, die Smoke-Skripte unter `scripts/preview/smoke/` und die Testfixtures nutzen RatScanner. Unberührt: die Locale-Texte (inkl. der Beschreibung von `seo.routes.resources`), der Verwandte-Projekte-Link auf `/herkunft` und `page.tasks.auto_tracking_guide`. Beim Sync: kommt ein neuer Eintrag in `RESOURCES`, ändert sich nichts an der Filterung. Test: `app/features/resources/__tests__/tarkovmonitorHidden.test.ts`.
 
+### 3.15 Kappa- und Lightkeeper-Tracker bleibt
+
+Upstream hat die Seite `/kappa` mit #1534 (`d71384c2`, 2026-11-21) zu einem Hinweis "retired" umgebaut. Unsere Community nutzt sie aktiv, deshalb haben wir den Commit zurückgenommen (`git revert`) und die Seite wieder an den aktuellen Code angeschlossen. Aufgabenmengen kommen weiter aus dem aktuellen Katalog (`metadataStore.tasks`, Flags `kappaRequired` / `lightkeeperRequired`), PvP und PvE folgen dem aktiven Spielmodus. Profil-Fortschritt und Streamer-Overlay waren nie betroffen.
+
+Dateien, die wir jetzt besitzen:
+
+- `app/pages/kappa.vue` (Upstream: Hinweisseite), `app/features/seo-pages/kappa.vue` (Wrapper), `app/features/kappa/*` (`useKappaOverview.ts`, `KappaTaskRow.vue`, `KappaTraderColumn.vue`, `KappaTraderSelector.vue`, `TrackerSummary.vue`) samt Tests
+- `app/features/drawer/DrawerLinks.vue`: Eintrag Kappa & Lightkeeper nach Team (Icon `i-mdi-trophy`); `nuxt.config.ts`: `'/kappa': 'kappa'` in `wrappers`
+- `app/locales/en.json`: `page.kappa.*` (Upstream hat die Schlüssel entfernt); `app/locales/de.overrides.json`: `page.kappa.*` und `common.lightkeeper` ("Lightkeeper" statt Crowdin-"Leuchtturm"), damit die Seite deutsch bleibt, auch wenn Crowdin die Schlüssel verliert
+- `public/llms.txt` (Eintrag), `docs/architecture.md` (Zeile `kappa/`)
+- Fußzeile: unverändert. `AppFooter.vue` ist komplett eigen und hatte nie eine Tracker-Linkliste, es gibt dort nichts wiederherzustellen.
+- `KappaTaskRow.vue`: Statuslabel nutzt `common.completed` statt `common.complete`, weil unser Override von `common.complete` ("Abschließen") ein Knopf-Imperativ ist.
+
+Beim Sync beachten:
+
+- Merge-Konflikte in `app/pages/kappa.vue`, `DrawerLinks.vue`, `nuxt.config.ts`, `en.json`: unsere Fassung behalten, Upstream-Änderungen am Rest übernehmen. `app/utils/routeSeo.ts`, `scripts/preview/smoke/seo.smoke.mjs` und `tests/` führen `/kappa` upstream weiter (Titel "Kappa & Lightkeeper Tracker").
+- Upstream-Änderungen an Stores und Aufgabenform (`useMetadata`, `useProgress`, `useTarkov`, `Task`-Typ, `isTaskCounted`/`isTaskRelevant`, `sortTasksByProgression`, `useTaskActions`, `useSharedBreakpoints`) brechen `useKappaOverview.ts` zuerst; die Tests in `app/features/kappa/__tests__/` und `app/pages/__tests__/kappa.page.test.ts` zeigen das.
+- Fällt `kappaRequired` / `lightkeeperRequired` upstream weg oder ändert die Form, ist die Seite leer: Seite und Profil (`ProfileProgression.vue`) gemeinsam anpassen.
+- Farb-Tokens `kappa-*` / `lightkeeper-*` in `tailwind.css` und `app.config.ts` nicht entfernen (Seite, Dashboard, Overlay).
+- Neue Schlüssel unter `page.kappa.*` in `en.json` brauchen einen Eintrag in `de.overrides.json` (`de-overrides.test.ts` prüft das).
+- Tests: `app/pages/__tests__/kappa.page.test.ts`, `app/features/drawer/__tests__/DrawerLinks.test.ts`, `app/features/kappa/__tests__/*`, `app/locales/__tests__/de-overrides.test.ts`.
+
 ---
 
 ## 4. Overlay-Quelle (`OVERLAY_URL`)

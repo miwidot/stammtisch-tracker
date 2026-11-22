@@ -38,6 +38,12 @@
         to="/team"
         :is-collapsed="props.isCollapsed"
       ></DrawerItem>
+      <DrawerItem
+        icon="i-mdi-trophy"
+        locale-key="common.kappa_lightkeeper"
+        to="/kappa"
+        :is-collapsed="props.isCollapsed"
+      ></DrawerItem>
     </ul>
     <div class="bg-divider mx-3 my-2 h-px" aria-hidden="true"></div>
     <ul class="flex flex-col gap-0.5 px-1 pb-2">

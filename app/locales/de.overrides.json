@@ -3,6 +3,7 @@
     "complete": "Abschließen",
     "fail": "Fehlgeschlagen",
     "kappa_lightkeeper": "Kappa & Lightkeeper",
+    "lightkeeper": "Lightkeeper",
     "mark_complete": "Als abgeschlossen markieren",
     "reset_failed": "Fehlgeschlagen zurücksetzen"
   },
@@ -121,6 +122,30 @@
         "escaped_and_survived": "Aus Tarkov entkommen und überlebt",
         "escaped_to_fall_in_the_darkness": "Aus Tarkov entkommen, um in der Dunkelheit zu fallen",
         "not_escaped_from_yourself": "Du bist dir selbst nicht entkommen"
+      }
+    },
+    "kappa": {
+      "subtitle": "Verfolge deinen Fortschritt auf dem Weg zum Kappa-Container und zu den Lightkeeper-Aufgaben.",
+      "row": {
+        "level_met_aria": "Benötigtes Level {required}, du bist Level {current}",
+        "level_unmet_aria": "Benötigt Level {required}, du bist Level {current}",
+        "level_title": "Benötigtes Level {required} (du bist Level {current})",
+        "level_summary": "Level {required} (du bist Level {current})",
+        "trader_level": "{trader} Loyalty Level {level}",
+        "action_uncomplete": "Als nicht abgeschlossen markieren",
+        "action_reset_failed": "Fehlgeschlagen zurücksetzen",
+        "locked_by": "Voraussetzung: {task}"
+      },
+      "empty": "Für diese Liste gibt es noch keine Aufgaben.",
+      "summary": {
+        "complete": "abgeschlossen",
+        "final_goal": "Endziel: Kappa"
+      },
+      "trader_selector": {
+        "label": "Händler auswählen"
+      },
+      "trader": {
+        "other": "Sonstige"
       }
     }
   },

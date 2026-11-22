@@ -539,6 +539,7 @@ export default defineNuxtConfig({
         '/tasks': 'tasks',
         '/hideout': 'hideout',
         '/needed-items': 'needed-items',
+        '/kappa': 'kappa',
         '/storyline': 'storyline',
         '/changelog': 'changelog',
       };

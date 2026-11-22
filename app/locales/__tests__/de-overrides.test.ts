@@ -52,6 +52,8 @@ describe('de.overrides.json', () => {
     // A trader's name. The override restores the English spelling on purpose —
     // see the Lightkeeper case below.
     'common.kappa_lightkeeper',
+    // The trader's name again, on the Kappa tracker tab and the profile card.
+    'common.lightkeeper',
     // Project names and a license identifier — none of these have a German
     // form, so the /herkunft page and footer attribution line intentionally
     // reuse the English label.
@@ -109,6 +111,20 @@ describe('reported translation defects', () => {
   it('keeps the Lightkeeper trader name in the menu entry', () => {
     expect(crowdin.get('common.kappa_lightkeeper')).toBe('Kappa & Lichthalter');
     expect(overrides.get('common.kappa_lightkeeper')).toBe('Kappa & Lightkeeper');
+  });
+  // The Kappa & Lightkeeper tracker page is restored by the fork (FORK.md 3.15). Upstream dropped its
+  // page.kappa keys from en.json when it retired the page, so Crowdin stops carrying them: the
+  // overrides keep the page German on their own.
+  it('translates every key of the restored Kappa tracker page', () => {
+    const kappaKeys = [...source.keys()].filter((key) => key.startsWith('page.kappa.'));
+    expect(kappaKeys.length).toBeGreaterThan(0);
+    for (const key of kappaKeys) {
+      expect(overrides.get(key), `${key} has no German override`).toEqual(expect.any(String));
+    }
+  });
+  it('keeps the Lightkeeper trader name on the Kappa tracker tab', () => {
+    expect(crowdin.get('common.lightkeeper')).toBe('Leuchtturm');
+    expect(overrides.get('common.lightkeeper')).toBe('Lightkeeper');
   });
   // The compact-cards setting is still English in the Crowdin export; the override
   // gives it the same "einklappen" verb the card collapse label uses.
