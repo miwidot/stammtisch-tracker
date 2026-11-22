@@ -430,6 +430,12 @@ Die App liest Quests, Items, Hideout und Strings aus `TARKOV_DATA_DIR` (zeigt au
 - **Nie über Sonntag 03:45 hinweg einen Batch laufen lassen** (siehe Migrationen: der Inaktivitäts-Cron würde dort laufen, bevor er ausgeplant ist). Ebenso nicht um 04:30 (täglicher `account-deletion-retry`).
 - Fehlschlag oder veraltetes `producer-manifest.json`: Discord-Alarm. Sonst liefert die App still alte Daten.
 
+**Warnung: Pin mitziehen, wenn das Overlay erweitert wird.** Erweitert man das Locale-Schema oder die Neutral-Overlay-Felder, muss der Pin (`scripts/producer/tracker.lock.json` im Overlay-Repo) auf einen App-Commit zeigen, dessen Allow-List in `neutralOverlay.ts` die neuen Felder akzeptiert. Sonst bricht der Produzent mit `[precompute] Invalid neutral overlay strings` ab, und das letzte gute Release bleibt aktiv (die App liefert still alte Daten).
+
+- Reihenfolge: zuerst der App-Commit, dann Overlay-Änderung und Pin-Anhebung zusammen, dann Deploy.
+- Ein neuer Pin legt einen frischen Tools-Checkout von rund 1,2 GB unter `~/.cache/stammtisch-overlay-producer` an. Alte Checkouts räumt nichts auf; nur von Hand und nur mit OK des Nutzers.
+- Vorfall 2026-11-22: Overlay-Stand 6cb60ca scheiterte so und wurde durch den Pin b0dcdd2 behoben.
+
 ### nginx (beide Umgebungen)
 
 Soll-Zustand (FORK.md §2.3 ist die Quelle; hier die Betriebsregeln):
