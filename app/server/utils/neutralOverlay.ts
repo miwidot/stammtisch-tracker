@@ -13,7 +13,8 @@ export type NeutralOverlaySnapshot = {
   strings: Record<string, Record<string, string>>;
   localeTargets: Record<string, string[]>;
 };
-const DEFAULT_URL =
+// Fork: exported so the data fingerprint hashes the same source (see FORK.md 3.16).
+export const DEFAULT_URL =
   'https://raw.githubusercontent.com/tarkovtracker-org/tarkov-data-overlay/main/dist/overlay-neutral.json';
 const TTL = 60 * 60 * 1000;
 let cached: { snapshot: NeutralOverlaySnapshot; fetchedAt: number } | undefined;

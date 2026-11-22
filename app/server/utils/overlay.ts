@@ -65,7 +65,8 @@ const OVERLAY_REFRESH_RETRY_MS = 60000;
 const FETCH_TIMEOUT_MS = 5000; // 5 seconds
 // GitHub raw URL for the overlay
 // Note: Using raw.githubusercontent.com directly until jsDelivr cache propagates
-const DEFAULT_OVERLAY_URL =
+// Fork: exported so the data fingerprint hashes the same source (see FORK.md 3.16).
+export const DEFAULT_OVERLAY_URL =
   'https://raw.githubusercontent.com/tarkovtracker-org/tarkov-data-overlay/main/dist/overlay.json';
 const OVERLAY_PROTOCOL = 'https:';
 const MAX_OVERLAY_REDIRECTS = 3;

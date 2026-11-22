@@ -9,6 +9,7 @@
  * Cache Key Structure: tarkov-{type}-{gameMode}-{lang}
  * Example: tarkov-data-regular-en, tarkov-hideout-pve-fr
  */
+import { checkDataFingerprint } from './dataFingerprint';
 import { logger } from './logger';
 import { perfEnabled, perfEnd, perfStart } from './perf';
 // Cache configuration
@@ -22,6 +23,26 @@ export const CACHE_CONFIG = {
   MAX_TTL: 24 * 60 * 60 * 1000,
 } as const;
 const DB_OPEN_BLOCKED_TIMEOUT_MS = 3000;
+// Fork: runtime override of the entry TTL (NUXT_PUBLIC_TARKOV_DATA_CACHE_TTL_MS, see FORK.md 3.16).
+// null = unset (upstream TTLs apply), 0 = never persist and never serve from the cache.
+let browserTtlOverride: number | null = null;
+export function resolveCacheTtlOverrideMs(): number | null {
+  let raw: unknown;
+  try {
+    raw = (useRuntimeConfig().public as Record<string, unknown>).tarkovDataCacheTtlMs;
+    if (import.meta.client) browserTtlOverride = parseTtlOverride(raw);
+  } catch {
+    return browserTtlOverride;
+  }
+  return parseTtlOverride(raw);
+}
+function parseTtlOverride(raw: unknown): number | null {
+  if (raw === null || raw === undefined || (typeof raw === 'string' && raw.trim() === '')) {
+    return null;
+  }
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
 export type CacheType =
   | 'strings'
   | 'bootstrap'
@@ -42,6 +63,8 @@ interface CachedData<T> {
   gameMode: string;
   lang: string;
   version: number;
+  // Fork: fingerprint of the served game data at fetch time (see FORK.md 3.16).
+  fingerprint?: string;
   /** Cached size in bytes, computed only when perf is enabled */
   sizeBytes?: number;
 }
@@ -331,6 +354,11 @@ export async function getCachedData<T>(
 ): Promise<T | null> {
   try {
     const cacheKey = generateCacheKey(type, gameMode, lang);
+    // Fork: TTL override 0 means always revalidate.
+    const ttlOverride = resolveCacheTtlOverrideMs();
+    if (ttlOverride === 0) return null;
+    // Fork: resolved before the read so a deploy is noticed at app start (throttled, never throws).
+    const fingerprint = await checkDataFingerprint();
     return await executeDatabaseTransaction<CachedData<T> | undefined>(
       'readonly',
       (store) => store.get(cacheKey),
@@ -343,10 +371,16 @@ export async function getCachedData<T>(
       // Check if cache is expired
       const now = Date.now();
       const age = now - cachedResult.timestamp;
-      if (age > cachedResult.ttl) {
+      const ttl = ttlOverride === null ? cachedResult.ttl : Math.min(cachedResult.ttl, ttlOverride);
+      if (age > ttl) {
         logger.debug(
           `[TarkovCache] Cache EXPIRED: ${cacheKey} (age: ${Math.round(age / 1000 / 60)}min)`
         );
+        return null;
+      }
+      // Fork: entries without a fingerprint (old format) or under another one are stale.
+      if (fingerprint !== null && cachedResult.fingerprint !== fingerprint) {
+        logger.debug(`[TarkovCache] Cache STALE (data fingerprint changed): ${cacheKey}`);
         return null;
       }
       logger.debug(`[TarkovCache] Cache HIT: ${cacheKey} (age: ${Math.round(age / 1000 / 60)}min)`);
@@ -372,6 +406,9 @@ export async function setCachedData<T>(
   isCurrent: () => boolean = () => true
 ): Promise<void> {
   if (!isCurrent()) return;
+  // Fork: TTL override 0 means no persistent cache.
+  const ttlOverride = resolveCacheTtlOverrideMs();
+  if (ttlOverride === 0) return;
   try {
     const cacheKey = generateCacheKey(type, gameMode, lang);
     // Compute accurate byte size only when perf logging is enabled
@@ -380,14 +417,17 @@ export async function setCachedData<T>(
       const jsonStr = JSON.stringify(data);
       sizeBytes = new Blob([jsonStr]).size;
     }
+    // Fork: stamp the entry with the fingerprint it was fetched under (null when unknown).
+    const fingerprint = await checkDataFingerprint();
     const cacheEntry: CachedData<T> = {
       data,
       timestamp: Date.now(),
-      ttl: Math.min(ttl, CACHE_CONFIG.MAX_TTL),
+      ttl: Math.min(ttl, CACHE_CONFIG.MAX_TTL, ttlOverride ?? Infinity),
       cacheKey,
       gameMode,
       lang,
       version: CACHE_CONFIG.DB_VERSION,
+      ...(fingerprint ? { fingerprint } : {}),
       sizeBytes,
     };
     let stored = false;

@@ -264,6 +264,25 @@ Bewusst **unverändert** (Herkunft, Lizenz oder Upstream-Inhalt): Fußzeile und 
 
 Tests: `tests/fork-branding.test.ts`, `tests/route-seo.test.ts`.
 
+### 3.16 Datenfingerabdruck für den Client-Cache
+
+Upstream hält Spieldaten im IndexedDB-Cache `tarkov-tracker-cache` 12 Stunden und prüft sonst nur `cache-meta` (Admin-Purge). Eine Übersetzungs- oder Produzentenänderung ohne Purge und ohne neues Overlay-Tag blieb deshalb bis zu 12 Stunden unsichtbar.
+
+Ablauf:
+
+- Server: `GET /api/tarkov/data-fingerprint` (`app/server/api/tarkov/data-fingerprint.get.ts`, `app/server/utils/dataFingerprint.ts`) liefert `{ data: { fingerprint } }`, einen auf 32 Zeichen gekürzten SHA-256 über: Zielverzeichnis von `TARKOV_DATA_DIR` (Release-Name) samt Inhalt des Katalog-Manifests, Inhalt der Quellen `OVERLAY_URL` und `NEUTRAL_OVERLAY_URL` (gleiche Validierung wie `overlay.ts`/`neutralOverlay.ts`, Datei oder HTTP) und Nuxt-Build-ID. Nichts davon (Pfade, URLs) verlässt den Server. Antwort 5 s im Speicher und per `Cache-Control: public, max-age=5`; Overlay-Quellen werden lokal 5 s, über das Netz 60 s gemerkt. Ist eine Quelle unlesbar, bleibt ihr letzter guter Hash stehen.
+- Client: `app/utils/dataFingerprint.ts` fragt höchstens einmal pro 60 s (Timeout 2,5 s, auch ein Fehlschlag zählt). `getCachedData` und `setCachedData` in `app/utils/tarkovCache.ts` warten darauf; Einträge tragen das Feld `fingerprint`. Fehlt es (altes Format) oder weicht es ab, gilt der Eintrag als abgelaufen und wird neu geladen. Schlägt die Abfrage fehl, wird der Cache weiter benutzt und per `logger.warn` vermerkt.
+- `app/plugins/data-fingerprint.client.ts` prüft bei Tabfokus und `visibilitychange` (gleicher Throttle). Ändert sich der Wert während einer Sitzung, lädt `metadataStore.initialize({ forceRefresh: true })` die Daten neu.
+- TTL-Override: `runtimeConfig.public.tarkovDataCacheTtlMs`, Env `NUXT_PUBLIC_TARKOV_DATA_CACHE_TTL_MS` (Millisekunden). Leer/ungesetzt: Upstream-12h. `0`: nichts wird gespeichert und nichts aus dem Cache geliefert. Positiver Wert: begrenzt die TTL neuer und vorhandener Einträge. Laufzeitwert, kein Rebuild, nur Neustart des Prozesses.
+
+Dateien: `app/utils/dataFingerprint.ts`, `app/plugins/data-fingerprint.client.ts`, `app/server/utils/dataFingerprint.ts`, `app/server/api/tarkov/data-fingerprint.get.ts` (alle neu); `app/utils/tarkovCache.ts`, `nuxt.config.ts` (ein Schlüssel in `public`), `app/server/utils/overlay.ts` und `neutralOverlay.ts` (je `export` vor der Standard-URL-Konstante).
+
+Beim Sync beachten:
+
+- Ändert Upstream `getCachedData`/`setCachedData`, die `// Fork:`-Blöcke in `tarkovCache.ts` behalten. Beide rufen `checkDataFingerprint()` auf; ohne den Aufruf ist das Verhalten wieder 12 h.
+- Die Namen `DEFAULT_OVERLAY_URL` und `DEFAULT_URL` müssen aus `overlay.ts` bzw. `neutralOverlay.ts` exportiert bleiben.
+- Tests: `app/utils/__tests__/dataFingerprint.cache.test.ts`, `app/server/utils/__tests__/dataFingerprint.test.ts`, `app/server/api/tarkov/__tests__/data-fingerprint.get.test.ts`.
+
 ---
 
 ## 4. Overlay-Quelle (`OVERLAY_URL`)
