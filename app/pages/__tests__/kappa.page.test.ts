@@ -3,6 +3,7 @@ import { mockNuxtImport } from '@nuxt/test-utils/runtime';
 import { mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { reactive, ref } from 'vue';
+import { kappaStubs } from '@/features/kappa/__tests__/stubs';
 import KappaPage from '@/pages/kappa.vue';
 import type { Task } from '@/types/tarkov';
 mockNuxtImport('useI18n', () => () => ({ t: (key: string) => key }));
@@ -60,12 +61,7 @@ vi.mock('@/stores/useProgress', () => ({
 const mountPage = () =>
   mount(KappaPage, {
     global: {
-      stubs: {
-        UTabs: { template: '<div data-testid="tabs" />' },
-        UIcon: true,
-        NuxtLink: { props: ['to'], template: '<a :href="to"><slot /></a>' },
-        AppTooltip: { template: '<div><slot /></div>' },
-      },
+      stubs: kappaStubs,
     },
   });
 describe('/kappa page', () => {
@@ -76,7 +72,7 @@ describe('/kappa page', () => {
     const wrapper = mountPage();
     expect(wrapper.text()).not.toContain('page.kappa.retired_title');
     expect(wrapper.text()).not.toContain('page.kappa.retired_description');
-    expect(wrapper.find('[data-testid="tabs"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="kappa-tabs"]').exists()).toBe(true);
     expect(wrapper.text()).toContain('PvP Kappa Task');
   });
   it('lists the Kappa set without the Lightkeeper tasks and shows the Collector goal', () => {
@@ -95,6 +91,23 @@ describe('/kappa page', () => {
   it('shows the empty state when the catalog has no Kappa task', () => {
     tasks.splice(0, tasks.length);
     const wrapper = mountPage();
-    expect(wrapper.text()).toContain('page.kappa.empty');
+    expect(wrapper.get('[data-testid="kappa-empty"]').text()).toContain('page.kappa.empty');
+  });
+  it('renders each row with its status, level requirement and action button', () => {
+    tasks.splice(0, tasks.length, {
+      id: 'lvl',
+      name: 'Level gated',
+      kappaRequired: true,
+      minPlayerLevel: 20,
+      trader: traders[0],
+    });
+    const row = mountPage().get('[data-testid="kappa-trader-prapor"] li');
+    expect(row.get('[data-testid="kappa-status-badge"]').text()).toMatch(
+      /^common\.(available|locked)$/
+    );
+    expect(row.get('[data-testid="kappa-level-badge"]').text()).toContain('20');
+    expect(row.get('[data-testid="kappa-status-action"]').attributes('aria-label')).toContain(
+      'Level gated'
+    );
   });
 });

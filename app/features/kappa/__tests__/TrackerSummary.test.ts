@@ -1,5 +1,6 @@
 import { mount } from '@vue/test-utils';
 import { describe, expect, it, vi } from 'vitest';
+import { kappaStubs } from '@/features/kappa/__tests__/stubs';
 import TrackerSummary from '@/features/kappa/TrackerSummary.vue';
 vi.mock('@/composables/useTaskActions', () => ({
   useTaskActions: () => ({
@@ -34,10 +35,15 @@ describe('TrackerSummary', () => {
         locked: 1,
         accent: 'kappa',
       },
-      global: { stubs: { UIcon: true, NuxtLink: true } },
+      global: { stubs: kappaStubs },
     });
-    expect(wrapper.text()).toContain('Available 3');
-    expect(wrapper.text()).toContain('Locked 1');
-    expect(wrapper.text()).toContain('Failed 2');
+    const stat = (key: string) => wrapper.get(`[data-testid="kappa-stat-${key}"]`);
+    expect(stat('available').element.previousElementSibling?.textContent).toBe('Available');
+    expect(stat('available').text()).toBe('3');
+    expect(stat('locked').element.previousElementSibling?.textContent).toBe('Locked');
+    expect(stat('locked').text()).toBe('1');
+    expect(stat('failed').element.previousElementSibling?.textContent).toBe('Failed');
+    expect(stat('failed').text()).toBe('2');
+    expect(stat('completed').text()).toBe('4 / 10 complete');
   });
 });

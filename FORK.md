@@ -236,6 +236,8 @@ Grundsatz: Der Fork redet nur mit Hosts, die er braucht. **Der einzige externe H
 
 Upstream hat die Seite `/kappa` mit #1534 (`d71384c2`, 2026-11-21) zu einem Hinweis "retired" umgebaut. Unsere Community nutzt sie aktiv, deshalb haben wir den Commit zurückgenommen (`git revert`) und die Seite wieder an den aktuellen Code angeschlossen. Aufgabenmengen kommen weiter aus dem aktuellen Katalog (`metadataStore.tasks`, Flags `kappaRequired` / `lightkeeperRequired`), PvP und PvE folgen dem aktiven Spielmodus. Profil-Fortschritt und Streamer-Overlay waren nie betroffen.
 
+Die Seite ist auf die aktuellen Komponentenmuster umgestellt (`PageHeader`, `StatusTabBar`, Händlerleiste wie in `TaskFilterBar`, `DashboardProgressBar`, `UButton`/`UBadge`); Theme-Tokens und Verhalten unverändert, gemeinsame Bausteine `KappaStatusAction.vue`, `KappaLevelBadge.vue`, `KappaLoadingState.vue`.
+
 Dateien, die wir jetzt besitzen:
 
 - `app/pages/kappa.vue` (Upstream: Hinweisseite), `app/features/seo-pages/kappa.vue` (Wrapper), `app/features/kappa/*` (`useKappaOverview.ts`, `KappaTaskRow.vue`, `KappaTraderColumn.vue`, `KappaTraderSelector.vue`, `TrackerSummary.vue`) samt Tests

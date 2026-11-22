@@ -1,108 +1,62 @@
 <template>
-  <div class="flex min-h-full flex-col px-3 py-6 sm:px-6 lg:px-10 2xl:px-16">
-    <slot name="header" />
-    <UTabs
-      v-model="activeTabKey"
-      :items="tabItems"
-      :content="false"
-      color="neutral"
-      size="md"
-      class="mb-3 w-fit max-w-full"
-      :ui="{
-        list: 'gap-0 rounded-lg border border-white/[0.08] bg-surface-900/60 p-0.5',
-        indicator: 'rounded-md bg-white/[0.08]',
-        trigger:
-          'relative px-3 py-2 text-sm font-medium transition-colors rounded-md sm:px-4 data-[state=active]:text-white light:data-[state=active]:text-surface-50',
-      }"
-    >
-      <template #default="{ item }">
-        <div class="flex items-center gap-2">
-          <UIcon
-            :name="item.iconName"
-            class="hidden h-4 w-4 shrink-0 sm:block"
-            :class="item.value === 'kappa' ? 'text-kappa-400' : 'text-lightkeeper-400'"
-          />
-          <span class="truncate">{{ item.label }}</span>
-          <span
-            class="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums"
-            :class="
-              item.value === 'kappa'
-                ? 'bg-warning-500/20 text-warning-300'
-                : 'bg-info-500/20 text-info-300'
-            "
-          >
-            {{ item.count }}
-          </span>
-        </div>
-      </template>
-    </UTabs>
-    <TrackerSummary
-      :label="tabLabel"
-      :total="totals.total"
-      :completed="totals.completed"
-      :failed="totals.failed"
-      :available="totals.available"
-      :locked="totals.locked"
-      :accent="activeTab"
-      :collector="collectorRow"
-    />
-    <div v-if="totals.total === 0" class="py-12 text-center">
-      <UIcon name="i-mdi-cloud-off-outline" class="text-surface-500 mx-auto mb-3 h-12 w-12" />
-      <p class="text-surface-300 text-lg font-medium">
-        {{ t('page.kappa.empty', 'No tasks for this list yet.') }}
-      </p>
-    </div>
-    <template v-else>
-      <div
-        v-if="xxlAndUp"
-        class="grid grid-cols-[repeat(auto-fit,minmax(14rem,1fr))] items-start gap-3"
-      >
-        <KappaTraderColumn
-          v-for="group in groupedByTraderWithoutFence"
-          :key="group.trader.id"
-          :group="group"
-          :accent="activeTab"
+  <div class="min-h-full overflow-x-hidden">
+    <div class="px-3 py-6 sm:px-6">
+      <div class="mx-auto max-w-350 space-y-3 sm:space-y-4">
+        <slot name="header" />
+        <StatusTabBar
+          v-model="activeTabKey"
+          :tabs="tabItems"
+          :group-label="t('common.kappa_lightkeeper')"
+          data-testid="kappa-tabs"
         />
-      </div>
-      <div
-        v-else-if="lgAndUp"
-        class="-mx-3 flex snap-x scroll-px-3 scrollbar-thin gap-3 overflow-x-auto px-3 pb-2 lg:-mx-10 lg:scroll-px-10 lg:px-10"
-      >
-        <KappaTraderColumn
-          v-for="group in groupedByTraderWithoutFence"
-          :key="group.trader.id"
-          :group="group"
+        <TrackerSummary
+          :label="tabLabel"
+          :total="totals.total"
+          :completed="totals.completed"
+          :failed="totals.failed"
+          :available="totals.available"
+          :locked="totals.locked"
           :accent="activeTab"
-          class="w-64 shrink-0 snap-start"
+          :collector="collectorRow"
         />
-      </div>
-      <template v-else>
+        <KappaLoadingState v-if="isLoading" />
+        <UAlert
+          v-else-if="totals.total === 0"
+          icon="i-mdi-clipboard-search"
+          color="primary"
+          variant="soft"
+          :title="t('page.kappa.empty', 'No tasks for this list yet.')"
+        />
         <div
-          class="bg-military-background/95 sticky top-0 z-10 -mx-3 px-3 py-2 backdrop-blur-sm sm:-mx-6 sm:px-6"
+          v-else-if="lgAndUp"
+          class="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] items-start gap-3"
         >
-          <KappaTraderSelector
-            v-model="selectedTraderId"
-            :groups="groupedByTraderWithoutFence"
-            :accent="activeTab"
+          <KappaTraderColumn
+            v-for="group in groupedByTraderWithoutFence"
+            :key="group.trader.id"
+            :group="group"
           />
         </div>
-        <KappaTraderColumn
-          v-if="selectedTraderGroup"
-          :group="selectedTraderGroup"
-          :accent="activeTab"
-        />
-      </template>
-    </template>
+        <template v-else>
+          <KappaTraderSelector v-model="selectedTraderId" :groups="groupedByTraderWithoutFence" />
+          <KappaTraderColumn v-if="selectedTraderGroup" :group="selectedTraderGroup" />
+        </template>
+      </div>
+    </div>
   </div>
 </template>
 <script setup lang="ts">
+  import StatusTabBar from '@/components/ui/StatusTabBar.vue';
   import { useSharedBreakpoints } from '@/composables/useSharedBreakpoints';
+  import KappaLoadingState from '@/features/kappa/KappaLoadingState.vue';
   import KappaTraderColumn from '@/features/kappa/KappaTraderColumn.vue';
   import KappaTraderSelector from '@/features/kappa/KappaTraderSelector.vue';
   import TrackerSummary from '@/features/kappa/TrackerSummary.vue';
   import { useKappaOverview, type KappaTabKey } from '@/features/kappa/useKappaOverview';
+  import { useMetadataStore } from '@/stores/useMetadata';
+  import type { StatusTabItem } from '@/utils/statusTones';
   const { t } = useI18n({ useScope: 'global' });
-  const { lgAndUp, xxlAndUp } = useSharedBreakpoints();
+  const { lgAndUp } = useSharedBreakpoints();
   const activeTab = ref<KappaTabKey>('kappa');
   const selectedTraderId = ref<string>('');
   const { totals: kappaTotals } = useKappaOverview(() => 'kappa');
@@ -125,20 +79,24 @@
   const tabLabel = computed(() =>
     activeTab.value === 'kappa' ? t('common.kappa') : t('common.lightkeeper')
   );
-  const tabItems = computed(() => [
+  const tabItems = computed<StatusTabItem<KappaTabKey>[]>(() => [
     {
       label: t('common.kappa'),
-      value: 'kappa' as KappaTabKey,
+      value: 'kappa',
       count: kappaTotals.value.total,
-      iconName: 'i-mdi-trophy',
+      icon: 'i-mdi-trophy',
+      tone: 'neutral',
     },
     {
       label: t('common.lightkeeper'),
-      value: 'lightkeeper' as KappaTabKey,
+      value: 'lightkeeper',
       count: lightkeeperTotals.value.total,
-      iconName: 'i-mdi-lighthouse',
+      icon: 'i-mdi-lighthouse',
+      tone: 'neutral',
     },
   ]);
+  const metadataStore = useMetadataStore();
+  const isLoading = computed(() => Boolean(metadataStore.loading) && totals.value.total === 0);
   const activeTabKey = computed({
     get: () => activeTab.value,
     set: (val: KappaTabKey) => {

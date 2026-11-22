@@ -1,43 +1,49 @@
 <template>
-  <div class="mb-5 rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-2.5">
-    <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-      <span class="light:text-surface-50 text-[13px] font-semibold text-white">
-        {{ label }} {{ t('common.progress') }}
-      </span>
-      <span class="text-surface-300 text-xs tabular-nums">
-        {{ completed }} / {{ total }} {{ t('page.kappa.summary.complete') }}
-      </span>
-      <span
-        class="text-xs font-semibold tabular-nums"
-        :class="accent === 'kappa' ? 'text-warning-400' : 'text-info-400'"
-      >
-        {{ displayPercent }}%
-      </span>
-      <span class="text-surface-500 text-[11px] tabular-nums">
-        {{ t('common.available') }} {{ available }}
-      </span>
-      <span class="text-surface-500 text-[11px] tabular-nums">
-        {{ t('common.locked') }} {{ locked }}
-      </span>
-      <span class="text-surface-500 text-[11px] tabular-nums">
-        {{ t('common.failed') }} {{ failed }}
-      </span>
+  <section
+    class="bg-surface-900 rounded-lg border border-white/12 px-3 py-3 shadow-sm sm:px-4"
+    data-testid="kappa-summary"
+  >
+    <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
+      <div class="flex items-center gap-2">
+        <UIcon
+          :name="accent === 'kappa' ? 'i-mdi-trophy' : 'i-mdi-lighthouse'"
+          class="h-5 w-5 shrink-0"
+          :class="accent === 'kappa' ? 'text-kappa-400' : 'text-lightkeeper-400'"
+          aria-hidden="true"
+        />
+        <h2 class="text-surface-100 text-sm font-semibold">
+          {{ label }} {{ t('common.progress') }}
+        </h2>
+        <span class="text-surface-50 text-lg font-bold tabular-nums">{{ displayPercent }}%</span>
+        <span class="text-surface-400 text-xs tabular-nums" data-testid="kappa-stat-completed">
+          {{ completed }} / {{ total }} {{ t('page.kappa.summary.complete') }}
+        </span>
+      </div>
+      <dl class="flex flex-wrap items-baseline gap-x-6 gap-y-1 text-sm">
+        <div v-for="stat in stats" :key="stat.key" class="flex items-baseline gap-1.5">
+          <dt class="text-surface-400">{{ stat.label }}</dt>
+          <dd
+            class="text-surface-100 font-semibold tabular-nums"
+            :data-testid="`kappa-stat-${stat.key}`"
+          >
+            {{ stat.value }}
+          </dd>
+        </div>
+      </dl>
     </div>
-    <div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.07]">
-      <div
-        class="h-full rounded-full transition-all duration-300"
-        :class="accent === 'kappa' ? 'bg-warning-500' : 'bg-info-500'"
-        :style="{ width: `${barWidth}%` }"
-      />
-    </div>
+    <DashboardProgressBar
+      :percentage="barWidth"
+      :color="completed === total && total > 0 ? 'success' : 'primary'"
+      :aria-label="`${label} ${t('common.progress')}`"
+      class="mt-3"
+    />
     <div
       v-if="collector"
-      class="mt-2 flex items-center gap-2.5 rounded-md border px-2.5 py-2"
+      class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border px-3 py-2.5"
       :class="milestoneClasses"
+      data-testid="kappa-final-goal"
     >
-      <div
-        class="bg-surface-900/70 h-7 w-7 shrink-0 overflow-hidden rounded-full border border-white/10"
-      >
+      <div class="bg-surface-800 h-8 w-8 shrink-0 overflow-hidden rounded-full">
         <img
           v-if="collector.task.trader?.imageLink"
           :src="collector.task.trader.imageLink"
@@ -45,59 +51,32 @@
           class="h-full w-full object-cover"
           loading="lazy"
         />
-        <div v-else class="flex h-full w-full items-center justify-center">
-          <UIcon name="i-mdi-account" class="text-surface-500 h-4 w-4" />
-        </div>
+        <UIcon v-else name="i-mdi-account-circle" class="text-surface-500 h-full w-full" />
       </div>
       <div class="min-w-0 flex-1">
-        <div class="flex items-center gap-1.5">
-          <span class="text-surface-500 text-[11px] font-medium">
-            {{ t('page.kappa.summary.final_goal') }}
-          </span>
-        </div>
-        <div class="flex items-center gap-2">
+        <span class="text-surface-400 block text-[10px] font-bold tracking-wider uppercase">
+          {{ t('page.kappa.summary.final_goal') }}
+        </span>
+        <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           <NuxtLink
             :to="taskHref"
-            class="text-link hover:text-link-hover min-w-0 truncate text-xs font-semibold no-underline"
+            class="text-link hover:text-link-hover min-w-0 text-sm font-semibold wrap-break-word no-underline"
             :class="{ 'line-through opacity-70': collector.status === 'complete' }"
           >
             {{ collector.task.name }}
           </NuxtLink>
-          <span
-            v-if="minLevel"
-            class="shrink-0 rounded border px-1 text-[10px] font-medium tabular-nums"
-            :class="
-              levelMet
-                ? 'border-success-500/30 bg-success-500/10 text-success-300'
-                : 'border-error-500/30 bg-error-500/10 text-error-300'
-            "
-          >
-            {{ t('common.lv', 'Lv') }} {{ minLevel }}
-          </span>
+          <KappaLevelBadge :task="collector.task" />
         </div>
       </div>
-      <button
-        type="button"
-        class="ring-offset-surface-900 focus-visible:ring-primary-500/60 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
-        :class="toggleClasses"
-        :aria-pressed="collector.status === 'complete'"
-        :aria-label="toggleAriaLabel"
-        :disabled="collector.status === 'locked'"
-        @click="onToggleCollector"
-      >
-        <UIcon v-if="collector.status === 'complete'" name="i-mdi-check-bold" class="h-3 w-3" />
-        <UIcon v-else-if="collector.status === 'failed'" name="i-mdi-close-thick" class="h-3 w-3" />
-        <UIcon v-else-if="collector.status === 'locked'" name="i-mdi-lock" class="h-3 w-3" />
-        <UIcon v-else name="i-mdi-flag-checkered" class="h-3 w-3" />
-      </button>
+      <KappaStatusAction :row="collector" available-icon="i-mdi-flag-checkered" />
     </div>
-  </div>
+  </section>
 </template>
 <script setup lang="ts">
-  import { useTaskActions } from '@/composables/useTaskActions';
-  import { useProgressStore } from '@/stores/useProgress';
+  import DashboardProgressBar from '@/features/dashboard/DashboardProgressBar.vue';
+  import KappaLevelBadge from '@/features/kappa/KappaLevelBadge.vue';
+  import KappaStatusAction from '@/features/kappa/KappaStatusAction.vue';
   import type { KappaRowEntry, KappaTabKey } from '@/features/kappa/useKappaOverview';
-  import type { Task } from '@/types/tarkov';
   const { t } = useI18n({ useScope: 'global' });
   const props = defineProps<{
     label: string;
@@ -109,25 +88,15 @@
     accent: KappaTabKey;
     collector?: KappaRowEntry | null;
   }>();
-  const progressStore = useProgressStore();
-  const playerLevel = computed(() => progressStore.getLevel('self'));
-  function getCollectorTask(): Task {
-    return props.collector!.task;
-  }
-  const { markTaskComplete, markTaskUncomplete, markTaskAvailable } =
-    useTaskActions(getCollectorTask);
   const taskHref = computed(() =>
     props.collector ? `/tasks?task=${props.collector.task.id}` : ''
   );
-  const minLevel = computed(() => {
-    if (!props.collector) return null;
-    const level = props.collector.task.minPlayerLevel ?? 0;
-    return level > 1 ? level : null;
-  });
-  const levelMet = computed(() => {
-    if (minLevel.value == null) return true;
-    return playerLevel.value >= minLevel.value;
-  });
+  const stats = computed(() => [
+    { key: 'available', label: t('common.available'), value: props.available },
+    { key: 'locked', label: t('common.locked'), value: props.locked },
+    { key: 'failed', label: t('common.failed'), value: props.failed },
+  ]);
+  // Never reads 100% until every task is done.
   const displayPercent = computed(() => {
     if (props.total === 0) return 0;
     if (props.completed === props.total) return 100;
@@ -138,56 +107,15 @@
     return Math.round((props.completed / props.total) * 100);
   });
   const milestoneClasses = computed(() => {
-    if (!props.collector) return '';
-    switch (props.collector.status) {
+    switch (props.collector?.status) {
       case 'complete':
         return 'border-success-500/30 bg-success-500/5';
       case 'failed':
         return 'border-error-500/30 bg-error-500/5';
       case 'locked':
-        return 'border-white/5 bg-surface-900/30';
+        return 'border-white/5 bg-surface-800/50';
       default:
-        return 'border-warning-500/20 bg-warning-500/5';
+        return 'border-white/10 bg-surface-800/50';
     }
   });
-  const toggleClasses = computed(() => {
-    if (!props.collector) return '';
-    switch (props.collector.status) {
-      case 'complete':
-        return 'border-success-500/60 bg-success-500/20 text-success-200 hover:bg-success-500/30';
-      case 'failed':
-        return 'border-error-500/60 bg-error-500/20 text-error-200 hover:bg-error-500/30';
-      case 'locked':
-        return 'border-white/10 bg-surface-900/40 text-surface-500 cursor-not-allowed';
-      default:
-        return 'border-warning-500/40 bg-warning-500/15 text-warning-300 hover:bg-warning-500/25';
-    }
-  });
-  const toggleAriaLabel = computed(() => {
-    if (!props.collector) return '';
-    const name = props.collector.task.name ?? props.collector.task.id;
-    switch (props.collector.status) {
-      case 'complete':
-        return t('page.kappa.row.action_uncomplete', 'Mark uncomplete') + `: ${name}`;
-      case 'failed':
-        return t('page.kappa.row.action_reset_failed', 'Reset failed') + `: ${name}`;
-      case 'locked':
-        return t('common.locked', 'Locked') + `: ${name}`;
-      default:
-        return t('common.mark_complete', 'Mark complete') + `: ${name}`;
-    }
-  });
-  function onToggleCollector() {
-    if (!props.collector) return;
-    if (props.collector.status === 'locked') return;
-    if (props.collector.status === 'complete' || props.collector.status === 'failed') {
-      markTaskUncomplete();
-      return;
-    }
-    if (props.collector.status === 'available') {
-      markTaskComplete();
-      return;
-    }
-    markTaskAvailable();
-  }
 </script>

@@ -6,8 +6,10 @@
       </template>
     </KappaPage>
     <template #fallback>
-      <div class="px-3 py-6 sm:px-6 lg:px-10 2xl:px-16">
-        <PageHeader v-bind="header" class="mb-4" />
+      <div class="px-3 py-6 sm:px-6">
+        <div class="mx-auto max-w-350">
+          <PageHeader v-bind="header" class="mb-4" />
+        </div>
       </div>
     </template>
   </ClientOnly>
