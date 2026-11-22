@@ -147,7 +147,7 @@ describe('metadata plugin', () => {
     ['/auth/callback'],
     ['/oauth/twitch'],
     ['/resources'],
-    ['/resources/tarkovmonitor'],
+    ['/resources/tarkovdev'],
     ['/changelog/2024'],
   ])('skips initialization for skip-list path %s', async (path) => {
     await runPluginForPath(path);

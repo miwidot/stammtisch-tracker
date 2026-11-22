@@ -103,22 +103,22 @@ describe('initial HTML link previews', () => {
     }
   );
   it('accepts selected guide images and rejects missing image dimensions', () => {
-    const guide = RESOURCES.find((entry) => entry.slug === 'tarkovmonitor');
+    const guide = RESOURCES.find((entry) => entry.slug === 'ratscanner');
     if (!guide?.hasGuide) throw new Error('Missing guide');
     const original = guide.guide.shareImage;
     guide.guide.shareImage = {
       src: '/selected-guide.webp',
       width: 1200,
       height: 630,
-      altKey: 'seo.routes.tarkovmonitor.title',
+      altKey: 'seo.routes.ratscanner.title',
     };
     try {
-      const html = documentFor('/resources/tarkovmonitor');
-      expect(() => assertLinkPreviewMetadata(html, '/resources/tarkovmonitor')).not.toThrow();
+      const html = documentFor('/resources/ratscanner');
+      expect(() => assertLinkPreviewMetadata(html, '/resources/ratscanner')).not.toThrow();
       expect(() =>
         assertLinkPreviewMetadata(
           html.replace(/<meta name="twitter:image:width"[^>]*>/, ''),
-          '/resources/tarkovmonitor'
+          '/resources/ratscanner'
         )
       ).toThrow('twitter:image:width');
     } finally {

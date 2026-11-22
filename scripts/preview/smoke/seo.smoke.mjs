@@ -21,7 +21,6 @@ const publicPages = {
   '/privacy': 'privacy',
   '/terms-of-service': 'terms_of_service',
   '/resources/tarkovtracker_org_vs_io': 'tarkovtracker_org_vs_io',
-  '/resources/tarkovmonitor': 'tarkovmonitor',
   '/resources/ratscanner': 'ratscanner',
   '/resources/tarkovdev': 'tarkovdev',
   '/resources/cultistcircle': 'cultistcircle',
@@ -214,7 +213,7 @@ test('handle links use the private profile shell and load the public mode', asyn
   await expect(page.getByText(`${origin}/@preview_player`, { exact: true })).toBeVisible();
 });
 test('public to private to public navigation restores metadata', async ({ page }) => {
-  await page.goto(`${origin}/resources/tarkovmonitor`, { waitUntil: 'networkidle' });
+  await page.goto(`${origin}/resources/ratscanner`, { waitUntil: 'networkidle' });
   await page.locator('footer a[href="/tasks"]').click();
   await expect(page).toHaveTitle('Tarkov Quest Tracker · TarkovTracker.org');
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'index, follow');

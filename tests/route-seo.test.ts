@@ -33,8 +33,8 @@ describe('route SEO registry', () => {
     );
   });
   it('includes exactly the public pages and every available guide', () => {
-    expect(PUBLIC_SEO_ROUTES).toHaveLength(18);
-    expect(new Set(PUBLIC_SEO_ROUTES).size).toBe(18);
+    expect(PUBLIC_SEO_ROUTES).toHaveLength(17);
+    expect(new Set(PUBLIC_SEO_ROUTES).size).toBe(17);
     for (const resource of RESOURCES) {
       expect(PUBLIC_SEO_ROUTES.includes(`/resources/${resource.slug}`)).toBe(resource.hasGuide);
     }
@@ -76,17 +76,17 @@ describe('route SEO registry', () => {
     expect(publicHead.titleTemplate).toBeNull();
   });
   it('only emits explicitly configured images and removes them from the next route head', () => {
-    const resource = RESOURCES.find((entry) => entry.slug === 'tarkovmonitor');
-    if (!resource?.hasGuide) throw new Error('Expected TarkovMonitor guide');
+    const resource = RESOURCES.find((entry) => entry.slug === 'ratscanner');
+    if (!resource?.hasGuide) throw new Error('Expected RatScanner guide');
     const original = resource.guide.shareImage;
     resource.guide.shareImage = {
       src: '/test-guide.webp',
       width: 1200,
       height: 630,
-      altKey: 'seo.routes.tarkovmonitor.title',
+      altKey: 'seo.routes.ratscanner.title',
     };
     try {
-      const guideHead = createRouteSeoHead('/resources/tarkovmonitor');
+      const guideHead = createRouteSeoHead('/resources/ratscanner');
       expect(guideHead.meta).toContainEqual(
         expect.objectContaining({ property: 'og:image', content: `${SEO_ORIGIN}/test-guide.webp` })
       );

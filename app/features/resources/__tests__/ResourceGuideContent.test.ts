@@ -20,11 +20,11 @@ const globalStubs = {
 };
 describe('resource guide content', () => {
   it('renders every configured companion-guide section through the shared layout', async () => {
-    const resource = getResource('tarkovmonitor');
+    const resource = getResource('ratscanner');
     const wrapper = await mountSuspended(ResourceGuideArticle, {
       props: {
         resource,
-        guideTitle: 'TarkovMonitor',
+        guideTitle: 'RatScanner',
         overview: 'Companion overview',
       },
       global: { stubs: globalStubs },
@@ -55,11 +55,11 @@ describe('resource guide content', () => {
     expect(wrapper.findAll('a')).toHaveLength(2);
   });
   it('renders companion actions and compatibility guidance', async () => {
-    const resource = getResource('tarkovmonitor');
+    const resource = getResource('ratscanner');
     const wrapper = await mountSuspended(ResourceGuideHeader, {
       props: {
         resource,
-        title: 'TarkovMonitor',
+        title: 'RatScanner',
         description: 'Automatic tracking',
         categoryLabel: 'Companion Apps',
         metaLine: 'Windows',

@@ -90,7 +90,11 @@ export const RESOURCE_META_ITEMS: Record<ResourceCategory, ResourceMetaItem[]> =
     { labelKey: 'page.resources.meta.web_tool', labelFallback: 'Web tool' },
   ],
 };
-export const RESOURCES: Resource[] = [
+// Fork: slugs removed from the resource hub. Filtering (instead of deleting the entry) keeps the
+// upstream data block untouched for syncs. Everything derived from RESOURCES follows: the
+// /resources listing, the prerender/sitemap route list and the guide page, which answers 404.
+const FORK_HIDDEN_RESOURCE_SLUGS = new Set(['tarkovmonitor']);
+const UPSTREAM_RESOURCES: Resource[] = [
   {
     slug: 'tarkovtracker_org_vs_io',
     logo: '/img/logos/tarkovtrackerlogo-mini.webp',
@@ -166,6 +170,9 @@ export const RESOURCES: Resource[] = [
     links: [{ type: 'website', url: 'https://tarkov-changes.com/' }],
   },
 ];
+export const RESOURCES: Resource[] = UPSTREAM_RESOURCES.filter(
+  (resource) => !FORK_HIDDEN_RESOURCE_SLUGS.has(resource.slug)
+);
 export const getResourceBySlug = (slug: string): Resource | undefined =>
   RESOURCES.find((r) => r.slug === slug);
 const LINK_ICONS: Record<ResourceLinkType, string> = {

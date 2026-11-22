@@ -16,7 +16,7 @@ describe('isNavigationRouteActive', () => {
     expect(isNavigationRouteActive('/settings', '/tasks')).toBe(false);
     expect(isNavigationRouteActive('/settings', '/resources')).toBe(false);
   });
-  it.each(['/resources', '/resources/ratscanner', '/resources/tarkovmonitor', '/resources/'])(
+  it.each(['/resources', '/resources/ratscanner', '/resources/tarkovdev', '/resources/'])(
     'marks resources active on %s',
     (path) => {
       expect(isNavigationRouteActive('/resources', path)).toBe(true);

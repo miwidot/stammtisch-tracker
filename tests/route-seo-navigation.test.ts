@@ -6,13 +6,13 @@ import { useRouteSeo } from '@/composables/useRouteSeo';
 import { RESOURCES } from '@/features/resources/resourceData';
 describe('route metadata navigation', () => {
   it('removes selected guide image metadata and restores public indexing after a private route', async () => {
-    const resource = RESOURCES.find((entry) => entry.slug === 'tarkovmonitor');
+    const resource = RESOURCES.find((entry) => entry.slug === 'ratscanner');
     if (!resource?.hasGuide) throw new Error('Missing test guide');
     resource.guide.shareImage = {
       src: '/test-share.webp',
       width: 1200,
       height: 630,
-      altKey: 'seo.routes.tarkovmonitor.title',
+      altKey: 'seo.routes.ratscanner.title',
     };
     // Fork: require-auth.global.ts sends signed-out visitors to /login, so the guide route is
     // only reachable for a signed-in user.
@@ -30,7 +30,7 @@ describe('route metadata navigation', () => {
           return () => h('span');
         },
       }),
-      { route: '/resources/tarkovmonitor' }
+      { route: '/resources/ratscanner' }
     );
     const settleHead = async () => {
       await nextTick();

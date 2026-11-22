@@ -9,7 +9,7 @@ const stubNitro = (allowIndexing: unknown = false) => {
   runtimeConfig.public.allowIndexing = allowIndexing;
 };
 describe('client document HTML metadata', () => {
-  it.each(['/tasks/', '/tasks/?search=example', '/resources/tarkovmonitor/'])(
+  it.each(['/tasks/', '/tasks/?search=example', '/resources/ratscanner/'])(
     'leaves prerendered public head tags untouched for %s',
     async (path) => {
       stubNitro();

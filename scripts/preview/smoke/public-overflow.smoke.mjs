@@ -10,7 +10,6 @@ const routes = [
   '/resources/tarkovtracker_org_vs_io',
   '/resources/tarkovdev',
   '/resources/ratscanner',
-  '/resources/tarkovmonitor',
   '/resources/cultistcircle',
 ];
 test.beforeEach(async ({ page, request }) => {
