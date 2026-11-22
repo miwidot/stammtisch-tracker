@@ -220,6 +220,10 @@ Grundsatz: Der Fork redet nur mit Hosts, die er braucht. **Der einzige externe H
 
 **Bleibt bewusst:** `assets.tarkov.dev` (Browser und Bild-Proxy), `json.tarkov.dev` (Task-Metadaten, nur der Produzent im Overlay-Repo), `players.tarkov.dev` (Profil-Import auf Nutzeraktion), die eigene Domain samt Supabase, die Hauptseite für den Login-Handoff, `youtube-nocookie.com` und `player.twitch.tv` nur nach Klick bzw. wenn das Feature eingeschaltet wird. `img-src https:` bleibt breit, weil der Avatar der Hauptseite von beliebigen Hosts kommen kann.
 
+### 3.12 TarkovMonitor-Link auf der Aufgabenseite
+
+`app/features/tasks/TaskPageHeader.vue`: der Link "Automatic quest tracking with TarkovMonitor" hinter der Seitenbeschreibung (Slot `description-link`) wird nicht gerendert. Der i18n-Schlüssel `page.tasks.auto_tracking_guide` und die Ressourcenseite `/resources/tarkovmonitor` bleiben unberührt. Test: `app/features/tasks/__tests__/TaskPageHeader.test.ts`.
+
 ---
 
 ## 4. Overlay-Quelle (`OVERLAY_URL`)

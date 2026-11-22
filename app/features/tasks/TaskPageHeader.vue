@@ -1,13 +1,6 @@
 <template>
   <PageHeader v-bind="header" class="mb-4">
-    <template v-if="resolveTaskRouteView(route.path) === 'list'" #description-link>
-      <NuxtLink
-        to="/resources/tarkovmonitor"
-        class="text-primary-400 inline-block underline underline-offset-2"
-      >
-        {{ t('page.tasks.auto_tracking_guide') }}
-      </NuxtLink>
-    </template>
+    <!-- Fork: the TarkovMonitor guide link after the description is not rendered (see FORK.md 3.12). -->
     <template #actions>
       <TaskViewTabs />
     </template>
